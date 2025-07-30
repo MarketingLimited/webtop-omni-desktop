@@ -13,36 +13,36 @@ RUN apt-get update && apt-get install -y \
     flameshot kdeconnect timeshift syncthing syncthing-gtk \
     krita blender darktable obs-studio calibre \
     git neofetch btop gnome-tweaks stacer \
-    # Development Tools - Complete Stack
-    nodejs npm yarn code \
+    # Development Tools - Complete Stack (VS Code will be installed later)
+    nodejs npm yarn \
     python3 python3-pip python3-venv python3-dev jupyter-notebook \
     php php-cli php-fpm composer \
     ruby ruby-dev bundler golang-go \
     build-essential cmake \
     # Database clients
-    postgresql-client mysql-client mongodb-clients redis-tools \
+    postgresql-client mysql-client redis-tools \
     # Docker and Container Tools
     docker.io docker-compose \
     # Wine for Windows applications
     wine winetricks playonlinux winbind \
     # Android/Waydroid support
-    python3-requests-unixsocket python3-gbinder \
+    python3-requests-unixsocket \
     lxc-utils dbus-user-session systemd-container \
     # Video Production Professional Suite
     vlc mpv ffmpeg x264 x265 libavcodec-extra \
     audacity kdenlive openshot-qt shotcut \
-    handbrake-cli handbrake-gtk \
+    handbrake-cli \
     # Advanced Audio Tools
     jackd2 qjackctl ardour \
     # Screen recording and streaming
-    simplescreenrecorder kazam gtk-recordmydesktop \
+    simplescreenrecorder kazam \
     v4l2loopback-dkms \
     # Graphics and Design Professional
     frei0r-plugins \
     # File managers and utilities
     mc ranger fzf ripgrep fd-find \
     # Network and security tools
-    nmap wireshark-qt \
+    nmap wireshark \
     # Virtualization
     qemu-system-x86 virt-manager \
     nextcloud-desktop \
@@ -55,7 +55,6 @@ RUN apt-get update && apt-get install -y \
     openssh-server ttyd libcap2-bin polkit-kde-agent-1 xpra \
     alsa-utils alsa-oss pulseaudio pulseaudio-utils pavucontrol paprefs \
     sox ffmpeg gstreamer1.0-tools gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
-    figma-linux canva-desktop \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Add repositories for Chrome, Opera, Brave, VS Code
@@ -114,11 +113,10 @@ RUN curl -fsSL https://repo.waydro.id | bash \
 # Clone WinApps for Linux
 RUN git clone --depth 1 https://github.com/Fmstrat/winapps.git /opt/winapps
 
-# Install Figma from PPA
-RUN add-apt-repository -y ppa:chrdevs/figma \
-    && apt-get update \
-    && apt-get install -y figma-linux \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+# Install additional packages that may need separate handling
+RUN apt-get update && apt-get install -y \
+    handbrake \
+    && apt-get clean && rm -rf /var/lib/apt/lists/* || true
 
 # Install Google Ads Editor using Wine
 RUN apt-get update && apt-get install -y winetricks \
