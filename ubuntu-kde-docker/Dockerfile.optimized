@@ -124,7 +124,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     # VNC and remote access
     supervisor tigervnc-standalone-server novnc websockify \
     dbus-x11 x11-xserver-utils xfonts-base \
-    openssh-server ttyd polkit-kde-authentication-agent-1 xpra \
+    openssh-server ttyd polkit-kde-agent-1 xpra \
     # Graphics
     mesa-utils libgl1-mesa-dri gnome-terminal \
     # Audio
