@@ -16,7 +16,10 @@ echo "🚀 Starting Ubuntu KDE Marketing Agency WebTop..."
 
 # Initialize system directories
 mkdir -p /var/run/dbus /run/user/${DEV_UID} /tmp/.ICE-unix /tmp/.X11-unix
-chmod 1777 /tmp/.ICE-unix /tmp/.X11-unix
+# /tmp/.X11-unix may be mounted read-only by the host. Avoid failing if chmod
+# cannot modify permissions.
+chmod 1777 /tmp/.ICE-unix /tmp/.X11-unix 2>/dev/null || \
+  echo "⚠️  Warning: unable to set permissions on /tmp/.X11-unix"
 
 # Replace default username in polkit rule if different
 if [ -f /etc/polkit-1/rules.d/99-devuser-all.rules ]; then
