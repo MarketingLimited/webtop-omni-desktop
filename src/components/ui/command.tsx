@@ -21,7 +21,8 @@ const Command = React.forwardRef<
 ))
 Command.displayName = CommandPrimitive.displayName
 
-interface CommandDialogProps extends DialogProps {}
+// Use a type alias instead of an empty interface to satisfy lint rules
+type CommandDialogProps = DialogProps
 
 const CommandDialog = ({ children, ...props }: CommandDialogProps) => {
   return (
