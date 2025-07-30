@@ -162,7 +162,8 @@ COPY setup-wine.sh /usr/local/bin/setup-wine.sh
 COPY setup-waydroid.sh /usr/local/bin/setup-waydroid.sh
 COPY setup-video-editing.sh /usr/local/bin/setup-video-editing.sh
 COPY health-check.sh /usr/local/bin/health-check.sh
-RUN chmod +x /usr/local/bin/setup-*.sh /usr/local/bin/health-check.sh
+COPY fix-permissions.sh /usr/local/bin/fix-permissions.sh
+RUN chmod +x /usr/local/bin/setup-*.sh /usr/local/bin/health-check.sh /usr/local/bin/fix-permissions.sh
 
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
