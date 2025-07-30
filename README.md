@@ -33,28 +33,69 @@
 ## 🛠 Quick Start
 
 ### Prerequisites
-- **Docker & Docker Compose**: Latest versions
-- **System Requirements**: 4GB+ RAM, 20GB+ disk space
+- **Docker & Docker Compose**: Version 20.10+ with Compose v2
+- **System Requirements**: 8GB+ RAM (16GB recommended), 50GB+ disk space
+- **Operating System**: Linux, macOS, or Windows with WSL2
 - **Browser**: Modern web browser (Chrome, Firefox, Safari)
 
-### Installation
+### Automated Installation (Recommended)
 
 1. **Clone the repository**
    ```bash
    git clone <YOUR_GIT_URL>
-   cd <YOUR_PROJECT_NAME>
+   cd <YOUR_PROJECT_NAME>/ubuntu-kde-docker
    ```
 
-2. **Configure environment**
+2. **Run automated installer**
    ```bash
-   cd ubuntu-kde-docker
-   cp .env.example .env
-   # Edit .env file with your preferences
+   chmod +x install.sh
+   ./install.sh
    ```
+   The installer will:
+   - Check system requirements and Docker installation
+   - Set up proper file permissions
+   - Create environment configuration
+   - Validate Docker Compose files
 
 3. **Build and start the environment**
    ```bash
-   # Development environment (recommended)
+   ./webtop.sh build
+   ./webtop.sh up
+   ```
+
+### Manual Installation
+
+1. **System checks**
+   ```bash
+   # Verify Docker installation
+   docker --version
+   docker compose version
+   
+   # Check available resources
+   free -h  # RAM
+   df -h    # Disk space
+   ```
+
+2. **Setup environment**
+   ```bash
+   cd ubuntu-kde-docker
+   
+   # Set permissions
+   chmod +x *.sh
+   find . -name "*.sh" -exec chmod +x {} \;
+   
+   # Configure environment
+   cp .env.example .env
+   # Edit .env with your preferences
+   ```
+
+3. **Build and start**
+   ```bash
+   # Default environment
+   ./webtop.sh build
+   ./webtop.sh up
+   
+   # Development environment (recommended for development work)
    ./webtop.sh build --dev
    ./webtop.sh up --dev
    
@@ -65,11 +106,16 @@
 
 ### Access Your Workspace
 
-- **KDE Desktop (Xpra)**: http://localhost:14500
+- **KDE Desktop (Xpra)**: http://localhost:14500 ✨ **Recommended**
 - **VNC Desktop**: http://localhost:32768
-- **SSH Terminal**: `ssh devuser@localhost -p 32222`
+- **Web Terminal**: http://localhost:7681
+- **SSH Access**: `ssh devuser@localhost -p 2222`
 
-Default credentials: `devuser` / `password`
+**Default Credentials**: 
+- Username: `devuser`
+- Password: `DevPassw0rd!`
+
+> **Note**: First build may take 20-30 minutes depending on internet speed.
 
 ## 📱 Management Commands
 
@@ -121,12 +167,121 @@ Default credentials: `devuser` / `password`
 - **Performance Optimization**: GPU acceleration and resource management
 - **Backup Systems**: Automated workspace backups
 
+## 🔧 Troubleshooting
+
+### Common Issues
+
+#### Permission Denied Error
+```bash
+# Fix: Set executable permissions
+chmod +x webtop.sh install.sh
+find . -name "*.sh" -exec chmod +x {} \;
+```
+
+#### Docker Build Fails
+```bash
+# Check Docker installation
+docker --version
+docker compose version
+
+# Verify Docker daemon is running
+docker info
+
+# Clean Docker system if needed
+docker system prune -f
+```
+
+#### Container Won't Start
+```bash
+# Check logs for errors
+./webtop.sh logs
+
+# Verify Docker Compose configuration
+docker compose -f docker-compose.yml config
+
+# Monitor resource usage
+./webtop.sh monitor
+```
+
+#### Performance Issues
+- **Increase shared memory**: Edit `shm_size: "4gb"` to `"8gb"` in docker-compose.yml
+- **Add more RAM**: Adjust Docker Desktop memory limits to 8GB+
+- **Check disk space**: Ensure 50GB+ available space
+- **Monitor resources**: Use `./webtop.sh monitor` command
+
+#### Audio Not Working
+```bash
+# Verify audio device mapping
+ls -la /dev/snd/
+
+# Check PulseAudio in container
+./webtop.sh shell
+pulseaudio --check -v
+pactl list short sinks
+```
+
+#### Network Access Problems
+```bash
+# Check if ports are available
+netstat -tlnp | grep -E ':(32768|14500|2222|7681)'
+
+# Verify firewall settings
+sudo ufw status
+```
+
+### Development Environment Issues
+
+```bash
+# If development setup fails
+./webtop.sh dev-setup
+
+# Verify Node.js installation
+./webtop.sh shell
+node --version
+npm --version
+```
+
+### Wine/Windows Applications
+
+```bash
+# Configure Wine environment
+./webtop.sh wine-setup
+
+# Check Wine status
+./webtop.sh shell
+wine --version
+```
+
+### Android/Waydroid Issues
+
+```bash
+# Setup Android environment
+./webtop.sh android-setup
+
+# Check Waydroid status
+./webtop.sh shell
+waydroid status
+```
+
+### Getting Help
+
+1. **Run health check**: `./webtop.sh health`
+2. **Check system status**: `./webtop.sh status`
+3. **View logs**: `./webtop.sh logs`
+4. **Access container shell**: `./webtop.sh shell`
+
+**For persistent issues**, create a GitHub issue with:
+- Operating system and Docker version
+- Complete error messages
+- Output from `./webtop.sh health`
+- Docker system info: `docker system info`
+
 ## 📚 Documentation
 
-- **Setup Guide**: [ubuntu-kde-docker/README.md](ubuntu-kde-docker/README.md)
 - **Application List**: 50+ pre-installed marketing applications
-- **Troubleshooting**: Common issues and solutions
-- **Customization**: Adding applications and custom configurations
+- **Health Monitoring**: Built-in health checks and monitoring
+- **Backup & Restore**: Container data management
+- **Customization**: Adding applications and configurations
 
 ## 🔧 Technology Stack
 

@@ -42,6 +42,31 @@ print_header() {
 ╚══════════════════════════════════════════════════════════════╝${NC}"
 }
 
+# Check Docker and Docker Compose
+check_docker() {
+    if ! command -v docker &> /dev/null; then
+        print_error "Docker is not installed. Please install Docker first."
+        exit 1
+    fi
+    
+    if ! docker info &> /dev/null; then
+        print_error "Docker daemon is not running. Please start Docker."
+        exit 1
+    fi
+    
+    # Check for modern Docker Compose (v2) or fallback to legacy
+    if docker compose version &> /dev/null; then
+        DOCKER_COMPOSE_CMD="docker compose"
+    elif command -v docker-compose &> /dev/null; then
+        DOCKER_COMPOSE_CMD="docker-compose"
+    else
+        print_error "Docker Compose is not installed. Please install Docker Compose."
+        exit 1
+    fi
+    
+    print_status "Using: $DOCKER_COMPOSE_CMD"
+}
+
 # Check if .env file exists
 check_env() {
     if [ ! -f .env ]; then
@@ -114,22 +139,35 @@ get_config() {
     esac
 }
 
+# Get Docker Compose file
+get_compose_file() {
+    local config="$1"
+    case "$config" in
+        dev)
+            echo "docker-compose.dev.yml"
+            ;;
+        prod)
+            echo "docker-compose.prod.yml"
+            ;;
+        *)
+            echo "docker-compose.yml"
+            ;;
+    esac
+}
+
 # Build Docker image
 build_image() {
     local config=$(get_config "$1")
+    local compose_file=$(get_compose_file "$config")
+    
     print_status "Building Docker image (${config} configuration)..."
     
-    case "$config" in
-        dev)
-            docker-compose -f docker-compose.dev.yml build
-            ;;
-        prod)
-            docker-compose -f docker-compose.prod.yml build
-            ;;
-        *)
-            docker-compose build
-            ;;
-    esac
+    if [ ! -f "$compose_file" ]; then
+        print_error "Docker Compose file not found: $compose_file"
+        exit 1
+    fi
+    
+    $DOCKER_COMPOSE_CMD -f "$compose_file" build
     
     print_success "Docker image built successfully!"
 }
@@ -137,19 +175,16 @@ build_image() {
 # Start containers
 start_containers() {
     local config=$(get_config "$1")
+    local compose_file=$(get_compose_file "$config")
+    
     print_status "Starting containers (${config} configuration)..."
     
-    case "$config" in
-        dev)
-            docker-compose -f docker-compose.dev.yml up -d
-            ;;
-        prod)
-            docker-compose -f docker-compose.prod.yml up -d
-            ;;
-        *)
-            docker-compose up -d
-            ;;
-    esac
+    if [ ! -f "$compose_file" ]; then
+        print_error "Docker Compose file not found: $compose_file"
+        exit 1
+    fi
+    
+    $DOCKER_COMPOSE_CMD -f "$compose_file" up -d
     
     print_success "Containers started successfully!"
     show_access_info "$config"
@@ -158,9 +193,14 @@ start_containers() {
 # Stop containers
 stop_containers() {
     print_status "Stopping containers..."
-    docker-compose down
-    docker-compose -f docker-compose.dev.yml down 2>/dev/null || true
-    docker-compose -f docker-compose.prod.yml down 2>/dev/null || true
+    
+    # Try to stop all possible configurations
+    for file in docker-compose.yml docker-compose.dev.yml docker-compose.prod.yml; do
+        if [ -f "$file" ]; then
+            $DOCKER_COMPOSE_CMD -f "$file" down 2>/dev/null || true
+        fi
+    done
+    
     print_success "Containers stopped successfully!"
 }
 
@@ -211,9 +251,13 @@ show_access_info() {
 # Show container status
 show_status() {
     print_status "Container Status:"
-    docker-compose ps 2>/dev/null || print_warning "Default compose not running"
-    docker-compose -f docker-compose.dev.yml ps 2>/dev/null || print_warning "Dev compose not running"
-    docker-compose -f docker-compose.prod.yml ps 2>/dev/null || print_warning "Prod compose not running"
+    
+    for file in docker-compose.yml docker-compose.dev.yml docker-compose.prod.yml; do
+        if [ -f "$file" ]; then
+            echo -e "\n${CYAN}$file:${NC}"
+            $DOCKER_COMPOSE_CMD -f "$file" ps 2>/dev/null || print_warning "No containers running for $file"
+        fi
+    done
 }
 
 # Access container shell
@@ -346,6 +390,9 @@ update_system() {
 
 # Main command handling
 main() {
+    # Always check Docker first
+    check_docker
+    
     case "$1" in
         build)
             check_env
@@ -363,7 +410,9 @@ main() {
             start_containers "$2"
             ;;
         logs)
-            docker-compose logs -f
+            local config=$(get_config "$2")
+            local compose_file=$(get_compose_file "$config")
+            $DOCKER_COMPOSE_CMD -f "$compose_file" logs -f
             ;;
         status)
             show_status
@@ -381,7 +430,13 @@ main() {
             ssh devuser@localhost -p 2222
             ;;
         terminal)
-            open "http://localhost:7681" 2>/dev/null || echo "Open http://localhost:7681"
+            if command -v xdg-open > /dev/null; then
+                xdg-open "http://localhost:7681"
+            elif command -v open > /dev/null; then
+                open "http://localhost:7681"
+            else
+                echo "Open http://localhost:7681 in your browser"
+            fi
             ;;
         dev-setup)
             dev_setup

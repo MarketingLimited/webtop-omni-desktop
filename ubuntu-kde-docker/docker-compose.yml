@@ -1,18 +1,44 @@
+version: '3.8'
+
 services:
   webtop:
-    build: .
+    build: 
+      context: .
+      dockerfile: Dockerfile
     container_name: webtop-kde
     restart: unless-stopped
     privileged: true
-    shm_size: "2gb"
+    shm_size: "4gb"
     ports:
-      - 32768:80
-      - 2222:22
-      - 7681:7681
-      - 14500:14500
+      - "32768:80"      # noVNC
+      - "2222:22"       # SSH
+      - "7681:7681"     # ttyd terminal
+      - "14500:14500"   # Xpra
+      - "4713:4713"     # PulseAudio
     env_file:
       - .env
     volumes:
-      - /mnt/docker/mohamed-web/webtop_config:/config
+      - webtop_config:/config
+      - webtop_logs:/var/log/supervisor
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
     devices:
       - /dev/snd:/dev/snd
+    tmpfs:
+      - /tmp
+      - /run
+      - /run/lock
+    cap_add:
+      - SYS_ADMIN
+      - NET_ADMIN
+    security_opt:
+      - seccomp:unconfined
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/health-check.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  webtop_config:
+  webtop_logs:
