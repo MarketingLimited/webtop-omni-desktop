@@ -101,9 +101,13 @@ setup_permissions() {
     # Make all shell scripts executable
     find . -name "*.sh" -type f -exec chmod +x {} \;
     
-    # Make specific files executable
+    # Make specific files executable (in case find missed any)
     chmod +x webtop.sh 2>/dev/null || true
     chmod +x install.sh 2>/dev/null || true
+    chmod +x fix-permissions.sh 2>/dev/null || true
+    chmod +x entrypoint.sh 2>/dev/null || true
+    chmod +x health-check.sh 2>/dev/null || true
+    chmod +x setup-*.sh 2>/dev/null || true
     
     print_success "File permissions configured"
 }
