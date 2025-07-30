@@ -8,7 +8,7 @@ mkdir -p "${DESKTOP_DIR}"
 # Wait for flatpak apps to finish installing if flatpak is available
 if command -v flatpak >/dev/null 2>&1; then
     for _ in {1..10}; do
-        if flatpak list | grep -q "com.adobe.Reader"; then
+        if (flatpak list || true) | grep -q "com.adobe.Reader"; then
             break
         fi
         sleep 5
