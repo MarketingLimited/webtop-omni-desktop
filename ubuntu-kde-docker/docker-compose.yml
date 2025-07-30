@@ -1,0 +1,18 @@
+services:
+  webtop:
+    build: .
+    container_name: webtop-kde
+    restart: unless-stopped
+    privileged: true
+    shm_size: "2gb"
+    ports:
+      - 32768:80
+      - 2222:22
+      - 7681:7681
+      - 14500:14500
+    env_file:
+      - .env
+    volumes:
+      - /mnt/docker/mohamed-web/webtop_config:/config
+    devices:
+      - /dev/snd:/dev/snd
