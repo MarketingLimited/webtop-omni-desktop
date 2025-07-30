@@ -23,7 +23,11 @@ RUN apt-get update && apt-get install -y \
     mesa-utils libgl1-mesa-dri libglx-mesa0 libosmesa6 libglu1-mesa \
     wine playonlinux qemu-system qemu-utils qemu-kvm \
     gnome-terminal lxterminal terminator accountsservice policykit-1 \
-    openssh-server ttyd libcap2-bin polkit-kde-agent-1 pulseaudio pavucontrol xpra \
+    openssh-server ttyd libcap2-bin polkit-kde-agent-1 xpra \
+    alsa-utils alsa-oss pulseaudio pulseaudio-utils pavucontrol paprefs \
+    sox ffmpeg gstreamer1.0-tools gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
+    audacity kdenlive openshot-qt shotcut \
+    figma-linux canva-desktop \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Add repositories for Chrome, Opera, Brave, VS Code
@@ -125,7 +129,9 @@ RUN chmod +x /root/.vnc/xstartup
 # Desktop and Flatpak setup scripts
 COPY setup-flatpak-apps.sh /usr/local/bin/setup-flatpak-apps.sh
 COPY setup-desktop.sh /usr/local/bin/setup-desktop.sh
-RUN chmod +x /usr/local/bin/setup-flatpak-apps.sh /usr/local/bin/setup-desktop.sh
+COPY setup-audio.sh /usr/local/bin/setup-audio.sh
+COPY setup-marketing-shortcuts.sh /usr/local/bin/setup-marketing-shortcuts.sh
+RUN chmod +x /usr/local/bin/setup-flatpak-apps.sh /usr/local/bin/setup-desktop.sh /usr/local/bin/setup-audio.sh /usr/local/bin/setup-marketing-shortcuts.sh
 
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 

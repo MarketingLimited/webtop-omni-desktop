@@ -1,0 +1,98 @@
+services:
+  webtop:
+    image: ghcr.io/your-org/webtop-kde-marketing:latest
+    container_name: webtop-kde-prod
+    restart: unless-stopped
+    privileged: true
+    shm_size: "8gb"
+    ports:
+      - "80:80"       # noVNC (behind reverse proxy)
+      - "443:443"     # HTTPS (behind reverse proxy)
+      - "2222:22"     # SSH
+    env_file:
+      - .env.production
+    volumes:
+      - production_config:/config
+      - production_logs:/var/log/supervisor
+      - /etc/ssl/certs:/etc/ssl/certs:ro
+    devices:
+      - /dev/snd:/dev/snd
+    tmpfs:
+      - /tmp
+      - /run
+      - /run/lock
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - seccomp:unconfined
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 8G
+        reservations:
+          cpus: '2.0'
+          memory: 4G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - marketing-prod
+
+  # Reverse Proxy (Nginx)
+  nginx:
+    image: nginx:alpine
+    container_name: webtop-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      - webtop
+    networks:
+      - marketing-prod
+
+  # Monitoring (Prometheus)
+  prometheus:
+    image: prom/prometheus
+    container_name: webtop-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - marketing-prod
+
+  # Grafana for Dashboards
+  grafana:
+    image: grafana/grafana
+    container_name: webtop-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - marketing-prod
+
+volumes:
+  production_config:
+  production_logs:
+  nginx_logs:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  marketing-prod:
+    driver: bridge
