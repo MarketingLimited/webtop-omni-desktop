@@ -9,33 +9,67 @@ RUN apt-get update && apt-get install -y \
     ca-certificates lsb-release htop net-tools unzip locales \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Development stage
+# Development stage - includes everything for development
 FROM base AS development
 
-# Install all packages for development
+# Install KDE applications and development tools
 RUN apt-get update && apt-get install -y \
+    # KDE Applications
     kde-plasma-desktop dolphin kate okular konsole \
-    openbox tint2 xterm \
-    libreoffice vlc gimp inkscape plank \
+    # Development Tools - Web & App Development
+    git curl wget vim nano build-essential \
+    nodejs npm yarn \
+    python3 python3-pip python3-venv python3-dev \
+    php php-cli php-fpm php-mysql php-curl php-gd php-mbstring \
+    ruby ruby-dev bundler \
+    golang-go \
+    # Database Tools
+    postgresql-client mysql-client mongodb-clients redis-tools \
+    # Docker for Docker-in-Docker
+    docker.io docker-compose \
+    # Android Development (Waydroid dependencies)
+    python3-requests-unixsocket python3-gbinder \
+    lxc-utils dbus-user-session systemd-container \
+    # Wine for Windows apps
+    wine winetricks playonlinux winbind \
+    # Video Editing Professional Tools
+    vlc mpv ffmpeg x264 x265 \
+    # Advanced Audio Tools
+    jackd2 qjackctl ardour \
+    # Graphics and Design Professional
+    gimp inkscape krita blender \
+    # Screen Recording & Streaming
+    obs-studio simplescreenrecorder kazam \
+    # Additional utilities
+    htop tree zip unzip p7zip-full rar unrar-free \
+    # Network tools
+    net-tools iputils-ping telnet nmap wireshark-qt \
+    # Office Suite
+    libreoffice \
+    # Email and Communication
+    thunderbird \
+    # Browsers for testing
+    firefox-esr chromium-browser \
+    # File managers and utilities
+    mc ranger fzf ripgrep fd-find \
+    # Virtualization tools
+    qemu-system-x86 virt-manager \
+    # Desktop environment extras
+    openbox tint2 xterm plank \
     flatpak gnome-software-plugin-flatpak \
     flameshot kdeconnect timeshift syncthing syncthing-gtk \
-    krita blender darktable obs-studio calibre \
-    git neofetch btop gnome-tweaks stacer \
-    docker.io docker-compose \
-    python3 python3-pip jupyter-notebook \
+    darktable calibre neofetch btop gnome-tweaks stacer \
     nextcloud-desktop \
     fonts-noto-core fonts-noto-ui-core fonts-noto-color-emoji fonts-noto-extra \
     fonts-dejavu fonts-crosextra-carlito fonts-crosextra-caladea fonts-hosny-amiri fonts-kacst qttranslations5-l10n libqt5script5 fonts-freefont-ttf \
     supervisor tigervnc-standalone-server tigervnc-common novnc websockify \
     dbus-x11 x11-xserver-utils xfonts-base snapd kmod \
     mesa-utils libgl1-mesa-dri libglx-mesa0 libosmesa6 libglu1-mesa \
-    wine playonlinux qemu-system qemu-utils qemu-kvm \
     gnome-terminal lxterminal terminator accountsservice policykit-1 \
     openssh-server ttyd libcap2-bin polkit-kde-agent-1 xpra \
     alsa-utils alsa-oss pulseaudio pulseaudio-utils pavucontrol paprefs \
     sox ffmpeg gstreamer1.0-tools gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
     audacity kdenlive openshot-qt shotcut \
-    figma-linux canva-desktop \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Production stage - smaller image
@@ -108,7 +142,12 @@ COPY setup-flatpak-apps.sh /usr/local/bin/setup-flatpak-apps.sh
 COPY setup-desktop.sh /usr/local/bin/setup-desktop.sh
 COPY setup-audio.sh /usr/local/bin/setup-audio.sh
 COPY setup-marketing-shortcuts.sh /usr/local/bin/setup-marketing-shortcuts.sh
-RUN chmod +x /usr/local/bin/setup-flatpak-apps.sh /usr/local/bin/setup-desktop.sh /usr/local/bin/setup-audio.sh /usr/local/bin/setup-marketing-shortcuts.sh
+COPY setup-development.sh /usr/local/bin/setup-development.sh
+COPY setup-wine.sh /usr/local/bin/setup-wine.sh
+COPY setup-waydroid.sh /usr/local/bin/setup-waydroid.sh
+COPY setup-video-editing.sh /usr/local/bin/setup-video-editing.sh
+COPY health-check.sh /usr/local/bin/health-check.sh
+RUN chmod +x /usr/local/bin/setup-*.sh /usr/local/bin/health-check.sh
 
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY devuser-all.rules /etc/polkit-1/rules.d/99-devuser-all.rules

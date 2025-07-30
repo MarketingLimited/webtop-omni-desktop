@@ -13,20 +13,48 @@ RUN apt-get update && apt-get install -y \
     flameshot kdeconnect timeshift syncthing syncthing-gtk \
     krita blender darktable obs-studio calibre \
     git neofetch btop gnome-tweaks stacer \
+    # Development Tools - Complete Stack
+    nodejs npm yarn code \
+    python3 python3-pip python3-venv python3-dev jupyter-notebook \
+    php php-cli php-fpm composer \
+    ruby ruby-dev bundler golang-go \
+    build-essential cmake \
+    # Database clients
+    postgresql-client mysql-client mongodb-clients redis-tools \
+    # Docker and Container Tools
     docker.io docker-compose \
-    python3 python3-pip jupyter-notebook \
+    # Wine for Windows applications
+    wine winetricks playonlinux winbind \
+    # Android/Waydroid support
+    python3-requests-unixsocket python3-gbinder \
+    lxc-utils dbus-user-session systemd-container \
+    # Video Production Professional Suite
+    vlc mpv ffmpeg x264 x265 libavcodec-extra \
+    audacity kdenlive openshot-qt shotcut \
+    handbrake-cli handbrake-gtk \
+    # Advanced Audio Tools
+    jackd2 qjackctl ardour \
+    # Screen recording and streaming
+    simplescreenrecorder kazam gtk-recordmydesktop \
+    v4l2loopback-dkms \
+    # Graphics and Design Professional
+    frei0r-plugins \
+    # File managers and utilities
+    mc ranger fzf ripgrep fd-find \
+    # Network and security tools
+    nmap wireshark-qt \
+    # Virtualization
+    qemu-system-x86 virt-manager \
     nextcloud-desktop \
     fonts-noto-core fonts-noto-ui-core fonts-noto-color-emoji fonts-noto-extra \
     fonts-dejavu fonts-crosextra-carlito fonts-crosextra-caladea fonts-hosny-amiri fonts-kacst qttranslations5-l10n libqt5script5 fonts-freefont-ttf \
     supervisor tigervnc-standalone-server tigervnc-common novnc websockify \
     dbus-x11 x11-xserver-utils xfonts-base snapd kmod \
     mesa-utils libgl1-mesa-dri libglx-mesa0 libosmesa6 libglu1-mesa \
-    wine playonlinux qemu-system qemu-utils qemu-kvm \
     gnome-terminal lxterminal terminator accountsservice policykit-1 \
     openssh-server ttyd libcap2-bin polkit-kde-agent-1 xpra \
     alsa-utils alsa-oss pulseaudio pulseaudio-utils pavucontrol paprefs \
     sox ffmpeg gstreamer1.0-tools gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
-    audacity kdenlive openshot-qt shotcut \
     figma-linux canva-desktop \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -131,7 +159,12 @@ COPY setup-flatpak-apps.sh /usr/local/bin/setup-flatpak-apps.sh
 COPY setup-desktop.sh /usr/local/bin/setup-desktop.sh
 COPY setup-audio.sh /usr/local/bin/setup-audio.sh
 COPY setup-marketing-shortcuts.sh /usr/local/bin/setup-marketing-shortcuts.sh
-RUN chmod +x /usr/local/bin/setup-flatpak-apps.sh /usr/local/bin/setup-desktop.sh /usr/local/bin/setup-audio.sh /usr/local/bin/setup-marketing-shortcuts.sh
+COPY setup-development.sh /usr/local/bin/setup-development.sh
+COPY setup-wine.sh /usr/local/bin/setup-wine.sh
+COPY setup-waydroid.sh /usr/local/bin/setup-waydroid.sh
+COPY setup-video-editing.sh /usr/local/bin/setup-video-editing.sh
+COPY health-check.sh /usr/local/bin/health-check.sh
+RUN chmod +x /usr/local/bin/setup-*.sh /usr/local/bin/health-check.sh
 
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
