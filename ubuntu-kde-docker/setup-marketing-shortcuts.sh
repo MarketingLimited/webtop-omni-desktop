@@ -15,7 +15,7 @@ cat > "$APPLICATIONS_DIR/canva.desktop" << 'EOF'
 [Desktop Entry]
 Name=Canva
 Comment=Design platform for marketing materials
-Exec=google-chrome --app=https://www.canva.com
+Exec=${BROWSER} --app=https://www.canva.com
 Icon=web-browser
 Terminal=false
 Type=Application

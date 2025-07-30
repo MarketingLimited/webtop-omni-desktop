@@ -14,6 +14,19 @@ echo "🚀 Starting Ubuntu KDE Marketing Agency WebTop..."
 : "${TTYD_USER:=terminal}"
 : "${TTYD_PASSWORD:=TerminalPassw0rd!}"
 
+# Logging function
+log_info() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') [INFO] $*"
+}
+
+log_error() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') [ERROR] $*" >&2
+}
+
+log_warn() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') [WARN] $*" >&2
+}
+
 # Initialize system directories
 mkdir -p /var/run/dbus /run/user/${DEV_UID} /tmp/.ICE-unix /tmp/.X11-unix
 # /tmp/.X11-unix may be mounted read-only by the host. Avoid failing if chmod
@@ -36,9 +49,18 @@ else
     echo "Root password set to: ${RANDOM_PASSWORD}"
 fi
 
+# Create missing system users that D-Bus might reference
+log_info "Creating missing system users..."
+getent group whoopsie >/dev/null || groupadd -r whoopsie
+getent passwd whoopsie >/dev/null || useradd -r -g whoopsie -s /sbin/nologin -d /nonexistent whoopsie
+
 # Ensure polkitd system user and group exist
 getent group polkitd >/dev/null || groupadd -r polkitd
 getent passwd polkitd >/dev/null || useradd -r -g polkitd -s /sbin/nologin polkitd
+
+# Create messagebus user for D-Bus if it doesn't exist
+getent group messagebus >/dev/null || groupadd -r messagebus
+getent passwd messagebus >/dev/null || useradd -r -g messagebus -s /sbin/nologin messagebus
 
 # Apply required capabilities and permissions for PolicyKit
 if command -v setcap >/dev/null 2>&1; then
@@ -126,10 +148,10 @@ if [ ! -S /run/dbus/system_bus_socket ]; then
 fi
 
 # Generate SSH host keys if they don't exist
-echo "🔑 Setting up SSH host keys..."
-mkdir -p /etc/ssh
+log_info "Setting up SSH host keys..."
+mkdir -p /etc/ssh /run/sshd
 if [ ! -f /etc/ssh/ssh_host_rsa_key ]; then
-    ssh-keygen -t rsa -f /etc/ssh/ssh_host_rsa_key -N '' -q
+    ssh-keygen -t rsa -b 3072 -f /etc/ssh/ssh_host_rsa_key -N '' -q
 fi
 if [ ! -f /etc/ssh/ssh_host_ecdsa_key ]; then
     ssh-keygen -t ecdsa -f /etc/ssh/ssh_host_ecdsa_key -N '' -q
@@ -138,15 +160,27 @@ if [ ! -f /etc/ssh/ssh_host_ed25519_key ]; then
     ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N '' -q
 fi
 
+# Set proper permissions for SSH host keys
+chmod 600 /etc/ssh/ssh_host_*_key
+chmod 644 /etc/ssh/ssh_host_*_key.pub
+chown root:root /etc/ssh/ssh_host_*
+
 # Configure SSH
 cat > /etc/ssh/sshd_config << 'EOF'
 Port 22
+Protocol 2
 PermitRootLogin yes
 PasswordAuthentication yes
 PubkeyAuthentication yes
 AuthorizedKeysFile .ssh/authorized_keys
 Subsystem sftp /usr/lib/openssh/sftp-server
 AcceptEnv LANG LC_*
+UsePAM yes
+X11Forwarding yes
+PrintMotd no
+TCPKeepAlive yes
+UsePrivilegeSeparation sandbox
+PidFile /run/sshd.pid
 EOF
 
 if command -v dbus-send >/dev/null 2>&1; then
@@ -191,27 +225,44 @@ fi
 chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}"
 chown -R "${ADMIN_USERNAME}:${ADMIN_USERNAME}" "/home/${ADMIN_USERNAME}"
 
-# Ensure binder/ashmem are available for Waydroid
+# Ensure binder/ashmem are available for Waydroid (optional, may fail in containers)
+log_info "Setting up Android subsystem support (optional)..."
 if command -v modprobe >/dev/null 2>&1; then
-    modprobe binder_linux || true
-    modprobe ashmem_linux || true
+    modprobe binder_linux 2>/dev/null || log_warn "Could not load binder_linux module (container limitation)"
+    modprobe ashmem_linux 2>/dev/null || log_warn "Could not load ashmem_linux module (container limitation)"
 fi
 mkdir -p /dev/binderfs
 if ! mountpoint -q /dev/binderfs; then
-    mount -t binder binder /dev/binderfs 2>/dev/null || true
+    mount -t binder binder /dev/binderfs 2>/dev/null || log_warn "Could not mount binderfs (container limitation)"
 fi
 
-# Fallback: Start polkitd manually if supervisor fails
-if ! pgrep polkitd >/dev/null; then
-  echo "Starting fallback polkitd..."
-  if [ -x /usr/libexec/policykit-1/polkitd ]; then
-    /usr/libexec/policykit-1/polkitd --no-debug &
-  elif [ -x /usr/lib/policykit-1/polkitd ]; then
-    /usr/lib/policykit-1/polkitd --no-debug &
-  elif [ -x /usr/lib/polkit-1/polkitd ]; then
-    /usr/lib/polkit-1/polkitd --no-debug &
-  fi
-fi
+# Setup service monitoring and recovery
+log_info "Setting up service monitoring..."
+mkdir -p /var/log/supervisor /var/run/supervisor
+
+# Create a simple service monitor script
+cat > /usr/local/bin/monitor-services.sh << 'EOF'
+#!/bin/bash
+while true; do
+    # Check critical services every 30 seconds
+    sleep 30
+    
+    # Check if D-Bus is running
+    if ! pgrep -x dbus-daemon >/dev/null; then
+        echo "$(date) [MONITOR] D-Bus not running, attempting restart" >> /var/log/supervisor/monitor.log
+        dbus-daemon --system --fork 2>/dev/null || true
+    fi
+    
+    # Log service status
+    echo "$(date) [MONITOR] Services check completed" >> /var/log/supervisor/monitor.log
+done &
+EOF
+chmod +x /usr/local/bin/monitor-services.sh
+
+# Start the monitor
+/usr/local/bin/monitor-services.sh &
+
+log_info "Starting supervisor daemon..."
 
 exec env \
     ENV_DEV_USERNAME="${DEV_USERNAME}" \

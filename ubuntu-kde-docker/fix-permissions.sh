@@ -1,61 +1,40 @@
 #!/bin/bash
+set -euo pipefail
 
-# Fix Permissions Script
-# This script sets executable permissions for all shell script files
+DEV_USERNAME="${DEV_USERNAME:-devuser}"
+DEV_UID="${DEV_UID:-1000}"
+DEV_GID="${DEV_GID:-1000}"
 
-set -e
+echo "🔧 Fixing file permissions and ownership..."
 
-# Colors for output
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+# Ensure the dev user exists
+if ! id "$DEV_USERNAME" >/dev/null 2>&1; then
+    echo "User $DEV_USERNAME does not exist, cannot fix permissions"
+    exit 1
+fi
 
-echo -e "${BLUE}🔧 Fixing permissions for all shell script files...${NC}"
+# Fix home directory ownership
+chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}" 2>/dev/null || true
 
-# Get the directory where this script is located
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
-
-# Find and fix permissions for all .sh files
-echo "Setting executable permissions for .sh files..."
-
-# Make all .sh files executable
-find . -name "*.sh" -type f -exec chmod +x {} \;
-
-# Specifically ensure key scripts are executable
-chmod +x webtop.sh 2>/dev/null || true
-chmod +x install.sh 2>/dev/null || true
-chmod +x fix-permissions.sh 2>/dev/null || true
-chmod +x entrypoint.sh 2>/dev/null || true
-chmod +x health-check.sh 2>/dev/null || true
-chmod +x setup-*.sh 2>/dev/null || true
-
-# List all shell scripts and their permissions
-echo
-echo "Shell script files and their permissions:"
-echo "========================================="
-find . -name "*.sh" -type f -exec ls -la {} \; | awk '{print $1, $9}' | sort
-
-echo
-echo -e "${GREEN}✅ All shell script permissions have been fixed!${NC}"
-
-# Verify key scripts
-echo
-echo "Verifying key scripts:"
-for script in webtop.sh install.sh entrypoint.sh health-check.sh; do
-    if [ -f "$script" ]; then
-        if [ -x "$script" ]; then
-            echo -e "  ✅ $script - executable"
-        else
-            echo -e "  ❌ $script - not executable"
-        fi
-    else
-        echo -e "  ⚠️  $script - not found"
+# Fix desktop and application directories
+for dir in Desktop .local .config .vnc; do
+    if [ -d "/home/${DEV_USERNAME}/$dir" ]; then
+        chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/$dir"
+        chmod -R u+rwX "/home/${DEV_USERNAME}/$dir"
     fi
 done
 
-echo
-echo -e "${GREEN}🎉 Permission fix complete! You can now run:${NC}"
-echo "  ./webtop.sh --help"
-echo "  ./install.sh"
-echo
+# Fix desktop files permissions
+find "/home/${DEV_USERNAME}/Desktop" -name "*.desktop" -exec chmod +x {} \; 2>/dev/null || true
+
+# Fix XDG runtime directory
+if [ -d "/run/user/${DEV_UID}" ]; then
+    chown "${DEV_USERNAME}:${DEV_USERNAME}" "/run/user/${DEV_UID}"
+    chmod 700 "/run/user/${DEV_UID}"
+fi
+
+# Fix supervisor log directory permissions
+mkdir -p /var/log/supervisor
+chmod 755 /var/log/supervisor
+
+echo "✅ Permissions fixed successfully"

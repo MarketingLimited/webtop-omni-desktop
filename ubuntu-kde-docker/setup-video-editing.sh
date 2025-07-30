@@ -4,7 +4,29 @@ set -euo pipefail
 DEV_USERNAME="${DEV_USERNAME:-devuser}"
 DEV_HOME="/home/${DEV_USERNAME}"
 
-echo "🎬 Setting up professional video editing environment..."
+# Logging function
+log_info() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') [VIDEO] $*"
+}
+
+log_error() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') [VIDEO ERROR] $*" >&2
+}
+
+log_info "Setting up professional video editing environment..."
+
+# Check if video editing tools are available
+missing_tools=""
+for tool in kdenlive obs; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+        missing_tools="$missing_tools $tool"
+    fi
+done
+
+if [ -n "$missing_tools" ]; then
+    log_error "Missing video editing tools:$missing_tools"
+    log_info "Creating placeholder shortcuts anyway"
+fi
 
 # Create video project directories
 mkdir -p \
