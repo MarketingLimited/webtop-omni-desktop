@@ -4,7 +4,8 @@ services:
   webtop:
     build: 
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.optimized
+      target: production
     container_name: webtop-kde
     restart: unless-stopped
     privileged: true

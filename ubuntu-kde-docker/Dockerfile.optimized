@@ -1,0 +1,242 @@
+# syntax=docker/dockerfile:1.4
+# Optimized Multi-stage Dockerfile for faster builds
+FROM ubuntu:24.04 AS base
+
+# Configure for faster builds
+ENV DEBIAN_FRONTEND=noninteractive
+ENV APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=1
+
+# Configure APT for faster downloads
+RUN echo 'Acquire::Languages "none";' > /etc/apt/apt.conf.d/disable-languages && \
+    echo 'APT::Get::Assume-Yes "true";' > /etc/apt/apt.conf.d/assume-yes && \
+    echo 'APT::Install-Recommends "false";' > /etc/apt/apt.conf.d/no-recommends && \
+    echo 'APT::Install-Suggests "false";' > /etc/apt/apt.conf.d/no-suggests && \
+    echo 'Acquire::Retries "3";' > /etc/apt/apt.conf.d/retries && \
+    echo 'Acquire::http::Pipeline-Depth "10";' > /etc/apt/apt.conf.d/pipeline && \
+    echo 'Acquire::http::No-Cache "true";' > /etc/apt/apt.conf.d/no-cache
+
+# Base system packages with cache mount
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y \
+    sudo wget curl gnupg2 apt-transport-https software-properties-common \
+    ca-certificates lsb-release locales \
+    && rm -rf /var/lib/apt/lists/*
+
+# Development stage - includes everything for development
+FROM base AS development
+
+# Install development tools and core packages in grouped layers
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y \
+    # Core KDE and Desktop Environment
+    kde-plasma-desktop dolphin kate okular konsole \
+    openbox tint2 xterm accountsservice policykit-1 \
+    # Desktop utilities
+    htop net-tools unzip neofetch btop gnome-tweaks \
+    # VNC and remote access
+    supervisor tigervnc-standalone-server tigervnc-common novnc websockify \
+    dbus-x11 x11-xserver-utils xfonts-base \
+    openssh-server ttyd libcap2-bin polkit-kde-agent-1 xpra \
+    # Graphics and display
+    mesa-utils libgl1-mesa-dri libglx-mesa0 libosmesa6 libglu1-mesa \
+    gnome-terminal lxterminal terminator \
+    # Audio system
+    alsa-utils alsa-oss pulseaudio pulseaudio-utils pavucontrol paprefs \
+    sox ffmpeg gstreamer1.0-tools gstreamer1.0-plugins-good gstreamer1.0-plugins-bad
+
+# Install development tools
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y \
+    # Version control and build tools
+    git build-essential cmake snapd kmod \
+    # Programming languages
+    python3 python3-pip python3-venv python3-dev \
+    php php-cli php-fpm php-mysql php-curl php-gd php-mbstring \
+    ruby ruby-dev bundler golang-go \
+    # Database tools
+    postgresql-client mysql-client mongodb-clients redis-tools \
+    # Container tools
+    docker.io docker-compose \
+    # File managers and utilities
+    mc ranger fzf ripgrep fd-find zip unzip p7zip-full rar unrar-free \
+    # Network tools
+    net-tools iputils-ping telnet nmap wireshark-qt
+
+# Install multimedia and creative tools
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y \
+    # Office and productivity
+    libreoffice thunderbird \
+    # Graphics and design
+    gimp inkscape krita blender darktable \
+    # Video tools
+    vlc mpv ffmpeg x264 x265 libavcodec-extra \
+    audacity kdenlive openshot-qt shotcut handbrake-cli \
+    obs-studio simplescreenrecorder kazam \
+    # Advanced audio
+    jackd2 qjackctl ardour \
+    # Browser dependencies (will install browsers separately)
+    firefox-esr chromium-browser \
+    # Additional desktop apps
+    flameshot kdeconnect timeshift syncthing syncthing-gtk \
+    calibre stacer nextcloud-desktop
+
+# Install Wine and virtualization
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y \
+    # Wine for Windows apps
+    wine winetricks playonlinux winbind \
+    # Virtualization
+    qemu-system-x86 virt-manager \
+    # Android development (Waydroid dependencies)
+    python3-requests-unixsocket python3-gbinder \
+    lxc-utils dbus-user-session systemd-container \
+    # Additional development tools
+    v4l2loopback-dkms frei0r-plugins
+
+# Install Flatpak and fonts
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y \
+    flatpak gnome-software-plugin-flatpak \
+    fonts-noto-core fonts-noto-ui-core fonts-noto-color-emoji fonts-noto-extra \
+    fonts-dejavu fonts-crosextra-carlito fonts-crosextra-caladea fonts-hosny-amiri \
+    fonts-kacst qttranslations5-l10n libqt5script5 fonts-freefont-ttf
+
+# Production stage - smaller image
+FROM base AS production
+
+# Only essential packages for production
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y \
+    # Core desktop
+    kde-plasma-desktop dolphin kate okular konsole \
+    accountsservice policykit-1 \
+    # Essential apps
+    libreoffice vlc gimp inkscape krita obs-studio \
+    git python3 python3-pip \
+    # VNC and remote access
+    supervisor tigervnc-standalone-server novnc websockify \
+    dbus-x11 x11-xserver-utils xfonts-base \
+    openssh-server ttyd polkit-kde-authentication-agent-1 xpra \
+    # Graphics
+    mesa-utils libgl1-mesa-dri gnome-terminal \
+    # Audio
+    alsa-utils pulseaudio pulseaudio-utils pavucontrol \
+    sox ffmpeg audacity kdenlive \
+    # Fonts
+    fonts-noto-core fonts-noto-ui-core fonts-noto-color-emoji \
+    # Flatpak
+    flatpak
+
+# Choose the target based on build argument
+ARG BUILDPLATFORM=production
+FROM ${BUILDPLATFORM} AS final
+
+# Add external repositories (GPG keys and sources)
+RUN --mount=type=cache,target=/tmp/keys \
+    # Microsoft VS Code
+    wget -qO /tmp/keys/microsoft.asc https://packages.microsoft.com/keys/microsoft.asc && \
+    gpg --dearmor < /tmp/keys/microsoft.asc > /usr/share/keyrings/packages.microsoft.gpg && \
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list && \
+    # Brave Browser
+    curl -fsSL https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg -o /usr/share/keyrings/brave-browser-archive-keyring.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg arch=amd64] https://brave-browser-apt-release.s3.brave.com/ stable main" > /etc/apt/sources.list.d/brave-browser-release.list && \
+    # Google Chrome
+    mkdir -p /etc/apt/keyrings && \
+    wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor | tee /etc/apt/keyrings/google-chrome.gpg > /dev/null && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
+
+# Install Node.js 22 and browsers
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    apt-get update && apt-get install -y \
+    nodejs google-chrome-stable brave-browser code
+
+# Install additional applications with external repositories
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    # DBeaver
+    wget -O /usr/share/keyrings/dbeaver.gpg.key https://dbeaver.io/debs/dbeaver.gpg.key && \
+    echo "deb [signed-by=/usr/share/keyrings/dbeaver.gpg.key] https://dbeaver.io/debs/dbeaver-ce /" > /etc/apt/sources.list.d/dbeaver.list && \
+    # Wire Desktop
+    wget -qO- https://wire-app.wire.com/linux/releases.key | gpg --dearmor > /usr/share/keyrings/wire-desktop.gpg && \
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/wire-desktop.gpg] https://wire-app.wire.com/linux/debian stable main" > /etc/apt/sources.list.d/wire-desktop.list && \
+    # Element Desktop
+    wget -O /usr/share/keyrings/element-io-archive-keyring.gpg https://packages.element.io/debian/element-io-archive-keyring.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/element-io-archive-keyring.gpg] https://packages.element.io/debian/ default main" > /etc/apt/sources.list.d/element-io.list && \
+    # Signal Desktop
+    wget -O- https://updates.signal.org/desktop/apt/keys.asc | gpg --dearmor > /usr/share/keyrings/signal-desktop-keyring.gpg && \
+    echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/signal-desktop-keyring.gpg] https://updates.signal.org/desktop/apt xenial main' > /etc/apt/sources.list.d/signal-xenial.list && \
+    # Install all external packages
+    apt-get update && apt-get install -y \
+    dbeaver-ce wire-desktop element-desktop signal-desktop
+
+# Install Waydroid (if available for the platform)
+RUN curl -fsSL https://repo.waydro.id | bash && \
+    apt-get install -y waydroid || true
+
+# Configure browser security for container environment
+RUN for f in google-chrome.desktop brave-browser.desktop code.desktop element-desktop.desktop signal-desktop.desktop wire-desktop.desktop; do \
+        if [ -f "/usr/share/applications/$f" ]; then \
+            sed -i '/^Exec=/ s@ %U@ --no-sandbox %U@; /^Exec=/ s@ %F@ --no-sandbox %F@; /^Exec=/ {/--no-sandbox/! s@$@ --no-sandbox@}' "/usr/share/applications/$f"; \
+        fi; \
+    done
+
+# Setup Flathub
+RUN flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+# Locales setup
+RUN locale-gen en_US.UTF-8 ar_EG.UTF-8 && \
+    update-locale LANG=en_US.UTF-8 LANGUAGE=en_US.UTF-8 LC_ALL=en_US.UTF-8 && \
+    fc-cache -f -v
+
+ENV LANG=en_US.UTF-8
+ENV LANGUAGE=en_US.UTF-8
+ENV LC_ALL=en_US.UTF-8
+ENV TTYD_USER=terminal
+ENV TTYD_PASSWORD=terminal
+
+# VNC and desktop setup
+RUN mkdir -p /var/run/sshd /root/.vnc && \
+    cat <<'EOF' >/root/.vnc/xstartup && \
+#!/bin/sh
+export XKL_XMODMAP_DISABLE=1
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+exec dbus-launch --exit-with-session /usr/bin/startplasma-x11
+EOF
+RUN chmod +x /root/.vnc/xstartup
+
+# Copy setup scripts (these should be optimized to run quickly)
+COPY setup-flatpak-apps.sh /usr/local/bin/setup-flatpak-apps.sh
+COPY setup-desktop.sh /usr/local/bin/setup-desktop.sh
+COPY setup-audio.sh /usr/local/bin/setup-audio.sh
+COPY setup-marketing-shortcuts.sh /usr/local/bin/setup-marketing-shortcuts.sh
+COPY setup-development.sh /usr/local/bin/setup-development.sh
+COPY setup-wine.sh /usr/local/bin/setup-wine.sh
+COPY setup-waydroid.sh /usr/local/bin/setup-waydroid.sh
+COPY setup-video-editing.sh /usr/local/bin/setup-video-editing.sh
+COPY health-check.sh /usr/local/bin/health-check.sh
+RUN chmod +x /usr/local/bin/setup-*.sh /usr/local/bin/health-check.sh
+
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY devuser-all.rules /etc/polkit-1/rules.d/99-devuser-all.rules
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# System optimization
+RUN ln -sf /usr/lib/x86_64-linux-gnu/libexec/polkit-kde-authentication-agent-1 /usr/lib/polkit-kde-authentication-agent-1 && \
+    sed -i 's@^Exec=.*@Exec=/usr/lib/polkit-kde-authentication-agent-1@' /etc/xdg/autostart/polkit-kde-authentication-agent-1.desktop
+
+ENTRYPOINT ["/entrypoint.sh"]
+
+EXPOSE 22 80 5901 7681 14500 4713
+
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf", "-n"]

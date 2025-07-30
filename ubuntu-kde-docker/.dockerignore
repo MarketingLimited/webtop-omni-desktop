@@ -1,0 +1,15 @@
+# Ignore files that don't need to be in build context
+.git
+.github
+*.md
+logs
+dev_config
+.env
+.env.example
+.env.production
+docker-compose.*.yml
+Dockerfile
+Dockerfile.multi-stage
+*.log
+.DS_Store
+Thumbs.db
