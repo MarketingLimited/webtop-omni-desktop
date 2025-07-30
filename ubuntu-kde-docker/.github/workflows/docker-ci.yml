@@ -71,20 +71,12 @@ jobs:
       uses: docker/build-push-action@v5
       with:
         context: ./ubuntu-kde-docker
-        file: ./ubuntu-kde-docker/Dockerfile.optimized
         platforms: ${{ matrix.platform }}
-        target: production
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
-        cache-from: |
-          type=gha,scope=build-${{ matrix.platform }}
-          type=gha,scope=build-base
-        cache-to: |
-          type=gha,mode=max,scope=build-${{ matrix.platform }}
-          type=gha,mode=max,scope=build-base
-        build-args: |
-          BUILDKIT_INLINE_CACHE=1
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
 
   security-scan:
     needs: build

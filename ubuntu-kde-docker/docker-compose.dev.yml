@@ -2,7 +2,6 @@ services:
   webtop:
     build: 
       context: .
-      dockerfile: Dockerfile.optimized
       target: development
     container_name: webtop-kde-dev
     restart: unless-stopped
