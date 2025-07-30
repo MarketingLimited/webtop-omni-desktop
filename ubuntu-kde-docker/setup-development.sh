@@ -1,55 +1,64 @@
 #!/bin/bash
-set -euxo pipefail
+set -euo pipefail
 
-# Setup Development Environment for Marketing Agency
-echo "Setting up development environment..."
+DEV_USERNAME="${DEV_USERNAME:-devuser}"
+DEV_HOME="/home/${DEV_USERNAME}"
 
-DEV_USERNAME=${DEV_USERNAME:-devuser}
-HOME_DIR="/home/${DEV_USERNAME}"
+echo "💻 Setting up development environment..."
 
-# Ensure directories exist
-mkdir -p "${HOME_DIR}/.local/share/applications"
-mkdir -p "${HOME_DIR}/Desktop"
-mkdir -p "${HOME_DIR}/Documents/Projects"
-mkdir -p "${HOME_DIR}/Documents/Templates"
+# Create development directories
+mkdir -p \
+    "${DEV_HOME}/.local/share/applications" \
+    "${DEV_HOME}/Desktop" \
+    "${DEV_HOME}/Documents/Projects" \
+    "${DEV_HOME}/Documents/Projects/React" \
+    "${DEV_HOME}/Documents/Projects/Vue" \
+    "${DEV_HOME}/Documents/Projects/Angular" \
+    "${DEV_HOME}/Documents/Projects/Node" \
+    "${DEV_HOME}/Documents/Projects/Python" \
+    "${DEV_HOME}/Documents/Projects/PHP" \
+    "${DEV_HOME}/Documents/Projects/Landing-Pages" \
+    "${DEV_HOME}/Documents/Projects/Email-Campaigns"
 
-# Install Node.js Latest LTS (if not already installed)
-if ! command -v node >/dev/null 2>&1; then
-    curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -
-    apt-get install -y nodejs
-fi
-
-# Install global npm packages for development
+# Install global npm packages for marketing development
+echo "📦 Installing development tools..."
 npm install -g \
     @vue/cli \
     @angular/cli \
     create-react-app \
     vite \
+    tailwindcss \
+    @tailwindcss/cli \
     typescript \
-    eslint \
     prettier \
+    eslint \
+    live-server \
+    http-server \
+    serve \
     nodemon \
     pm2 \
-    serve \
-    http-server \
-    live-server || true
+    vercel \
+    netlify-cli || true
 
 # Install Python development packages
-pip3 install --break-system-packages \
+echo "🐍 Setting up Python development..."
+pip3 install --user \
     django \
     flask \
     fastapi \
-    jupyter \
-    pandas \
-    numpy \
+    uvicorn \
     requests \
     beautifulsoup4 \
     selenium \
-    pytest \
+    pandas \
+    matplotlib \
+    jupyter \
     black \
-    flake8 || true
+    flake8 \
+    pytest || true
 
-# Install Ruby gems for development
+# Install Ruby gems
+echo "💎 Setting up Ruby development..."
 gem install \
     rails \
     sinatra \
@@ -57,86 +66,96 @@ gem install \
     rubocop \
     rspec || true
 
-# Install PHP Composer globally
+# Install Composer globally for PHP
 if [ ! -f /usr/local/bin/composer ]; then
-    curl -sS https://getcomposer.org/installer | php
-    mv composer.phar /usr/local/bin/composer
-    chmod +x /usr/local/bin/composer
+    echo "🎼 Installing Composer..."
+    php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
+    php composer-setup.php --install-dir=/usr/local/bin --filename=composer
+    rm composer-setup.php
 fi
 
-# Setup VS Code settings for marketing development
-mkdir -p "${HOME_DIR}/.config/Code/User"
-cat > "${HOME_DIR}/.config/Code/User/settings.json" << 'EOF'
+# VS Code configuration
+echo "⚙️ Configuring VS Code..."
+mkdir -p "${DEV_HOME}/.config/Code/User"
+
+cat > "${DEV_HOME}/.config/Code/User/settings.json" << 'EOF'
 {
     "workbench.colorTheme": "Default Dark+",
     "editor.fontSize": 14,
+    "editor.fontFamily": "Fira Code, Consolas, 'Courier New', monospace",
+    "editor.fontLigatures": true,
     "editor.tabSize": 2,
     "editor.insertSpaces": true,
+    "editor.wordWrap": "on",
+    "editor.minimap.enabled": true,
     "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.fixAll.eslint": true
+    },
     "files.autoSave": "afterDelay",
-    "terminal.integrated.shell.linux": "/bin/bash",
+    "files.autoSaveDelay": 1000,
+    "emmet.includeLanguages": {
+        "javascript": "javascriptreact",
+        "vue-html": "html",
+        "razor": "html",
+        "plaintext": "jade"
+    },
+    "tailwindCSS.includeLanguages": {
+        "javascript": "javascript",
+        "html": "HTML"
+    },
+    "liveServer.settings.donotShowInfoMsg": true,
     "git.enableSmartCommit": true,
-    "extensions.autoUpdate": true,
+    "git.confirmSync": false,
+    "terminal.integrated.defaultProfile.linux": "bash",
     "workbench.startupEditor": "welcomePage"
 }
 EOF
 
-# Install VS Code extensions for marketing/web development
-code --install-extension ms-vscode.vscode-typescript-next
-code --install-extension bradlc.vscode-tailwindcss
-code --install-extension esbenp.prettier-vscode
-code --install-extension ms-python.python
-code --install-extension ms-vscode.live-server
-code --install-extension ritwickdey.LiveServer
-code --install-extension formulahendry.auto-rename-tag
-code --install-extension christian-kohler.path-intellisense
+# Install VS Code extensions
+echo "🔌 Installing VS Code extensions..."
+code --install-extension ms-vscode.vscode-typescript-next || true
+code --install-extension bradlc.vscode-tailwindcss || true
+code --install-extension esbenp.prettier-vscode || true
+code --install-extension ms-python.python || true
+code --install-extension ms-python.flake8 || true
+code --install-extension ritwickdey.liveserver || true
+code --install-extension formulahendry.auto-rename-tag || true
+code --install-extension christian-kohler.path-intellisense || true
 code --install-extension ms-vscode.vscode-json || true
+code --install-extension octref.vetur || true
+code --install-extension angular.ng-template || true
+code --install-extension ms-vscode.sublime-keybindings || true
 
-# Create development project templates
-mkdir -p "${HOME_DIR}/Documents/Templates/React-Project"
-mkdir -p "${HOME_DIR}/Documents/Templates/Vue-Project"
-mkdir -p "${HOME_DIR}/Documents/Templates/Marketing-Landing"
-mkdir -p "${HOME_DIR}/Documents/Templates/Email-Campaign"
-
-# Create desktop shortcuts for development tools
-cat > "${HOME_DIR}/.local/share/applications/vscode.desktop" << EOF
+# Create desktop shortcuts
+cat > "${DEV_HOME}/.local/share/applications/vscode.desktop" << 'EOF'
 [Desktop Entry]
-Version=1.0
-Type=Application
-Name=Visual Studio Code
-Comment=Code Editing. Redefined.
+Name=VS Code
+Comment=Code editor for development
 Exec=code
-Icon=code
-StartupNotify=true
-StartupWMClass=Code
+Icon=com.visualstudio.code
+Terminal=false
+Type=Application
 Categories=Development;IDE;
-MimeType=text/plain;inode/directory;
 EOF
 
-cat > "${HOME_DIR}/.local/share/applications/terminal-dev.desktop" << EOF
+cat > "${DEV_HOME}/.local/share/applications/dev-terminal.desktop" << 'EOF'
 [Desktop Entry]
-Version=1.0
-Type=Application
 Name=Development Terminal
-Comment=Terminal optimized for development
-Exec=konsole --workdir ${HOME_DIR}/Documents/Projects
+Comment=Terminal for development tasks
+Exec=konsole --workdir /home/devuser/Documents/Projects
 Icon=utilities-terminal
-StartupNotify=true
+Terminal=false
+Type=Application
 Categories=Development;System;
 EOF
 
-# Copy development shortcuts to desktop
-cp "${HOME_DIR}/.local/share/applications/vscode.desktop" "${HOME_DIR}/Desktop/"
-cp "${HOME_DIR}/.local/share/applications/terminal-dev.desktop" "${HOME_DIR}/Desktop/"
-chmod +x "${HOME_DIR}/Desktop"/*.desktop
-
-# Create development folder structure
-mkdir -p "${HOME_DIR}/Documents/Projects/Web-Projects"
-mkdir -p "${HOME_DIR}/Documents/Projects/Mobile-Apps"
-mkdir -p "${HOME_DIR}/Documents/Projects/Marketing-Campaigns"
-mkdir -p "${HOME_DIR}/Documents/Projects/Client-Work"
+# Copy shortcuts to desktop
+cp "${DEV_HOME}/.local/share/applications/vscode.desktop" "${DEV_HOME}/Desktop/"
+cp "${DEV_HOME}/.local/share/applications/dev-terminal.desktop" "${DEV_HOME}/Desktop/"
+chmod +x "${DEV_HOME}/Desktop/"*.desktop
 
 # Set ownership
-chown -R ${DEV_USERNAME}:${DEV_USERNAME} "${HOME_DIR}"
+chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "${DEV_HOME}"
 
-echo "Development environment setup completed!"
+echo "✅ Development environment setup complete"

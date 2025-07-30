@@ -1,5 +1,7 @@
 #!/bin/bash
-set -e
+set -euo pipefail
+
+echo "🚀 Starting Ubuntu KDE Marketing Agency WebTop..."
 
 # Default credentials and IDs can be overridden via environment variables
 : "${DEV_USERNAME:=devuser}"
@@ -9,6 +11,12 @@ set -e
 : "${ADMIN_USERNAME:=adminuser}"
 : "${ADMIN_PASSWORD:=AdminPassw0rd!}"
 : "${ROOT_PASSWORD:=ComplexP@ssw0rd!}"
+: "${TTYD_USER:=terminal}"
+: "${TTYD_PASSWORD:=TerminalPassw0rd!}"
+
+# Initialize system directories
+mkdir -p /var/run/dbus /run/user/${DEV_UID} /tmp/.ICE-unix /tmp/.X11-unix
+chmod 1777 /tmp/.ICE-unix /tmp/.X11-unix
 
 # Replace default username in polkit rule if different
 if [ -f /etc/polkit-1/rules.d/99-devuser-all.rules ]; then
@@ -94,19 +102,49 @@ export XDG_RUNTIME_DIR="/run/user/${DEV_UID}"
 
 # Register user with AccountsService
 
-# Ensure the system D-Bus is available before using dbus-send
+# Initialize D-Bus system bus
+echo "🔧 Initializing D-Bus system bus..."
 if [ ! -S /run/dbus/system_bus_socket ]; then
-    mkdir -p /run/dbus
     if command -v dbus-daemon >/dev/null 2>&1; then
-        dbus-daemon --system --fork || true
-        for _ in {1..10}; do
+        dbus-daemon --system --fork
+        for i in {1..20}; do
             [ -S /run/dbus/system_bus_socket ] && break
             sleep 0.5
         done
+        
+        if [ ! -S /run/dbus/system_bus_socket ]; then
+            echo "⚠️  Warning: D-Bus system bus failed to start"
+        else
+            echo "✅ D-Bus system bus started successfully"
+        fi
     else
-        echo "dbus-daemon not found; skipping system bus start"
+        echo "❌ dbus-daemon not found"
     fi
 fi
+
+# Generate SSH host keys if they don't exist
+echo "🔑 Setting up SSH host keys..."
+mkdir -p /etc/ssh
+if [ ! -f /etc/ssh/ssh_host_rsa_key ]; then
+    ssh-keygen -t rsa -f /etc/ssh/ssh_host_rsa_key -N '' -q
+fi
+if [ ! -f /etc/ssh/ssh_host_ecdsa_key ]; then
+    ssh-keygen -t ecdsa -f /etc/ssh/ssh_host_ecdsa_key -N '' -q
+fi
+if [ ! -f /etc/ssh/ssh_host_ed25519_key ]; then
+    ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N '' -q
+fi
+
+# Configure SSH
+cat > /etc/ssh/sshd_config << 'EOF'
+Port 22
+PermitRootLogin yes
+PasswordAuthentication yes
+PubkeyAuthentication yes
+AuthorizedKeysFile .ssh/authorized_keys
+Subsystem sftp /usr/lib/openssh/sftp-server
+AcceptEnv LANG LC_*
+EOF
 
 if command -v dbus-send >/dev/null 2>&1; then
     dbus-send --system --dest=org.freedesktop.Accounts --type=method_call \

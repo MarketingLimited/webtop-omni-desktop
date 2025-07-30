@@ -3,99 +3,108 @@ set -euo pipefail
 
 echo "🩺 Ubuntu KDE Marketing Agency WebTop Health Check"
 
-# Check if services are running
-SERVICES=(
+# Initialize counters
+CRITICAL_ISSUES=0
+WARNING_ISSUES=0
+
+# Function to log issues
+log_critical() {
+    echo "❌ CRITICAL: $1"
+    ((CRITICAL_ISSUES++))
+}
+
+log_warning() {
+    echo "⚠️  WARNING: $1"
+    ((WARNING_ISSUES++))
+}
+
+log_success() {
+    echo "✅ $1"
+}
+
+# Check essential services
+echo ""
+echo "📊 Checking Core Services..."
+ESSENTIAL_SERVICES=(
     "supervisord"
-    "pulseaudio"
     "Xvnc"
-    "xpra"
-    "sshd"
+    "noVNC"
 )
 
-for service in "${SERVICES[@]}"; do
+for service in "${ESSENTIAL_SERVICES[@]}"; do
     if pgrep -f "$service" > /dev/null; then
-        echo "✅ $service is running"
+        log_success "$service is running"
     else
-        echo "❌ $service is not running"
-        exit 1
+        log_critical "$service is not running"
     fi
 done
 
-# Check if ports are listening
-PORTS=(
-    "22"    # SSH
-    "80"    # noVNC
-    "5901"  # VNC
-    "7681"  # ttyd
-    "14500" # Xpra
-    "4713"  # PulseAudio
+# Check optional but important services
+echo ""
+echo "🔧 Checking Optional Services..."
+OPTIONAL_SERVICES=(
+    "pulseaudio"
+    "polkitd"
+    "sshd"
+    "xpra"
+    "ttyd"
 )
 
-for port in "${PORTS[@]}"; do
-    if netstat -tln | grep -q ":$port "; then
-        echo "✅ Port $port is listening"
+for service in "${OPTIONAL_SERVICES[@]}"; do
+    if pgrep -f "$service" > /dev/null; then
+        log_success "$service is running"
     else
-        echo "⚠️  Port $port is not listening"
+        log_warning "$service is not running"
     fi
 done
 
-# Check audio system
-if pulseaudio --check -v 2>/dev/null; then
-    echo "✅ PulseAudio is running"
-    
-    # Check for virtual sinks
-    if pactl list short sinks | grep -q "virtual_speaker"; then
-        echo "✅ Virtual audio sink is available"
-    else
-        echo "⚠️  Virtual audio sink not found"
-    fi
-else
-    echo "❌ PulseAudio is not running properly"
-fi
-
-# Check display
-if [ -n "${DISPLAY:-}" ]; then
-    echo "✅ DISPLAY environment variable is set: $DISPLAY"
-    
-    if xdpyinfo > /dev/null 2>&1; then
-        echo "✅ X11 display is accessible"
-    else
-        echo "⚠️  X11 display is not accessible"
-    fi
-else
-    echo "⚠️  DISPLAY environment variable is not set"
-fi
-
-# Check for marketing applications
-MARKETING_APPS=(
-    "google-chrome"
-    "code"
-    "gimp"
-    "inkscape"
-    "krita"
+# Check essential ports
+echo ""
+echo "🌐 Checking Network Ports..."
+ESSENTIAL_PORTS=(
+    "80:noVNC"
+    "5901:VNC"
 )
 
-for app in "${MARKETING_APPS[@]}"; do
-    if command -v "$app" > /dev/null; then
-        echo "✅ $app is installed"
+OPTIONAL_PORTS=(
+    "22:SSH"
+    "7681:ttyd"
+    "14500:Xpra"
+    "4713:PulseAudio"
+)
+
+for port_info in "${ESSENTIAL_PORTS[@]}"; do
+    port=${port_info%%:*}
+    service=${port_info##*:}
+    if netstat -tln 2>/dev/null | grep -q ":$port "; then
+        log_success "Port $port ($service) is listening"
     else
-        echo "⚠️  $app is not installed"
+        log_critical "Port $port ($service) is not listening"
     fi
 done
 
-# Check flatpak apps
-if command -v flatpak > /dev/null; then
-    echo "✅ Flatpak is available"
-    
-    FLATPAK_COUNT=$(flatpak list --app 2>/dev/null | wc -l)
-    echo "📦 $FLATPAK_COUNT Flatpak applications installed"
+for port_info in "${OPTIONAL_PORTS[@]}"; do
+    port=${port_info%%:*}
+    service=${port_info##*:}
+    if netstat -tln 2>/dev/null | grep -q ":$port "; then
+        log_success "Port $port ($service) is listening"
+    else
+        log_warning "Port $port ($service) is not listening"
+    fi
+done
+
+# Final health assessment
+echo ""
+echo "🏥 HEALTH SUMMARY:"
+echo "=================="
+
+if [ "$CRITICAL_ISSUES" -eq 0 ] && [ "$WARNING_ISSUES" -eq 0 ]; then
+    echo "🎉 EXCELLENT: All systems operational!"
+    exit 0
+elif [ "$CRITICAL_ISSUES" -eq 0 ]; then
+    echo "😊 GOOD: Core systems working, $WARNING_ISSUES minor issues"
+    exit 0
 else
-    echo "⚠️  Flatpak is not available"
+    echo "😐 ISSUES: $CRITICAL_ISSUES critical issues, $WARNING_ISSUES warnings"
+    exit 1
 fi
-
-# System resources
-echo "💾 Memory usage: $(free -h | awk '/^Mem:/ {print $3 "/" $2}')"
-echo "💿 Disk usage: $(df -h / | awk 'NR==2 {print $3 "/" $2 " (" $5 " used)"}')"
-echo "🔢 Load average: $(uptime | awk -F'load average:' '{print $2}')"
-
-echo "🎯 Health check completed!"

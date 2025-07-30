@@ -6,6 +6,11 @@ DEV_UID="${DEV_UID:-1000}"
 
 echo "🔊 Setting up audio system for marketing agency..."
 
+# Ensure runtime directories exist
+mkdir -p "/run/user/${DEV_UID}" "/run/user/${DEV_UID}/pulse"
+chown "${DEV_USERNAME}:${DEV_USERNAME}" "/run/user/${DEV_UID}" "/run/user/${DEV_UID}/pulse"
+chmod 700 "/run/user/${DEV_UID}"
+
 # Create ALSA configuration for virtual audio devices
 cat <<EOF > /etc/asound.conf
 pcm.!default {

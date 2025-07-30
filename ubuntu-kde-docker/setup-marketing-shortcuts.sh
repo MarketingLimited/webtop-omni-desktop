@@ -1,176 +1,157 @@
 #!/bin/bash
-set -euxo pipefail
+set -euo pipefail
 
 DEV_USERNAME="${DEV_USERNAME:-devuser}"
-DESKTOP_DIR="/home/${DEV_USERNAME}/Desktop"
 APPLICATIONS_DIR="/home/${DEV_USERNAME}/.local/share/applications"
+DESKTOP_DIR="/home/${DEV_USERNAME}/Desktop"
 
-mkdir -p "${DESKTOP_DIR}" "${APPLICATIONS_DIR}"
+echo "🎯 Setting up marketing agency shortcuts..."
 
-echo "🎯 Creating Marketing Agency Web App Shortcuts..."
+# Ensure directories exist
+mkdir -p "$APPLICATIONS_DIR" "$DESKTOP_DIR"
 
-# Social Media Management Tools
-cat <<EOF > "${APPLICATIONS_DIR}/buffer.desktop"
+# Create marketing web app shortcuts
+cat > "$APPLICATIONS_DIR/canva.desktop" << 'EOF'
 [Desktop Entry]
-Version=1.0
-Type=Application
-Name=Buffer
-Comment=Social Media Management
-Exec=google-chrome --app=https://publish.buffer.com --no-sandbox
-Icon=web-browser
-Categories=Network;Marketing;
-Terminal=false
-EOF
-
-cat <<EOF > "${APPLICATIONS_DIR}/hootsuite.desktop"
-[Desktop Entry]
-Version=1.0
-Type=Application
-Name=Hootsuite
-Comment=Social Media Management Platform
-Exec=google-chrome --app=https://hootsuite.com --no-sandbox
-Icon=web-browser
-Categories=Network;Marketing;
-Terminal=false
-EOF
-
-cat <<EOF > "${APPLICATIONS_DIR}/later.desktop"
-[Desktop Entry]
-Version=1.0
-Type=Application
-Name=Later
-Comment=Visual Marketing Platform
-Exec=google-chrome --app=https://later.com --no-sandbox
-Icon=web-browser
-Categories=Network;Marketing;
-Terminal=false
-EOF
-
-# Analytics & SEO Tools
-cat <<EOF > "${APPLICATIONS_DIR}/google-analytics.desktop"
-[Desktop Entry]
-Version=1.0
-Type=Application
-Name=Google Analytics
-Comment=Web Analytics Platform
-Exec=google-chrome --app=https://analytics.google.com --no-sandbox
-Icon=web-browser
-Categories=Network;Analytics;
-Terminal=false
-EOF
-
-cat <<EOF > "${APPLICATIONS_DIR}/google-ads.desktop"
-[Desktop Entry]
-Version=1.0
-Type=Application
-Name=Google Ads
-Comment=Online Advertising Platform
-Exec=google-chrome --app=https://ads.google.com --no-sandbox
-Icon=web-browser
-Categories=Network;Marketing;
-Terminal=false
-EOF
-
-cat <<EOF > "${APPLICATIONS_DIR}/semrush.desktop"
-[Desktop Entry]
-Version=1.0
-Type=Application
-Name=SEMrush
-Comment=SEO & Marketing Toolkit
-Exec=google-chrome --app=https://semrush.com --no-sandbox
-Icon=web-browser
-Categories=Network;SEO;
-Terminal=false
-EOF
-
-# Design & Creative Tools
-cat <<EOF > "${APPLICATIONS_DIR}/canva.desktop"
-[Desktop Entry]
-Version=1.0
-Type=Application
 Name=Canva
-Comment=Graphic Design Platform
-Exec=google-chrome --app=https://canva.com --no-sandbox
+Comment=Design platform for marketing materials
+Exec=google-chrome --app=https://www.canva.com
 Icon=web-browser
-Categories=Graphics;Design;
 Terminal=false
+Type=Application
+Categories=Graphics;Design;Office;
 EOF
 
-cat <<EOF > "${APPLICATIONS_DIR}/unsplash.desktop"
+cat > "$APPLICATIONS_DIR/figma.desktop" << 'EOF'
 [Desktop Entry]
-Version=1.0
-Type=Application
-Name=Unsplash
-Comment=Stock Photos Platform
-Exec=google-chrome --app=https://unsplash.com --no-sandbox
+Name=Figma
+Comment=Collaborative design tool
+Exec=google-chrome --app=https://www.figma.com
 Icon=web-browser
-Categories=Graphics;Photography;
 Terminal=false
+Type=Application
+Categories=Graphics;Design;Development;
 EOF
 
-# Email Marketing
-cat <<EOF > "${APPLICATIONS_DIR}/mailchimp.desktop"
+cat > "$APPLICATIONS_DIR/google-analytics.desktop" << 'EOF'
 [Desktop Entry]
-Version=1.0
+Name=Google Analytics
+Comment=Web analytics service
+Exec=google-chrome --app=https://analytics.google.com
+Icon=web-browser
+Terminal=false
 Type=Application
+Categories=Network;Office;
+EOF
+
+cat > "$APPLICATIONS_DIR/google-ads.desktop" << 'EOF'
+[Desktop Entry]
+Name=Google Ads
+Comment=Online advertising platform
+Exec=google-chrome --app=https://ads.google.com
+Icon=web-browser
+Terminal=false
+Type=Application
+Categories=Network;Office;
+EOF
+
+cat > "$APPLICATIONS_DIR/mailchimp.desktop" << 'EOF'
+[Desktop Entry]
 Name=Mailchimp
-Comment=Email Marketing Platform
-Exec=google-chrome --app=https://mailchimp.com --no-sandbox
+Comment=Email marketing platform
+Exec=google-chrome --app=https://mailchimp.com
 Icon=web-browser
-Categories=Network;Marketing;
 Terminal=false
+Type=Application
+Categories=Network;Office;
 EOF
 
-# Project Management
-cat <<EOF > "${APPLICATIONS_DIR}/trello.desktop"
+cat > "$APPLICATIONS_DIR/hootsuite.desktop" << 'EOF'
 [Desktop Entry]
-Version=1.0
+Name=Hootsuite
+Comment=Social media management
+Exec=google-chrome --app=https://hootsuite.com
+Icon=web-browser
+Terminal=false
 Type=Application
+Categories=Network;Office;
+EOF
+
+cat > "$APPLICATIONS_DIR/buffer.desktop" << 'EOF'
+[Desktop Entry]
+Name=Buffer
+Comment=Social media scheduling
+Exec=google-chrome --app=https://buffer.com
+Icon=web-browser
+Terminal=false
+Type=Application
+Categories=Network;Office;
+EOF
+
+cat > "$APPLICATIONS_DIR/unsplash.desktop" << 'EOF'
+[Desktop Entry]
+Name=Unsplash
+Comment=Free high-quality photos
+Exec=google-chrome --app=https://unsplash.com
+Icon=web-browser
+Terminal=false
+Type=Application
+Categories=Graphics;Photography;
+EOF
+
+cat > "$APPLICATIONS_DIR/pexels.desktop" << 'EOF'
+[Desktop Entry]
+Name=Pexels
+Comment=Free stock photos and videos
+Exec=google-chrome --app=https://pexels.com
+Icon=web-browser
+Terminal=false
+Type=Application
+Categories=Graphics;Photography;
+EOF
+
+cat > "$APPLICATIONS_DIR/trello.desktop" << 'EOF'
+[Desktop Entry]
 Name=Trello
-Comment=Project Management Tool
-Exec=google-chrome --app=https://trello.com --no-sandbox
+Comment=Project management tool
+Exec=google-chrome --app=https://trello.com
 Icon=web-browser
-Categories=Office;ProjectManagement;
 Terminal=false
-EOF
-
-cat <<EOF > "${APPLICATIONS_DIR}/asana.desktop"
-[Desktop Entry]
-Version=1.0
 Type=Application
-Name=Asana
-Comment=Team Collaboration Platform
-Exec=google-chrome --app=https://app.asana.com --no-sandbox
-Icon=web-browser
 Categories=Office;ProjectManagement;
-Terminal=false
 EOF
 
-# Copy shortcuts to desktop
+# Marketing tools array for desktop copying
 marketing_apps=(
-    "buffer.desktop"
-    "hootsuite.desktop" 
-    "later.desktop"
-    "google-analytics.desktop"
-    "google-ads.desktop"
-    "canva.desktop"
-    "mailchimp.desktop"
-    "trello.desktop"
-    "asana.desktop"
+    "canva"
+    "figma"
+    "google-analytics"
+    "google-ads"
+    "mailchimp"
+    "hootsuite"
+    "buffer"
+    "unsplash"
+    "pexels"
+    "trello"
 )
 
+# Copy shortcuts to desktop
 for app in "${marketing_apps[@]}"; do
-    if [[ -f "${APPLICATIONS_DIR}/${app}" ]]; then
-        cp "${APPLICATIONS_DIR}/${app}" "${DESKTOP_DIR}/"
-        chmod +x "${DESKTOP_DIR}/${app}"
+    if [ -f "$APPLICATIONS_DIR/${app}.desktop" ]; then
+        cp "$APPLICATIONS_DIR/${app}.desktop" "$DESKTOP_DIR/"
+        chmod +x "$DESKTOP_DIR/${app}.desktop"
     fi
 done
 
 # Create Marketing Tools folder on desktop
-mkdir -p "${DESKTOP_DIR}/Marketing Tools"
-cp "${APPLICATIONS_DIR}"/*.desktop "${DESKTOP_DIR}/Marketing Tools/" 2>/dev/null || true
+mkdir -p "$DESKTOP_DIR/Marketing Tools"
+for app in "${marketing_apps[@]}"; do
+    if [ -f "$APPLICATIONS_DIR/${app}.desktop" ]; then
+        cp "$APPLICATIONS_DIR/${app}.desktop" "$DESKTOP_DIR/Marketing Tools/"
+    fi
+done
 
 # Set ownership
-chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "${DESKTOP_DIR}" "${APPLICATIONS_DIR}"
+chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "$DESKTOP_DIR" "$APPLICATIONS_DIR"
 
-echo "✅ Marketing Agency shortcuts created successfully!"
+echo "✅ Marketing shortcuts setup complete"
