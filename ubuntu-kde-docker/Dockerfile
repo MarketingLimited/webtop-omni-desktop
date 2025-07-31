@@ -172,7 +172,8 @@ RUN chmod +x /usr/local/bin/setup-*.sh \
     /usr/local/bin/audio-validation.sh \
     /usr/local/bin/health-check.sh \
     /usr/local/bin/fix-permissions.sh \
-    /usr/local/bin/test-polkit.sh
+    /usr/local/bin/test-polkit.sh \
+    /usr/local/bin/fix-audio-startup.sh
 
 # Initialize audio system during build
 RUN /usr/local/bin/setup-audio.sh && \
