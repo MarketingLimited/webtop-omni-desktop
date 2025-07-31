@@ -63,6 +63,14 @@
    ./webtop.sh up
    ```
 
+4. **Background Building (Optional)**
+   ```bash
+   # For large builds, use background building
+   ./webtop.sh build-bg --dev    # Development build in background
+   ./webtop.sh build-status      # Monitor build progress
+   ./webtop.sh build-logs        # View build logs
+   ```
+
 ### Manual Installation
 
 1. **System checks**
@@ -125,6 +133,14 @@
 ./webtop.sh down                  # Stop containers
 ./webtop.sh restart               # Restart containers
 ./webtop.sh logs                  # View logs
+
+# Building & deployment
+./webtop.sh build [--background]  # Build container (optionally in background)
+./webtop.sh build-bg [--dev|--prod] # Start background build
+./webtop.sh build-status          # Check background build progress
+./webtop.sh build-logs            # View build logs
+./webtop.sh build-stop            # Stop background build
+./webtop.sh build-cleanup         # Clean up build files
 
 # System setup
 ./webtop.sh dev-setup            # Configure development tools
@@ -189,6 +205,26 @@ docker info
 
 # Clean Docker system if needed
 docker system prune -f
+
+# For background builds, check build status
+./webtop.sh build-status
+./webtop.sh build-logs
+```
+
+#### Background Build Issues
+```bash
+# Check if build is running
+./webtop.sh build-status
+
+# View build logs for errors
+./webtop.sh build-logs
+
+# Stop stuck builds
+./webtop.sh build-stop
+
+# Clean up and restart
+./webtop.sh build-cleanup
+./webtop.sh build-bg --dev
 ```
 
 #### Container Won't Start

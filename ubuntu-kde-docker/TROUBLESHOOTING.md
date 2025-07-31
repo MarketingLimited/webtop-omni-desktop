@@ -154,6 +154,60 @@ docker stats webtop-kde
 docker exec webtop-kde cat /etc/supervisor/conf.d/supervisord.conf
 ```
 
+### 🏗️ Background Build Issues
+
+#### Background build not starting
+**Cause**: Docker daemon issues or resource constraints
+
+**Solution**:
+```bash
+# Check Docker status
+docker info
+docker system df
+
+# Check for running builds
+docker ps | grep webtop-build
+
+# Clean up and retry
+./webtop.sh build-cleanup
+./webtop.sh build-bg --dev
+```
+
+#### Background build stuck or hanging
+**Cause**: Resource limitations or network issues
+
+**Solution**:
+```bash
+# Check build status
+./webtop.sh build-status
+
+# View build logs for errors
+./webtop.sh build-logs | tail -50
+
+# Stop stuck build
+./webtop.sh build-stop
+
+# Check system resources
+docker system df
+free -h
+```
+
+#### Build fails with resource errors
+**Cause**: Insufficient disk space or memory
+
+**Solution**:
+```bash
+# Check available resources
+df -h
+free -h
+
+# Clean Docker system
+docker system prune -f
+
+# Monitor resource usage during build
+watch "docker stats --no-stream"
+```
+
 ### 🔍 Container Issues
 
 #### Container fails to start
@@ -171,6 +225,10 @@ netstat -tlnp | grep -E "(80|5901|14500|7681|22)"
 # Check Docker resources
 docker system df
 docker system prune
+
+# If build was in background, check build status
+./webtop.sh build-status
+./webtop.sh build-logs | grep -i error
 ```
 
 #### Container running but services not accessible
@@ -203,6 +261,11 @@ docker exec webtop-kde /usr/local/bin/service-health.sh status
 
 # Resource usage report
 docker exec webtop-kde /usr/local/bin/monitor-services.sh
+
+# Build system diagnosis
+./webtop.sh build-status
+./webtop.sh build-logs | grep -i error
+docker ps | grep webtop-build
 ```
 
 ### Service-Specific Diagnostics
@@ -281,6 +344,31 @@ docker exec webtop-kde /usr/local/bin/audio-validation.sh
 ./webtop.sh down
 ./webtop.sh build
 ./webtop.sh up
+
+# Background rebuild for minimal downtime
+./webtop.sh build-bg --dev
+# Monitor until complete
+./webtop.sh build-status
+# Then restart services
+./webtop.sh down && ./webtop.sh up --dev
+```
+
+### Build Recovery Procedures
+```bash
+# Stop any running builds
+./webtop.sh build-stop
+
+# Clean up build artifacts
+./webtop.sh build-cleanup
+
+# Check and clean Docker system
+docker system prune -f
+
+# Start fresh background build
+./webtop.sh build-bg --dev
+
+# Monitor progress
+watch ./webtop.sh build-status
 ```
 
 ## Performance Optimization

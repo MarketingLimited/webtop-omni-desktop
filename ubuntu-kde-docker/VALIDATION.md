@@ -52,6 +52,18 @@ docker exec webtop-kde /usr/local/bin/health-check.sh
 docker exec webtop-kde /usr/local/bin/service-health.sh status
 ```
 
+### Build Process Validation
+```bash
+# Validate build status during background builds
+./webtop.sh build-status
+
+# Check build logs for errors
+./webtop.sh build-logs | grep -i error
+
+# Validate build completion
+./webtop.sh build-status | grep -q "completed" && echo "Build successful"
+```
+
 ### Component-Specific Validation
 
 #### Audio System
@@ -133,10 +145,19 @@ docker exec webtop-kde curl -s http://localhost:7681
 5. **Validation** → System validation and health monitoring (Priority 60)
 
 ### Expected Timeline
+- **Background build start**: 5-10 seconds
+- **Build completion**: 10-30 minutes (depending on complexity)
 - **Services start**: 30-60 seconds
 - **Desktop ready**: 60-90 seconds  
 - **Validation complete**: 90-120 seconds
 - **Full system ready**: 2-3 minutes
+
+### Build Process Timeline
+- **Build initialization**: 10-30 seconds
+- **Base image download**: 2-5 minutes (first time)
+- **Package installation**: 5-15 minutes
+- **Configuration setup**: 2-5 minutes
+- **Final assembly**: 1-3 minutes
 
 ## Advanced Validation
 
@@ -163,6 +184,30 @@ docker exec webtop-kde /usr/local/bin/system-validation.sh full
 # Test specific use case
 docker exec webtop-kde /usr/local/bin/system-validation.sh audio
 docker exec webtop-kde /usr/local/bin/system-validation.sh desktop
+
+# Test build integration
+./webtop.sh build-bg --dev
+./webtop.sh build-status
+./webtop.sh build-logs | tail -20
+```
+
+### Build Validation Workflow
+```bash
+# Validate build before starting
+./webtop.sh build-bg --dev
+while [ "$(./webtop.sh build-status)" != "completed" ]; do
+  echo "Build in progress: $(./webtop.sh build-status)"
+  sleep 30
+done
+
+# Validate build success
+if [ "$(./webtop.sh build-status)" = "completed" ]; then
+  echo "✅ Build completed successfully"
+  ./webtop.sh up --dev
+else
+  echo "❌ Build failed"
+  ./webtop.sh build-logs | tail -50
+fi
 ```
 
 ## Performance Monitoring

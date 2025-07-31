@@ -2,7 +2,7 @@
 
 ## Service Overview
 
-The Ubuntu KDE Docker container uses supervisord to manage multiple services with dependencies and priorities.
+The Ubuntu KDE Docker container uses supervisord to manage multiple services with dependencies and priorities. The system also supports background building for efficient container management.
 
 ## Service Hierarchy
 
@@ -314,8 +314,35 @@ docker exec webtop-kde supervisorctl restart X11VNC noVNC Xpra
 ### Modifying Service Configuration
 1. **Edit supervisord.conf** for service parameters
 2. **Update service scripts** for functionality changes
-3. **Rebuild container** to apply changes
+3. **Rebuild container** to apply changes (use background build for efficiency)
 4. **Validate service integration**
+
+## Background Build Architecture
+
+### Build Process Management
+The system supports background building to minimize downtime and improve development workflow:
+
+```bash
+# Background build process
+./webtop.sh build-bg [--dev|--prod]  # Starts detached Docker build
+./webtop.sh build-status             # Monitors build progress
+./webtop.sh build-logs               # Views build output
+./webtop.sh build-stop               # Terminates build process
+./webtop.sh build-cleanup            # Cleans build artifacts
+```
+
+### Build Lifecycle
+1. **Initialization**: Build process starts in detached mode
+2. **Progress Tracking**: Status monitoring via build-status command
+3. **Log Management**: Real-time log viewing and analysis
+4. **Completion**: Automatic cleanup and readiness notification
+5. **Integration**: Seamless integration with service startup
+
+### Build Monitoring & Logging
+- **Real-time Status**: Continuous build progress monitoring
+- **Log Analysis**: Detailed build output for troubleshooting
+- **Resource Tracking**: Monitor disk space and build performance
+- **Error Handling**: Automatic error detection and reporting
 
 ---
 

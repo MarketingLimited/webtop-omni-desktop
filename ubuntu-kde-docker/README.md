@@ -80,13 +80,22 @@ docker compose -f docker-compose.prod.yml up -d
 
 ### WebTop Control
 ```bash
-./webtop.sh build     # Build container
+./webtop.sh build [--background]  # Build container (optionally in background)
 ./webtop.sh up        # Start services
 ./webtop.sh down      # Stop services
 ./webtop.sh restart   # Rebuild and restart
 ./webtop.sh status    # Check status
 ./webtop.sh logs      # View logs
 ./webtop.sh shell     # Open shell
+```
+
+### Background Building
+```bash
+./webtop.sh build-bg [--dev|--prod] # Start background build
+./webtop.sh build-status           # Check build progress
+./webtop.sh build-logs             # View build logs
+./webtop.sh build-stop             # Stop background build
+./webtop.sh build-cleanup          # Clean up build files
 ```
 
 ### System Validation
@@ -154,6 +163,88 @@ docker exec webtop-kde supervisorctl restart pulseaudio
 - Trello, Asana, Notion
 - Time tracking tools
 - Client management systems
+
+## 🏗️ Background Building Guide
+
+### Overview
+Background building allows you to start Docker builds without blocking your terminal, perfect for large container builds that take time.
+
+### Starting Background Builds
+```bash
+# Development environment background build
+./webtop.sh build-bg --dev
+
+# Production environment background build  
+./webtop.sh build-bg --prod
+
+# Basic background build
+./webtop.sh build-bg
+```
+
+### Monitoring Build Progress
+```bash
+# Check current build status
+./webtop.sh build-status
+
+# View real-time build logs
+./webtop.sh build-logs
+
+# Follow build progress continuously
+./webtop.sh build-logs -f
+```
+
+### Managing Background Builds
+```bash
+# Stop current background build
+./webtop.sh build-stop
+
+# Clean up build artifacts and logs
+./webtop.sh build-cleanup
+
+# Check for any running builds
+docker ps | grep webtop-build
+```
+
+### Build Management Workflows
+
+#### Development Workflow
+```bash
+# Start development build in background
+./webtop.sh build-bg --dev
+
+# Continue working while monitoring progress
+./webtop.sh build-status
+
+# When ready, start services
+./webtop.sh up --dev
+```
+
+#### Production Deployment
+```bash
+# Background production build with monitoring
+./webtop.sh build-bg --prod
+watch ./webtop.sh build-status
+
+# Deploy when build completes
+./webtop.sh up --prod
+```
+
+#### CI/CD Integration
+```bash
+# Automated background build with status check
+./webtop.sh build-bg --prod
+while [ "$(./webtop.sh build-status)" != "completed" ]; do
+  sleep 30
+  echo "Build in progress..."
+done
+echo "Build completed successfully!"
+```
+
+### Best Practices
+- **Monitor Progress**: Always check build status during long builds
+- **Resource Management**: Use `build-cleanup` to free disk space
+- **Log Analysis**: Use `build-logs` to troubleshoot build failures
+- **Background vs Foreground**: Use background builds for large projects, foreground for quick testing
 
 ## 🔧 Customization
 
