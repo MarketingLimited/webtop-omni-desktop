@@ -26,9 +26,13 @@ if ! wget -qO /tmp/GoogleAdsEditorSetup.exe "https://dl.google.com/adwords_edito
     exit 1
 fi
 
-# Install Google Ads Editor silently
+# Install Google Ads Editor silently (with better error handling)
 echo "🔧 Installing Google Ads Editor..."
-WINEDEBUG=-all wine /tmp/GoogleAdsEditorSetup.exe /silent || true
+if WINEDEBUG=-all wine /tmp/GoogleAdsEditorSetup.exe /silent 2>/dev/null; then
+    echo "✅ Google Ads Editor installed successfully"
+else
+    echo "⚠️  Google Ads Editor installation failed (Wine compatibility issue)"
+fi
 
 # Clean up
 rm -f /tmp/GoogleAdsEditorSetup.exe

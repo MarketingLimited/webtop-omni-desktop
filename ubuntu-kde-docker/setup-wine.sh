@@ -25,14 +25,16 @@ export DISPLAY=:1
 
 # Initialize Wine with no GUI prompts
 echo "🔧 Initializing Wine prefix..."
-WINEDEBUG=-all wine wineboot --init || true
+WINEDEBUG=-all wine wineboot --init 2>/dev/null || true
 
-# Install essential Windows components
+# Install essential Windows components (container-optimized)
 echo "📦 Installing Wine components..."
-WINEDEBUG=-all winetricks -q --unattended corefonts vcrun2019 dotnet48 gdiplus msxml6 d3dx9 || true
+# Only install essential components that work in containers
+WINEDEBUG=-all winetricks -q --unattended corefonts 2>/dev/null || true
+WINEDEBUG=-all winetricks -q --unattended vcrun2019 2>/dev/null || true
 
-# Install additional libraries for marketing applications
-WINEDEBUG=-all winetricks -q --unattended win10 || true
+# Skip problematic components that cause DLL errors in containers
+echo "⚠️  Skipping container-incompatible Wine components"
 
 echo "✅ Wine setup completed"
 WINE_SETUP

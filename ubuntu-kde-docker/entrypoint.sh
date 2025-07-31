@@ -307,7 +307,10 @@ if [ -f "/usr/local/bin/setup-waydroid.sh" ]; then
     if /usr/local/bin/setup-waydroid.sh; then
         log_info "Android subsystem setup completed"
     else
-    log_warn "Android subsystem setup failed"
+        log_warn "Android subsystem setup failed"
+    fi
+else
+    log_warn "Android subsystem setup script not found"
 fi
 
 # Ensure binder/ashmem are available for Waydroid (optional, may fail in containers)
