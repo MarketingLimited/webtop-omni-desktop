@@ -150,6 +150,7 @@ COPY setup-xvfb-optimization.sh /usr/local/bin/setup-xvfb-optimization.sh
 COPY setup-x11vnc-optimization.sh /usr/local/bin/setup-x11vnc-optimization.sh
 COPY setup-novnc-enhancement.sh /usr/local/bin/setup-novnc-enhancement.sh
 COPY setup-kde-optimization.sh /usr/local/bin/setup-kde-optimization.sh
+COPY setup-system-optimization.sh /usr/local/bin/setup-system-optimization.sh
 COPY setup-audio.sh /usr/local/bin/setup-audio.sh
 COPY fix-audio-startup.sh /usr/local/bin/fix-audio-startup.sh
 COPY setup-marketing-shortcuts.sh /usr/local/bin/setup-marketing-shortcuts.sh

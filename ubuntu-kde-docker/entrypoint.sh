@@ -397,6 +397,16 @@ if [ -f "/usr/local/bin/setup-kde-optimization.sh" ]; then
 else
     log_warn "⚠️  KDE optimization script not found"
 fi
+
+# Setup system-level optimization
+log_info "Setting up system-level performance optimization..."
+if [ -f "/usr/local/bin/setup-system-optimization.sh" ]; then
+    chmod +x /usr/local/bin/setup-system-optimization.sh
+    /usr/local/bin/setup-system-optimization.sh
+    log_info "✅ System optimization setup completed"
+else
+    log_warn "⚠️  System optimization script not found"
+fi
 else
     echo "⚠️  Service health monitoring script not found"
 fi
