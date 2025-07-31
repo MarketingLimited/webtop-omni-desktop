@@ -279,6 +279,15 @@ chmod +x /usr/local/bin/monitor-services.sh
 # Start the enhanced monitor
 /usr/local/bin/monitor-services.sh &
 
+# Set up service health monitoring
+log_info "Setting up service health monitoring..."
+if [ -f "/usr/local/bin/service-health.sh" ]; then
+    chmod +x /usr/local/bin/service-health.sh
+    echo "✅ Service health monitoring setup completed"
+else
+    echo "⚠️  Service health monitoring script not found"
+fi
+
 log_info "Starting supervisor daemon..."
 
 exec env \
