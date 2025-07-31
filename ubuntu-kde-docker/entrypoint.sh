@@ -377,6 +377,16 @@ if [ -f "/usr/local/bin/setup-x11vnc-optimization.sh" ]; then
 else
     log_warn "⚠️  x11vnc optimization script not found"
 fi
+
+# Setup noVNC enhancement
+log_info "Setting up noVNC client enhancement..."
+if [ -f "/usr/local/bin/setup-novnc-enhancement.sh" ]; then
+    chmod +x /usr/local/bin/setup-novnc-enhancement.sh
+    /usr/local/bin/setup-novnc-enhancement.sh
+    log_info "✅ noVNC enhancement setup completed"
+else
+    log_warn "⚠️  noVNC enhancement script not found"
+fi
 else
     echo "⚠️  Service health monitoring script not found"
 fi
