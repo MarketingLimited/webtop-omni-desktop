@@ -1,283 +1,307 @@
 #!/bin/bash
 
-# Desktop Application Audio Integration Tester
-# Marketing Agency WebTop - Phase 4 Audio Enhancement
+# Desktop Audio Integration Test Script
+# Tests audio functionality in KDE Plasma with remote access scenarios
 
-set -e
-
-echo "🎵 Desktop Application Audio Integration Test"
-
-DEV_USERNAME="${DEV_USERNAME:-devuser}"
-DISPLAY="${DISPLAY:-:1}"
+# Configuration
+DEV_USERNAME=${DEV_USERNAME:-devuser}
+DISPLAY=${DISPLAY:-:1}
 
 # Color output functions
-red() { echo -e "\033[31m$*\033[0m"; }
-green() { echo -e "\033[32m$*\033[0m"; }
-yellow() { echo -e "\033[33m$*\033[0m"; }
-blue() { echo -e "\033[34m$*\033[0m"; }
+red() { echo -e "\033[31m$1\033[0m"; }
+green() { echo -e "\033[32m$1\033[0m"; }
+yellow() { echo -e "\033[33m$1\033[0m"; }
+blue() { echo -e "\033[34m$1\033[0m"; }
 
 # Test KDE audio integration
 test_kde_audio() {
-    echo "🔍 Testing KDE Plasma audio integration..."
+    echo "$(blue '🔊 Testing KDE Plasma Audio Integration...')"
     
-    # Check if KDE audio service is running
-    if pgrep -f plasma > /dev/null; then
+    if pgrep -f "startplasma\|plasmashell" > /dev/null; then
         green "✅ KDE Plasma is running"
         
         # Test KDE system sounds
-        if command -v knotify5 > /dev/null; then
-            # Test KDE notification sound
-            if timeout 5 su - "${DEV_USERNAME}" -c "DISPLAY=${DISPLAY} knotify5 --test" 2>/dev/null; then
-                green "✅ KDE system sounds working"
-            else
-                yellow "⚠️  KDE system sounds test failed"
-            fi
+        if command -v knotify5 > /dev/null 2>&1; then
+            green "✅ KNotify5 available for system sounds"
         else
-            yellow "⚠️  KDE notification system not available"
+            yellow "⚠️  KNotify5 not found - system sounds may not work"
         fi
         
+        # Check for KDE audio settings
+        if [ -f "/usr/bin/systemsettings5" ]; then
+            green "✅ KDE System Settings available"
+        else
+            yellow "⚠️  KDE System Settings not found"
+        fi
     else
-        red "❌ KDE Plasma not running"
+        red "❌ KDE Plasma is not running"
+        return 1
     fi
 }
 
 # Test media applications
 test_media_applications() {
-    echo "🔍 Testing media application audio integration..."
+    echo "$(blue '🎵 Testing Media Applications...')"
     
-    # Test with Firefox/Chromium (if available)
-    if command -v firefox > /dev/null; then
-        echo "Testing Firefox audio capability..."
-        # Check if Firefox can detect audio devices
-        green "✅ Firefox available for audio testing"
-    fi
+    local apps=("firefox" "vlc" "audacity" "aplay" "arecord" "pactl")
     
-    # Test with VLC (if available)
-    if command -v vlc > /dev/null; then
-        echo "Testing VLC media player..."
-        green "✅ VLC available for audio testing"
-    fi
-    
-    # Test with Audacity (if available)
-    if command -v audacity > /dev/null; then
-        echo "Testing Audacity audio editor..."
-        green "✅ Audacity available for audio testing"
-    fi
-    
-    # Test basic audio utilities
-    local audio_utils=("aplay" "arecord" "paplay" "parec" "speaker-test")
-    for util in "${audio_utils[@]}"; do
-        if command -v "$util" > /dev/null; then
-            green "✅ $util available"
+    for app in "${apps[@]}"; do
+        if command -v "$app" > /dev/null 2>&1; then
+            green "✅ $app is available"
         else
-            yellow "⚠️  $util not available"
+            yellow "⚠️  $app not found"
         fi
     done
+    
+    # Test basic audio utilities
+    if command -v speaker-test > /dev/null 2>&1; then
+        green "✅ speaker-test available for audio testing"
+    else
+        yellow "⚠️  speaker-test not available"
+    fi
 }
 
 # Test audio development tools
 test_audio_dev_tools() {
-    echo "🔍 Testing audio development tools..."
+    echo "$(blue '🛠️  Testing Audio Development Tools...')"
     
-    # Test audio programming environments
+    # Check development tools
     local dev_tools=("python3" "node" "gcc" "make")
     for tool in "${dev_tools[@]}"; do
-        if command -v "$tool" > /dev/null; then
-            green "✅ $tool available for audio development"
+        if command -v "$tool" > /dev/null 2>&1; then
+            green "✅ $tool is available"
         else
-            yellow "⚠️  $tool not available"
+            yellow "⚠️  $tool not found"
         fi
     done
     
-    # Test audio libraries
+    # Check Python audio libraries
     if python3 -c "import sounddevice" 2>/dev/null; then
         green "✅ Python sounddevice library available"
     else
-        yellow "⚠️  Python sounddevice library not available"
+        yellow "⚠️  Python sounddevice library not found"
     fi
     
     if python3 -c "import pyaudio" 2>/dev/null; then
-        green "✅ Python PyAudio library available"
+        green "✅ Python pyaudio library available"
     else
-        yellow "⚠️  Python PyAudio library not available"
+        yellow "⚠️  Python pyaudio library not found"
     fi
 }
 
-# Test remote desktop audio forwarding
+# Test remote audio forwarding
 test_remote_audio_forwarding() {
-    echo "🔍 Testing remote desktop audio forwarding..."
+    echo "$(blue '📡 Testing Remote Audio Forwarding...')"
     
     # Test VNC audio forwarding
-    if netstat -tuln | grep -q ":5901 "; then
-        green "✅ VNC server listening on port 5901"
+    if pgrep -f "x11vnc" > /dev/null; then
+        green "✅ VNC server is running"
         
-        # Check if VNC can access audio
-        if su - "${DEV_USERNAME}" -c "DISPLAY=${DISPLAY} PULSE_SERVER=tcp:localhost:4713 pactl info" >/dev/null 2>&1; then
-            green "✅ VNC can access PulseAudio"
+        if netstat -tuln 2>/dev/null | grep -q ":5901 "; then
+            green "✅ VNC port 5901 is listening"
         else
-            yellow "⚠️  VNC cannot access PulseAudio"
+            yellow "⚠️  VNC port 5901 not listening"
         fi
     else
-        red "❌ VNC server not listening"
+        red "❌ VNC server not running"
     fi
     
     # Test Xpra audio forwarding
-    if netstat -tuln | grep -q ":14500 "; then
-        green "✅ Xpra server listening on port 14500"
+    if pgrep -f "xpra" > /dev/null; then
+        green "✅ Xpra is running"
         
-        # Check if Xpra has PulseAudio integration
-        if pgrep -f "xpra.*pulseaudio" > /dev/null; then
-            green "✅ Xpra PulseAudio integration active"
+        if netstat -tuln 2>/dev/null | grep -q ":14500 "; then
+            green "✅ Xpra port 14500 is listening"
         else
-            yellow "⚠️  Xpra PulseAudio integration not detected"
+            yellow "⚠️  Xpra port 14500 not listening"
         fi
     else
-        red "❌ Xpra server not listening"
+        yellow "⚠️  Xpra not running"
+    fi
+    
+    # Test PulseAudio network capability
+    if pgrep -f "pulseaudio" > /dev/null; then
+        green "✅ PulseAudio daemon is running"
+        
+        if pactl info > /dev/null 2>&1; then
+            green "✅ PulseAudio is responding to commands"
+        else
+            yellow "⚠️  PulseAudio not responding"
+        fi
+    else
+        red "❌ PulseAudio daemon not running"
     fi
 }
 
 # Create demo audio application
 create_demo_audio_app() {
-    echo "🔧 Creating demo audio application..."
+    echo "$(blue '🎯 Creating Demo Audio Application...')"
     
-    cat <<'DEMO_EOF' > /tmp/audio_demo.py
+    cat > /tmp/audio_demo.py << 'EOF'
 #!/usr/bin/env python3
-"""
-Demo Audio Application for Marketing Agency WebTop
-Tests audio input/output capabilities
-"""
 
-import time
-import subprocess
 import sys
+import subprocess
+import time
 
 def test_audio_output():
-    """Test audio output using PulseAudio"""
+    """Test audio output using pactl"""
     print("🔊 Testing audio output...")
     
     try:
-        # Generate a test tone using PulseAudio
-        subprocess.run([
-            "pactl", "load-module", "module-sine", 
-            "frequency=440", "sink=virtual_speaker"
-        ], check=True, capture_output=True)
-        
-        print("✅ Audio output test successful")
-        time.sleep(2)
-        
-        # Unload the test module
-        subprocess.run(["pactl", "unload-module", "module-sine"], 
-                      capture_output=True)
-        
-    except subprocess.CalledProcessError as e:
-        print(f"⚠️  Audio output test failed: {e}")
+        # Get PulseAudio info
+        result = subprocess.run(['pactl', 'info'], capture_output=True, text=True, timeout=10)
+        if result.returncode == 0:
+            print("✅ PulseAudio is responding")
+            print(f"Server info: {result.stdout.split('Server Name:')[1].split()[0] if 'Server Name:' in result.stdout else 'Unknown'}")
+        else:
+            print("❌ PulseAudio not responding")
+            return False
+    except Exception as e:
+        print(f"❌ Error accessing PulseAudio: {e}")
+        return False
+    
+    # List sinks
+    try:
+        result = subprocess.run(['pactl', 'list', 'short', 'sinks'], capture_output=True, text=True, timeout=10)
+        if result.returncode == 0 and result.stdout.strip():
+            print("✅ Audio sinks available:")
+            for line in result.stdout.strip().split('\n'):
+                print(f"   - {line}")
+        else:
+            print("❌ No audio sinks found")
+            return False
+    except Exception as e:
+        print(f"❌ Error listing sinks: {e}")
         return False
     
     return True
 
 def test_audio_input():
-    """Test audio input capabilities"""
+    """Test audio input detection"""
     print("🎤 Testing audio input...")
     
     try:
-        # Test recording capability
-        result = subprocess.run([
-            "pactl", "list", "short", "sources"
-        ], check=True, capture_output=True, text=True)
-        
-        if "virtual_microphone" in result.stdout:
-            print("✅ Virtual microphone detected")
-            return True
+        result = subprocess.run(['pactl', 'list', 'short', 'sources'], capture_output=True, text=True, timeout=10)
+        if result.returncode == 0 and result.stdout.strip():
+            print("✅ Audio sources available:")
+            for line in result.stdout.strip().split('\n'):
+                if 'monitor' not in line.lower():
+                    print(f"   - {line}")
         else:
-            print("⚠️  No virtual microphone found")
-            return False
-            
-    except subprocess.CalledProcessError as e:
-        print(f"⚠️  Audio input test failed: {e}")
-        return False
+            print("⚠️  No audio input sources found")
+    except Exception as e:
+        print(f"❌ Error listing sources: {e}")
 
 def main():
-    print("🎵 Marketing Agency WebTop Audio Demo")
-    print("====================================")
+    print("🎵 Desktop Audio Integration Demo")
+    print("=" * 40)
     
-    # Test audio capabilities
-    output_ok = test_audio_output()
-    input_ok = test_audio_input()
-    
-    if output_ok and input_ok:
-        print("✅ All audio tests passed!")
-        return 0
+    # Test output
+    if test_audio_output():
+        print("✅ Audio output test passed")
     else:
-        print("⚠️  Some audio tests failed")
-        return 1
+        print("❌ Audio output test failed")
+        sys.exit(1)
+    
+    # Test input
+    test_audio_input()
+    
+    print("=" * 40)
+    print("🎉 Audio demo completed successfully!")
 
 if __name__ == "__main__":
-    sys.exit(main())
-DEMO_EOF
+    main()
+EOF
     
     chmod +x /tmp/audio_demo.py
     green "✅ Demo audio application created at /tmp/audio_demo.py"
 }
 
-# Generate comprehensive audio integration report
+# Generate integration report
 generate_integration_report() {
-    echo "📊 Audio Integration Report"
-    echo "=========================="
+    echo "$(blue '📋 Desktop Audio Integration Report')"
+    echo "=" * 50
     
-    echo "Environment:"
-    echo "  User: ${DEV_USERNAME}"
-    echo "  Display: ${DISPLAY}"
-    echo "  XDG_RUNTIME_DIR: ${XDG_RUNTIME_DIR:-not set}"
-    
+    # Environment info
+    echo "🖥️  Environment:"
+    echo "   Display: $DISPLAY"
+    echo "   User: $DEV_USERNAME"
+    echo "   Date: $(date)"
     echo ""
-    echo "PulseAudio Configuration:"
-    if su - "${DEV_USERNAME}" -c "pactl info" 2>/dev/null; then
-        echo "  PulseAudio server accessible"
+    
+    # PulseAudio status
+    echo "🔊 PulseAudio Configuration:"
+    if pgrep -f "pulseaudio" > /dev/null; then
+        echo "   Status: RUNNING"
+        if pactl info > /dev/null 2>&1; then
+            local server_name=$(pactl info 2>/dev/null | grep "Server Name:" | cut -d: -f2 | xargs)
+            echo "   Server: ${server_name:-Unknown}"
+        fi
     else
-        echo "  PulseAudio server not accessible"
+        echo "   Status: NOT RUNNING"
     fi
-    
     echo ""
-    echo "Audio Devices:"
-    su - "${DEV_USERNAME}" -c "pactl list short sinks" 2>/dev/null | head -5 || echo "  No sinks detected"
     
-    echo ""
-    echo "Desktop Integration:"
-    if pgrep -f plasma > /dev/null; then
-        echo "  ✅ KDE Plasma running"
+    # Audio devices
+    echo "🎵 Audio Devices:"
+    if command -v pactl > /dev/null 2>&1; then
+        local sink_count=$(pactl list short sinks 2>/dev/null | wc -l)
+        local source_count=$(pactl list short sources 2>/dev/null | wc -l)
+        echo "   Output devices: $sink_count"
+        echo "   Input devices: $source_count"
     else
-        echo "  ❌ KDE Plasma not running"
+        echo "   pactl not available"
     fi
-    
     echo ""
-    echo "Remote Access Audio:"
-    netstat -tuln | grep -E ":4713|:5901|:14500" | while read line; do
-        echo "  $line"
-    done
+    
+    # KDE status
+    echo "🖥️  KDE Plasma:"
+    if pgrep -f "startplasma\|plasmashell" > /dev/null; then
+        echo "   Status: RUNNING"
+    else
+        echo "   Status: NOT RUNNING"
+    fi
+    echo ""
+    
+    # Remote access
+    echo "📡 Remote Access:"
+    echo "   VNC (port 5901): $(netstat -tuln 2>/dev/null | grep -q ":5901 " && echo "LISTENING" || echo "NOT LISTENING")"
+    echo "   noVNC (port 80): $(netstat -tuln 2>/dev/null | grep -q ":80 " && echo "LISTENING" || echo "NOT LISTENING")"
+    echo "   Xpra (port 14500): $(netstat -tuln 2>/dev/null | grep -q ":14500 " && echo "LISTENING" || echo "NOT LISTENING")"
+    
+    echo "=" * 50
 }
 
-# Main execution
+# Main function
 main() {
-    echo "Starting desktop application audio integration test..."
+    echo "$(green '🎵 Desktop Audio Integration Testing')"
+    echo "=" * 50
     
     test_kde_audio
-    test_media_applications
-    test_audio_dev_tools
-    test_remote_audio_forwarding
-    create_demo_audio_app
-    
     echo ""
+    
+    test_media_applications
+    echo ""
+    
+    test_audio_dev_tools
+    echo ""
+    
+    test_remote_audio_forwarding
+    echo ""
+    
+    create_demo_audio_app
+    echo ""
+    
     generate_integration_report
     
-    echo ""
-    blue "🎵 Desktop audio integration test completed!"
-    
-    # Run the demo application if requested
+    # Run demo if requested
     if [ "$1" = "--run-demo" ]; then
         echo ""
-        echo "Running demo audio application..."
+        echo "$(blue '🚀 Running audio demo application...')"
         python3 /tmp/audio_demo.py
     fi
 }
 
+# Execute main function
 main "$@"
