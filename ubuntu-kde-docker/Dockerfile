@@ -5,7 +5,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Install all required packages and lightweight fallback WM
 RUN apt-get update && apt-get install -y \
     sudo wget curl gnupg2 apt-transport-https software-properties-common \
-    ca-certificates lsb-release htop net-tools unzip locales \
+    ca-certificates lsb-release htop net-tools unzip locales netcat-openbsd \
     kde-plasma-desktop dolphin kate okular konsole \
     openbox tint2 xterm \
     libreoffice vlc gimp inkscape plank \
@@ -166,6 +166,8 @@ COPY fix-permissions.sh /usr/local/bin/fix-permissions.sh
 RUN chmod +x /usr/local/bin/setup-*.sh /usr/local/bin/health-check.sh /usr/local/bin/fix-permissions.sh
 
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY polkit-localauthority.conf /tmp/polkit-localauthority.conf
+COPY polkit-dbus.conf /tmp/polkit-dbus.conf
 
 
 

@@ -58,6 +58,9 @@ getent passwd whoopsie >/dev/null || useradd -r -g whoopsie -s /sbin/nologin -d 
 getent group polkitd >/dev/null || groupadd -r polkitd
 getent passwd polkitd >/dev/null || useradd -r -g polkitd -s /sbin/nologin polkitd
 
+# Create basic polkit directories and configuration
+mkdir -p /var/lib/polkit-1/localauthority /etc/polkit-1/localauthority.conf.d /etc/dbus-1/system.d
+
 # Create messagebus user for D-Bus if it doesn't exist
 getent group messagebus >/dev/null || groupadd -r messagebus
 getent passwd messagebus >/dev/null || useradd -r -g messagebus -s /sbin/nologin messagebus
