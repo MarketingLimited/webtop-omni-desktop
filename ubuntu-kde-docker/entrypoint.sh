@@ -144,6 +144,15 @@ echo "🔧 Preparing D-Bus directories..."
 mkdir -p /run/dbus
 echo "✅ D-Bus directories prepared"
 
+# Set up audio system before other services
+log_info "Setting up audio system..."
+if [ -f "/usr/local/bin/setup-audio.sh" ]; then
+    /usr/local/bin/setup-audio.sh
+    echo "✅ Audio system setup completed"
+else
+    echo "⚠️  Audio setup script not found"
+fi
+
 # Generate SSH host keys if they don't exist
 log_info "Setting up SSH host keys..."
 mkdir -p /etc/ssh /run/sshd

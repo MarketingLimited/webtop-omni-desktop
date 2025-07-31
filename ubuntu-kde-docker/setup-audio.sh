@@ -82,6 +82,17 @@ if ! lsmod | grep -q snd_aloop; then
     modprobe snd-aloop || echo "⚠️  Could not load snd-aloop module (may need privileged mode)"
 fi
 
+# Ensure audio device permissions
+if [ -d "/dev/snd" ]; then
+    chown -R "${DEV_USERNAME}:audio" /dev/snd || echo "⚠️  Could not set audio device permissions"
+    chmod -R g+rw /dev/snd || echo "⚠️  Could not set audio device permissions"
+fi
+
+# Create pulse directories with proper ownership
+mkdir -p "/run/user/${DEV_UID}/pulse"
+chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/run/user/${DEV_UID}"
+chmod 700 "/run/user/${DEV_UID}"
+
 # Create audio test script
 cat <<'EOF' > /usr/local/bin/test-audio.sh
 #!/bin/bash
