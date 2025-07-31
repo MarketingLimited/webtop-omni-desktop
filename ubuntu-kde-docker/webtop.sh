@@ -1,12 +1,15 @@
 #!/bin/bash
 
 # Webtop KDE Marketing Agency Manager
-# Enhanced for Web Development, Video Editing, Wine, and Android support
+# Enhanced with multi-container support and HTTP authentication
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
+
+# Container registry file
+CONTAINER_REGISTRY=".container-registry.json"
 
 # Colors for output
 RED='\033[0;31m'
@@ -16,6 +19,11 @@ BLUE='\033[0;34m'
 PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
+
+# Container options
+CONTAINER_NAME=""
+CONTAINER_PORTS=""
+ENABLE_AUTH=""
 
 # Print colored output
 print_status() {
@@ -89,26 +97,22 @@ show_help() {
     echo
     echo -e "${YELLOW}COMMANDS:${NC}"
     echo "  build [--dev|--prod]     Build Docker image"
-    echo "  build-bg [--dev|--prod]  Build Docker image in background"
-    echo "  build-status             Check background build progress"
-    echo "  build-logs               Show build logs"
-    echo "  build-stop               Stop background build"
-    echo "  up [--dev|--prod]        Start the container"
+    echo "  up [--dev|--prod]        Start containers"
     echo "  down                     Stop and remove containers"
-    echo "  restart                  Restart containers"
     echo "  logs                     Show container logs"
     echo "  status                   Show container status"
     echo "  shell                    Access container shell"
+    echo "  web                      Open noVNC in browser"
     echo "  update                   Update and rebuild"
     echo "  clean                    Clean Docker system"
-    echo "  backup                   Backup container data"
-    echo "  restore [backup_file]    Restore from backup"
     echo
-    echo -e "${YELLOW}ACCESS POINTS:${NC}"
-    echo "  web                      Open noVNC in browser"
-    echo "  "
-    echo "  ssh                      Connect via SSH"
-    echo "  terminal                 Open web terminal"
+    echo -e "${YELLOW}MULTI-CONTAINER:${NC}"
+    echo "  list                     List all managed containers"
+    echo "  switch <name>            Switch context to container"
+    echo "  remove <name>            Remove specific container"
+    echo "  add-user <user:pass>     Add VNC authentication user"
+    echo "  remove-user <user>       Remove VNC authentication user"
+    echo "  list-users               List VNC authentication users"
     echo
     echo -e "${YELLOW}DEVELOPMENT:${NC}"
     echo "  dev-setup               Setup development environment"
@@ -116,15 +120,12 @@ show_help() {
     echo "  android-setup           Setup Android/Waydroid environment"
     echo "  video-setup             Configure video editing tools"
     echo
-    echo -e "${YELLOW}MONITORING:${NC}"
-    echo "  monitor                 Show resource usage"
-    echo "  health                  Check container health"
-    echo "  benchmark               Run performance benchmark"
-    echo
     echo -e "${YELLOW}OPTIONS:${NC}"
+    echo "  --name=<name>            Custom container name"
+    echo "  --ports=<mapping>        Custom port mapping"
+    echo "  --auth                   Enable HTTP authentication"
     echo "  --dev                   Use development configuration"
     echo "  --prod                  Use production configuration"
-    echo "  --help, -h              Show this help message"
     echo
 }
 

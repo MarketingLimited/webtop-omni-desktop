@@ -37,6 +37,7 @@
 - **System Requirements**: 8GB+ RAM (16GB recommended), 50GB+ disk space
 - **Operating System**: Linux, macOS, or Windows with WSL2
 - **Browser**: Modern web browser (Chrome, Firefox, Safari)
+- **jq**: For container management (auto-installed if missing)
 
 ### Automated Installation (Recommended)
 
@@ -61,6 +62,12 @@
    ```bash
    ./webtop.sh build
    ./webtop.sh up
+   
+   # Or with authentication enabled
+   ./webtop.sh up --auth
+   
+   # Multi-container setup
+   ./webtop.sh up --name=client1 --ports=32769:80,2223:22 --auth
    ```
 
 4. **Background Building (Optional)**
