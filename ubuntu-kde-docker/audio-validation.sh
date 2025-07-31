@@ -162,4 +162,7 @@ main() {
     fi
 }
 
-main "$@"
+# Run validation if called directly
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi

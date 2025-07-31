@@ -158,6 +158,7 @@ COPY setup-video-editing.sh /usr/local/bin/setup-video-editing.sh
 COPY setup-ttyd.sh /usr/local/bin/setup-ttyd.sh
 COPY service-health.sh /usr/local/bin/service-health.sh
 COPY test-desktop-audio.sh /usr/local/bin/test-desktop-audio.sh
+COPY system-validation.sh /usr/local/bin/system-validation.sh
 COPY audio-monitor.sh /usr/local/bin/audio-monitor.sh
 COPY health-check.sh /usr/local/bin/health-check.sh
 COPY fix-permissions.sh /usr/local/bin/fix-permissions.sh
