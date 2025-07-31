@@ -278,26 +278,35 @@ fi
 chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}"
 chown -R "${ADMIN_USERNAME}:${ADMIN_USERNAME}" "/home/${ADMIN_USERNAME}"
 
-# Setup Wine and Windows applications
+# Setup Wine and Windows applications (runtime only)
 log_info "Setting up Wine and Google Ads Editor..."
-if /opt/setup-wine.sh; then
-    log_info "Wine setup completed successfully"
-    
-    # Setup Google Ads Editor
-    if /opt/setup-google-ads-editor.sh; then
-        log_info "Google Ads Editor setup completed successfully"
+if [ -f "/usr/local/bin/setup-wine.sh" ]; then
+    if /usr/local/bin/setup-wine.sh; then
+        log_info "Wine setup completed successfully"
+        
+        # Setup Google Ads Editor
+        if [ -f "/usr/local/bin/setup-google-ads-editor.sh" ]; then
+            if /usr/local/bin/setup-google-ads-editor.sh; then
+                log_info "Google Ads Editor setup completed successfully"
+            else
+                log_warn "Google Ads Editor setup failed"
+            fi
+        else
+            log_warn "Google Ads Editor setup script not found"
+        fi
     else
-        log_warn "Google Ads Editor setup failed"
+        log_warn "Wine setup failed"
     fi
 else
-    log_warn "Wine setup failed"
+    log_warn "Wine setup script not found"
 fi
 
 # Setup Android subsystem (Waydroid/Anbox)
 log_info "Setting up Android subsystem..."
-if /opt/setup-waydroid.sh; then
-    log_info "Android subsystem setup completed"
-else
+if [ -f "/usr/local/bin/setup-waydroid.sh" ]; then
+    if /usr/local/bin/setup-waydroid.sh; then
+        log_info "Android subsystem setup completed"
+    else
     log_warn "Android subsystem setup failed"
 fi
 

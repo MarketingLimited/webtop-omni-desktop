@@ -12,6 +12,10 @@ export WINEARCH="win64"
 export WINEDLLOVERRIDES="mscoree,mshtml="
 mkdir -p "$WINEPREFIX"
 
+# Ensure Wine prefix is properly owned
+mkdir -p "$WINEPREFIX"
+chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "$WINEPREFIX"
+
 # Set up Wine as the dev user
 sudo -u "$DEV_USERNAME" bash << 'WINE_SETUP'
 export WINEPREFIX="/home/devuser/.wine"
@@ -32,6 +36,9 @@ WINEDEBUG=-all winetricks -q --unattended win10 || true
 
 echo "✅ Wine setup completed"
 WINE_SETUP
+
+# Final ownership fix
+chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "$WINEPREFIX"
 
 # Create desktop shortcuts
 mkdir -p "${DEV_HOME}/.local/share/applications"
