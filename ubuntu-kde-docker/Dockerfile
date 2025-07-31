@@ -48,7 +48,7 @@ RUN apt-get update && apt-get install -y \
     nextcloud-desktop \
     fonts-noto-core fonts-noto-ui-core fonts-noto-color-emoji fonts-noto-extra \
     fonts-dejavu fonts-crosextra-carlito fonts-crosextra-caladea fonts-hosny-amiri fonts-kacst qttranslations5-l10n libqt5script5 fonts-freefont-ttf \
-    supervisor tigervnc-standalone-server tigervnc-common novnc websockify \
+    supervisor novnc websockify x11vnc xvfb \
     dbus-x11 x11-xserver-utils xfonts-base snapd kmod \
     mesa-utils libgl1-mesa-dri libglx-mesa0 libosmesa6 libglu1-mesa \
     gnome-terminal lxterminal terminator accountsservice policykit-1 \
@@ -141,15 +141,9 @@ ENV LANGUAGE=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
 ENV TTYD_USER=terminal
 ENV TTYD_PASSWORD=terminal
-# VNC xstartup: launch KDE Plasma
-RUN mkdir -p /var/run/sshd /root/.vnc && \
-    cat <<'EOF' >/root/.vnc/xstartup && \
-#!/bin/sh
-export XKL_XMODMAP_DISABLE=1
-export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-exec dbus-launch --exit-with-session /usr/bin/startplasma-x11
-EOF
-RUN chmod +x /root/.vnc/xstartup
+# Create directories and VNC setup for x11vnc
+RUN mkdir -p /var/run/sshd /root/.vnc /tmp/.X11-unix && \
+    chmod 1777 /tmp/.X11-unix
 
 
 # Desktop and Flatpak setup scripts
@@ -186,9 +180,12 @@ COPY devuser-all.rules /etc/polkit-1/rules.d/49-nopasswd_global.rules
 COPY 10-vendor.d-admin.rules /etc/polkit-1/rules.d/10-vendor.d-admin.rules
 COPY monitor-services.sh /usr/local/bin/monitor-services.sh
 
-# Ensure PolicyKit directories and permissions are correct
-RUN mkdir -p /etc/polkit-1/localauthority.conf.d /etc/polkit-1/rules.d /var/lib/polkit-1 && \
+# Create missing system directories and disable PolicyKit for container environment
+RUN mkdir -p /etc/polkit-1/localauthority.conf.d /etc/polkit-1/rules.d /var/lib/polkit-1 \
+    /var/log/supervisor /run/user/1000 && \
     chown -R polkitd:polkitd /var/lib/polkit-1 && \
+    chown 1000:1000 /run/user/1000 && \
+    chmod 700 /run/user/1000 && \
     chmod 755 /etc/polkit-1/rules.d && \
     chmod 644 /etc/polkit-1/rules.d/* /etc/polkit-1/localauthority.conf.d/* && \
     chmod +x /usr/local/bin/monitor-services.sh
@@ -197,8 +194,9 @@ RUN mkdir -p /etc/polkit-1/localauthority.conf.d /etc/polkit-1/rules.d /var/lib/
 RUN ln -sf /usr/lib/x86_64-linux-gnu/libexec/polkit-kde-authentication-agent-1 /usr/lib/polkit-kde-authentication-agent-1 && \
     sed -i 's@^Exec=.*@Exec=/usr/lib/polkit-kde-authentication-agent-1@' /etc/xdg/autostart/polkit-kde-authentication-agent-1.desktop
 
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+COPY xstartup /tmp/xstartup
+COPY simple-entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh /tmp/xstartup
 
 ENTRYPOINT ["/entrypoint.sh"]
 
