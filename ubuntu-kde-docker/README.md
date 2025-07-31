@@ -50,19 +50,30 @@ cp .env.example .env
 
 ### 2. Choose Your Environment
 
-**Development (Full Features):**
+**Multi-Container with Enhanced Volume Management (Recommended):**
 ```bash
+# Initialize enhanced volume management
+./setup-volumes.sh
+
+# Create named containers with auto port assignment
+./webtop.sh up --name client1 --auth
+./webtop.sh up --name team-alpha
+./webtop.sh up --name client2 --template marketing
+
+# List all containers
+./webtop.sh list
+```
+
+**Traditional Single Container:**
+```bash
+# Development (Full Features)
 ./webtop.sh build
 docker compose -f docker-compose.dev.yml up -d
-```
 
-**Production (Optimized):**
-```bash
+# Production (Optimized)  
 docker compose -f docker-compose.prod.yml up -d
-```
 
-**Basic (Original):**
-```bash
+# Basic (Original)
 ./webtop.sh up
 ```
 
@@ -78,7 +89,36 @@ docker compose -f docker-compose.prod.yml up -d
 
 ## 🛠️ Management Scripts
 
-### WebTop Control
+### **Multi-Container Management**
+```bash
+# Create and manage named containers  
+./webtop.sh up --name client1                    # Create isolated container
+./webtop.sh up --name team-alpha --auth          # With authentication
+./webtop.sh list                                 # List all containers
+./webtop.sh info client1                         # Show container details
+./webtop.sh stop client1                         # Stop specific container
+./webtop.sh remove client1                       # Remove container & volumes
+```
+
+### **Enhanced Volume & Backup Management**
+```bash
+# One-click backup and restore
+./webtop.sh backup client1                       # Backup container volumes
+./webtop.sh restore client1 backup-20240131      # Restore from backup
+./webtop.sh clone client1 client2                # Clone container setup
+
+# Template system for rapid deployment
+./webtop.sh template save client1 marketing-template    # Save as template
+./webtop.sh template create client3 marketing-template  # Create from template
+./webtop.sh template list                               # List available templates
+
+# Volume management utilities
+./webtop.sh volumes list                         # List all volumes
+./webtop.sh volumes backup-all                   # Backup all containers
+./webtop.sh volumes cleanup                      # Clean unused volumes
+```
+
+### **Traditional WebTop Control**
 ```bash
 ./webtop.sh build [--background]  # Build container (optionally in background)
 ./webtop.sh up        # Start services
@@ -89,7 +129,7 @@ docker compose -f docker-compose.prod.yml up -d
 ./webtop.sh shell     # Open shell
 ```
 
-### Background Building
+### **Background Building**
 ```bash
 ./webtop.sh build-bg [--dev|--prod] # Start background build
 ./webtop.sh build-status           # Check build progress
@@ -98,15 +138,15 @@ docker compose -f docker-compose.prod.yml up -d
 ./webtop.sh build-cleanup          # Clean up build files
 ```
 
-### System Validation
+### **System Validation**
 ```bash
-# Comprehensive system validation
+# Comprehensive system validation for named containers
+docker exec client1 /usr/local/bin/system-validation.sh
+docker exec team-alpha /usr/local/bin/health-check.sh
+
+# Traditional single container validation
 docker exec webtop-kde /usr/local/bin/system-validation.sh
-
-# Service health check
 docker exec webtop-kde /usr/local/bin/health-check.sh
-
-# Service-specific monitoring
 docker exec webtop-kde /usr/local/bin/service-health.sh status
 ```
 
@@ -369,11 +409,16 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 This WebTop is specifically optimized for marketing agencies with:
 
+- **Multi-Client Support**: Isolated containers for each client with complete data separation
+- **Template-Based Deployment**: Rapid setup with pre-configured marketing environments
+- **Enterprise Backup**: Automated daily backups with one-click restore capabilities
 - **Client-Ready Environment**: Professional desktop for client presentations
-- **Collaborative Tools**: Built-in communication and project management
-- **Creative Workflow**: Optimized for design-to-delivery workflows
-- **Performance**: Tuned for marketing application performance
-- **Security**: Client data protection and access controls
+- **Collaborative Tools**: Team containers for collaborative project work
+- **Creative Workflow**: Optimized for design-to-delivery workflows with persistent project storage
+- **Performance**: Tuned for marketing application performance with smart resource management
+- **Security**: Client data protection, access controls, and complete environment isolation
+- **Disaster Recovery**: Complete backup/restore system for business continuity
+- **Scalability**: Easy scaling from single user to multi-client agency operations
 
 ---
 

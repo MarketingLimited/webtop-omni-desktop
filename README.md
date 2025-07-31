@@ -56,21 +56,37 @@
    - Check system requirements and Docker installation
    - Set up proper file permissions
    - Create environment configuration
+   - Initialize enhanced volume management
    - Validate Docker Compose files
 
 3. **Build and start the environment**
    ```bash
+   # Single container (traditional)
    ./webtop.sh build
    ./webtop.sh up
    
-   # Or with authentication enabled
-   ./webtop.sh up --auth
+   # Multi-container with auto port discovery
+   ./webtop.sh up --name client1 --auth   # Auto-assigns available ports
+   ./webtop.sh up --name team-alpha        # Creates isolated environment
    
-    # Multi-container setup with auto port discovery
-    ./webtop.sh up --name=client1 --auth   # Auto-assigns available ports
+   # Template-based container creation
+   ./webtop.sh up --name client2 --template marketing
    ```
 
-4. **Background Building (Optional)**
+4. **Enhanced Volume Management**
+   ```bash
+   # Initialize volume management (auto-run during install)
+   ./setup-volumes.sh
+   
+   # One-click backup and restore
+   ./webtop.sh backup client1
+   ./webtop.sh restore client1 backup-20240131
+   
+   # Clone existing containers
+   ./webtop.sh clone client1 client1-backup
+   ```
+
+5. **Background Building (Optional)**
    ```bash
    # For large builds, use background building
    ./webtop.sh build-bg --dev    # Development build in background
@@ -133,6 +149,36 @@
 
 ## 📱 Management Commands
 
+### **Multi-Container Management**
+```bash
+# Create and manage named containers
+./webtop.sh up --name client1                    # Create isolated container
+./webtop.sh up --name team-alpha --auth          # With authentication
+./webtop.sh list                                 # List all containers
+./webtop.sh info client1                         # Show container details
+./webtop.sh stop client1                         # Stop specific container
+./webtop.sh remove client1                       # Remove container & volumes
+```
+
+### **Enhanced Volume & Backup Management**
+```bash
+# One-click backup and restore
+./webtop.sh backup client1                       # Backup container
+./webtop.sh restore client1 backup-20240131      # Restore from backup
+./webtop.sh clone client1 client2                # Clone container setup
+
+# Template system for rapid deployment
+./webtop.sh template save client1 marketing-template    # Save as template
+./webtop.sh template create client3 marketing-template  # Create from template
+./webtop.sh template list                               # List templates
+
+# Volume management
+./webtop.sh volumes list                         # List all volumes
+./webtop.sh volumes backup-all                   # Backup all containers
+./webtop.sh volumes cleanup                      # Clean unused volumes
+```
+
+### **Traditional Container Operations**
 ```bash
 # Container management
 ./webtop.sh up [--dev|--prod]     # Start containers
@@ -164,30 +210,39 @@
 
 ## 🎯 Marketing Agency Workflows
 
+### **Multi-Client Management**
+1. **Isolated Environments**: Each client gets dedicated container (`client1`, `client2`)
+2. **Template-Based Setup**: Quick deployment with `marketing-template`
+3. **Team Collaboration**: Shared containers for team projects (`team-alpha`)
+4. **Data Isolation**: Complete separation of client data and configurations
+
 ### **Content Creation Pipeline**
 1. **Design**: GIMP, Inkscape, Krita for graphics
 2. **Video Production**: Kdenlive, Blender for content creation
 3. **Social Media**: Native mobile apps via Waydroid
 4. **Analytics**: Integrated analytics tools and dashboards
+5. **Backup & Recovery**: Automated daily backups of all work
 
 ### **Development Workflow**
-1. **Web Development**: Full-stack development environment
+1. **Web Development**: Full-stack development environment with persistent projects
 2. **Testing**: Cross-platform testing with Windows/Android apps
 3. **Deployment**: CI/CD tools and cloud integration
-4. **Monitoring**: Performance monitoring and optimization
+4. **Environment Cloning**: Clone dev environments for testing
 
-### **Client Collaboration**
-1. **Remote Access**: Secure browser-based collaboration
-2. **File Sharing**: Seamless file management and sharing
-3. **Review Tools**: Video review and feedback systems
-4. **Project Management**: Integrated project management tools
+### **Client Collaboration & Handoff**
+1. **Template Creation**: Save configured environments as reusable templates
+2. **Quick Setup**: Deploy client environments in minutes
+3. **Data Migration**: Easy backup/restore for client handoffs
+4. **Disaster Recovery**: One-click restore from any backup point
 
 ## 🛡 Security & Performance
 
-- **Container Security**: Isolated environment with controlled access
-- **Data Protection**: Encrypted volumes and secure networking
+- **Container Security**: Isolated environment with controlled access per client
+- **Data Protection**: Encrypted volumes and secure networking with complete data isolation
 - **Performance Optimization**: GPU acceleration and resource management
-- **Backup Systems**: Automated workspace backups
+- **Enterprise Backup**: Automated daily backups with one-click restore capabilities
+- **Multi-Container Isolation**: Complete separation between client environments
+- **Template Security**: Secure template creation and deployment
 
 ## 🔧 Troubleshooting
 

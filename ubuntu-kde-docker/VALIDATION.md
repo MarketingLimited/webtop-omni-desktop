@@ -40,7 +40,34 @@ The container runs automatic validation through the `SystemValidation` service i
 
 ## Manual Validation Commands
 
-### Full System Validation
+### **Multi-Container Validation**
+```bash
+# Validate specific named containers
+docker exec client1 /usr/local/bin/system-validation.sh
+docker exec team-alpha /usr/local/bin/health-check.sh
+docker exec client2 /usr/local/bin/service-health.sh status
+
+# Validate all running containers
+./webtop.sh list | grep -v "CONTAINER" | while read container; do
+  echo "Validating: $container"
+  docker exec $container /usr/local/bin/health-check.sh
+done
+```
+
+### **Volume Validation**
+```bash
+# Validate volume integrity for named containers
+./webtop.sh volumes list                          # List all volumes
+docker volume inspect client1_home               # Check specific volume
+docker volume inspect client1_config             # Check config volume
+docker volume inspect client1_projects           # Check projects volume
+
+# Validate backup integrity
+./webtop.sh backup client1 --verify              # Backup with verification
+ls -la backups/client1/                          # Check backup files
+```
+
+### **Traditional Single Container Validation**
 ```bash
 # Complete system validation with detailed report
 docker exec webtop-kde /usr/local/bin/system-validation.sh
@@ -50,6 +77,20 @@ docker exec webtop-kde /usr/local/bin/health-check.sh
 
 # Service-specific status
 docker exec webtop-kde /usr/local/bin/service-health.sh status
+```
+
+### **Backup Validation**
+```bash
+# Validate backup completeness
+./webtop.sh backup client1
+ls -la backups/client1_$(date +%Y%m%d)/
+
+# Test restore process (dry run)
+./webtop.sh restore client1 backup-20240131 --dry-run
+
+# Validate template integrity
+./webtop.sh template list                         # List available templates
+ls -la templates/marketing-template/              # Check template files
 ```
 
 ### Build Process Validation
@@ -66,26 +107,46 @@ docker exec webtop-kde /usr/local/bin/service-health.sh status
 
 ### Component-Specific Validation
 
-#### Audio System
+#### **Audio System (Multi-Container)**
 ```bash
-# Audio validation and setup
+# Audio validation for named containers
+docker exec client1 /usr/local/bin/audio-validation.sh
+docker exec team-alpha /usr/local/bin/test-desktop-audio.sh
+docker exec client2 /usr/local/bin/audio-monitor.sh monitor
+
+# Traditional single container audio validation
 docker exec webtop-kde /usr/local/bin/audio-validation.sh
-
-# Desktop audio integration test  
 docker exec webtop-kde /usr/local/bin/test-desktop-audio.sh
-
-# Continuous audio monitoring
 docker exec webtop-kde /usr/local/bin/audio-monitor.sh monitor
 ```
 
-#### Service Monitoring
+#### **Service Monitoring (Multi-Container)**
 ```bash
-# Real-time service status
-docker exec webtop-kde supervisorctl status
+# Real-time service status for named containers
+docker exec client1 supervisorctl status
+docker exec team-alpha supervisorctl status
 
-# Service logs
+# Service logs for specific containers
+docker exec client1 supervisorctl tail -f SystemValidation
+docker exec team-alpha supervisorctl tail -f AudioValidation
+
+# Traditional single container monitoring
+docker exec webtop-kde supervisorctl status
 docker exec webtop-kde supervisorctl tail -f SystemValidation
 docker exec webtop-kde supervisorctl tail -f AudioValidation
+```
+
+#### **Volume and Data Validation**
+```bash
+# Validate volume mounts for named containers
+docker exec client1 df -h /home/devuser/projects   # Check projects volume
+docker exec client1 ls -la /home/devuser/          # Check home directory
+docker exec client1 wine --version                 # Check wine persistence
+
+# Test backup/restore validation
+./webtop.sh backup client1
+./webtop.sh restore client1-test backup-20240131   # Test restore to new container
+docker exec client1-test ls -la /home/devuser/     # Verify restored data
 ```
 
 ## Validation Report Interpretation
@@ -191,23 +252,50 @@ docker exec webtop-kde /usr/local/bin/system-validation.sh desktop
 ./webtop.sh build-logs | tail -20
 ```
 
-### Build Validation Workflow
+### **Multi-Container Build Validation Workflow**
 ```bash
-# Validate build before starting
+# Validate build before creating multiple containers
 ./webtop.sh build-bg --dev
 while [ "$(./webtop.sh build-status)" != "completed" ]; do
   echo "Build in progress: $(./webtop.sh build-status)"
   sleep 30
 done
 
-# Validate build success
+# Validate build success and create containers
 if [ "$(./webtop.sh build-status)" = "completed" ]; then
   echo "✅ Build completed successfully"
-  ./webtop.sh up --dev
+  
+  # Create multiple containers from successful build
+  ./webtop.sh up --name client1
+  ./webtop.sh up --name team-alpha --auth
+  ./webtop.sh up --name client2 --template marketing
+  
+  # Validate all containers
+  ./webtop.sh list
+  docker exec client1 /usr/local/bin/health-check.sh
+  docker exec team-alpha /usr/local/bin/health-check.sh
+  docker exec client2 /usr/local/bin/health-check.sh
 else
   echo "❌ Build failed"
   ./webtop.sh build-logs | tail -50
 fi
+```
+
+### **Volume and Template Validation Workflow**
+```bash
+# Validate template creation and usage
+./webtop.sh up --name template-test
+# Configure the container as needed
+./webtop.sh template save template-test marketing-agency
+
+# Test template deployment
+./webtop.sh template create client-from-template marketing-agency
+docker exec client-from-template /usr/local/bin/system-validation.sh
+
+# Validate backup/restore workflow
+./webtop.sh backup client-from-template
+./webtop.sh restore test-restore backup-$(date +%Y%m%d)
+docker exec test-restore ls -la /home/devuser/Desktop/
 ```
 
 ## Performance Monitoring
