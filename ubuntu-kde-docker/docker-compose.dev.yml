@@ -11,7 +11,7 @@ services:
       - "32768:80"      # noVNC
       - "2222:22"       # SSH
       - "7681:7681"     # ttyd terminal
-      - "14500:14500"   # Xpra
+      
       - "4713:4713"     # PulseAudio
     env_file:
       - .env

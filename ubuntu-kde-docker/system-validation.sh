@@ -71,31 +71,6 @@ validate_audio() {
     fi
 }
 
-# Validate Xpra service
-validate_xpra() {
-    log_validation "Validating Xpra service..."
-    
-    # Check if Xpra process is running
-    if ! pgrep -f "xpra.*start" >/dev/null; then
-        add_result "Xpra Service" "FAIL" "Xpra process not running"
-        return 1
-    fi
-    
-    # Check if port 14500 is listening
-    if ! netstat -ln | grep -q ":14500 "; then
-        add_result "Xpra Service" "FAIL" "Port 14500 not listening"
-        return 1
-    fi
-    
-    # Test basic connectivity
-    if curl -s --connect-timeout 5 http://localhost:14500 >/dev/null 2>&1; then
-        add_result "Xpra Service" "PASS" "Running and accessible on port 14500"
-        return 0
-    else
-        add_result "Xpra Service" "PARTIAL" "Process running but HTTP interface not responding"
-        return 1
-    fi
-}
 
 # Validate TTYD web terminal
 validate_ttyd() {
@@ -182,7 +157,7 @@ validate_supervisor_services() {
 validate_ports() {
     log_validation "Validating network ports..."
     
-    local expected_ports=(80 5901 14500 7681 22)
+    local expected_ports=(80 5901 7681 22)
     local listening_ports=()
     local missing_ports=()
     
@@ -227,7 +202,7 @@ validate_kde() {
 
 # Generate final report summary
 generate_summary() {
-    local total_tests=7
+    local total_tests=6
     local passed_tests=0
     
     # Count passed tests from report
@@ -251,7 +226,6 @@ Your Ubuntu KDE Docker container is fully functional:
 
 📱 Access Methods:
   • noVNC Web Desktop: http://localhost:80
-  • Xpra Remote Desktop: http://localhost:14500  
   • Web Terminal: http://localhost:7681
   • SSH: ssh devuser@localhost -p 22
 
@@ -291,7 +265,6 @@ main() {
     validate_kde || exit_code=1
     validate_audio || exit_code=1
     validate_vnc || exit_code=1
-    validate_xpra || exit_code=1
     validate_ttyd || exit_code=1
     validate_ports || exit_code=1
     
@@ -314,7 +287,6 @@ main() {
 # Handle script arguments
 case "${1:-}" in
     "audio") validate_audio ;;
-    "xpra") validate_xpra ;;
     "ttyd") validate_ttyd ;;
     "vnc") validate_vnc ;;
     "services") validate_supervisor_services ;;

@@ -180,8 +180,7 @@ show_installation_summary() {
     echo "  1. Build the environment:    ./webtop.sh build"
     echo "  2. Start the environment:    ./webtop.sh up"
     echo "  3. Access via web browser:   http://localhost:32768 (noVNC)"
-    echo "  4. Access via Xpra:          http://localhost:14500"
-    echo "  5. Check status:             ./webtop.sh status"
+    echo "  4. Check status:             ./webtop.sh status"
     echo
     echo -e "${CYAN}For Development:${NC}"
     echo "  Build dev environment:       ./webtop.sh build --dev"

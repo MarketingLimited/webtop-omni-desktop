@@ -114,8 +114,7 @@
 
 ### Access Your Workspace
 
-- **KDE Desktop (Xpra)**: http://localhost:14500 ✨ **Recommended**
-- **VNC Desktop**: http://localhost:32768
+- **VNC Desktop**: http://localhost:32768 ✨ **Recommended**
 - **Web Terminal**: http://localhost:7681
 - **SSH Access**: `ssh devuser@localhost -p 2222`
 

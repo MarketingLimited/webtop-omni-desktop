@@ -106,7 +106,7 @@ show_help() {
     echo
     echo -e "${YELLOW}ACCESS POINTS:${NC}"
     echo "  web                      Open noVNC in browser"
-    echo "  xpra                     Open Xpra client"
+    echo "  "
     echo "  ssh                      Connect via SSH"
     echo "  terminal                 Open web terminal"
     echo
@@ -387,7 +387,6 @@ show_access_info() {
     case "$config" in
         dev)
             echo "  🌐 noVNC (Web):        http://localhost:32768"
-            echo "  🎮 Xpra (Web):         http://localhost:14500"
             echo "  🔒 SSH:                ssh developer@localhost -p 2222"
             echo "  💻 Web Terminal:       http://localhost:7681"
             echo "  🔊 Audio Port:          4713"
@@ -400,7 +399,7 @@ show_access_info() {
             ;;
         *)
             echo "  🌐 noVNC (Web):        http://localhost:32768"
-            echo "  🎮 Xpra (Web):         http://localhost:14500"
+            
             echo "  🔒 SSH:                ssh devuser@localhost -p 2222"
             echo "  💻 Web Terminal:       http://localhost:7681"
             ;;
@@ -457,16 +456,6 @@ open_web() {
     fi
 }
 
-open_xpra() {
-    print_status "Opening Xpra in browser..."
-    if command -v xdg-open > /dev/null; then
-        xdg-open "http://localhost:14500"
-    elif command -v open > /dev/null; then
-        open "http://localhost:14500"
-    else
-        echo "Please open http://localhost:14500 in your browser"
-    fi
-}
 
 # Development setup
 dev_setup() {
@@ -621,9 +610,6 @@ main() {
             ;;
         web)
             open_web
-            ;;
-        xpra)
-            open_xpra
             ;;
         ssh)
             ssh devuser@localhost -p 2222

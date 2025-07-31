@@ -22,9 +22,9 @@ The container runs automatic validation through the `SystemValidation` service i
 - **Audio forwarding**: Tests remote access audio routing
 
 #### 🖥️ Remote Desktop Access
-- **Xpra stability**: Validates no crash loops, proper desktop attachment
+
 - **VNC accessibility**: Tests noVNC web interface functionality  
-- **Port availability**: Confirms 14500 (Xpra) and 80 (VNC) are accessible
+- **Port availability**: Confirms 80 (VNC) is accessible
 - **Desktop integration**: Validates both access methods show KDE desktop
 
 #### 💻 Terminal Services
@@ -93,7 +93,7 @@ docker exec webtop-kde supervisorctl tail -f AudioValidation
 ### ✅ Success Indicators
 - **Audio devices visible** in KDE Audio Volume panel
 - **All services RUNNING** in supervisord status
-- **All ports listening** (80, 5901, 14500, 7681, 22)
+- **All ports listening** (80, 5901, 7681, 22)
 - **No FATAL/BACKOFF services**
 - **Validation report shows PASS** for all components
 
@@ -102,7 +102,7 @@ docker exec webtop-kde supervisorctl tail -f AudioValidation
 - **Service restart loops** in logs
 - **Ports not accessible** from host
 - **TTYD login failures**
-- **Xpra connection refused**
+
 
 ### 🔧 Troubleshooting Failed Validation
 
@@ -131,7 +131,7 @@ docker exec webtop-kde supervisorctl tail <service-name>
 docker exec webtop-kde netstat -tlnp
 
 # Test internal connectivity
-docker exec webtop-kde curl -s http://localhost:14500
+
 docker exec webtop-kde curl -s http://localhost:7681
 ```
 
@@ -141,7 +141,7 @@ docker exec webtop-kde curl -s http://localhost:7681
 1. **Core Services** → Xvfb, D-Bus (Priority 10-20)
 2. **Audio Setup** → PulseAudio, Virtual devices (Priority 25-30)  
 3. **Desktop Environment** → KDE Plasma (Priority 35)
-4. **Remote Access** → VNC, noVNC, Xpra, SSH, TTYD (Priority 40-50)
+4. **Remote Access** → VNC, noVNC, SSH, TTYD (Priority 40-50)
 5. **Validation** → System validation and health monitoring (Priority 60)
 
 ### Expected Timeline

@@ -52,7 +52,7 @@ RUN apt-get update && apt-get install -y \
     dbus-x11 x11-xserver-utils xfonts-base snapd kmod \
     mesa-utils libgl1-mesa-dri libglx-mesa0 libosmesa6 libglu1-mesa \
     gnome-terminal lxterminal terminator accountsservice policykit-1 \
-    openssh-server ttyd libcap2-bin polkit-kde-agent-1 xpra \
+    openssh-server ttyd libcap2-bin polkit-kde-agent-1 \
     alsa-utils alsa-oss pulseaudio pulseaudio-utils pavucontrol paprefs \
     sox ffmpeg gstreamer1.0-tools gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -224,6 +224,6 @@ RUN chmod +x /entrypoint.sh /tmp/xstartup
 
 ENTRYPOINT ["/entrypoint.sh"]
 
-EXPOSE 22 80 5901 7681 14500
+EXPOSE 22 80 5901 7681
 
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf", "-n"]

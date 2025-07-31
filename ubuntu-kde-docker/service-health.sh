@@ -56,9 +56,6 @@ check_novnc() {
     pgrep -f "websockify.*80.*:5901" > /dev/null
 }
 
-check_xpra() {
-    pgrep -f "xpra.*14500" > /dev/null
-}
 
 check_pulseaudio() {
     pgrep -f "pulseaudio.*daemon" > /dev/null
@@ -91,9 +88,6 @@ check_service_dependencies() {
     wait_for_service "noVNC" "check_novnc" 30
     
     # Stage 5: Optional services
-    if wait_for_service "Xpra" "check_xpra" 30; then
-        health_log "📡 Xpra remote access available on port 14500"
-    fi
     
     if wait_for_service "TTYD" "check_ttyd" 30; then
         health_log "💻 Web terminal available on port 7681"
@@ -118,7 +112,6 @@ generate_status_report() {
         "PulseAudio:check_pulseaudio"
         "VNC:check_vnc"
         "noVNC:check_novnc"
-        "Xpra:check_xpra"
         "TTYD:check_ttyd"
         "SSH:check_ssh"
     )
@@ -142,7 +135,6 @@ check_port_status() {
     local ports=(
         "80:noVNC Web Interface"
         "5901:VNC Server"
-        "14500:Xpra Remote Desktop"
         "7681:TTYD Web Terminal"
         "22:SSH Server"
         "4713:PulseAudio TCP"

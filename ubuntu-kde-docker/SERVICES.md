@@ -71,10 +71,6 @@ Multiple methods for accessing the desktop remotely.
 - **Access**: `http://localhost:80`
 - **Critical**: Yes - Web interface for VNC
 
-#### Xpra (Priority 42)
-- **Purpose**: Remote display system with audio
-- **Port**: 14500 (HTTP)
-- **Dependencies**: KDE, PulseAudio
 - **Features**: Audio forwarding, better compression
 - **Critical**: Yes - Advanced remote access
 
@@ -126,7 +122,7 @@ graph TD
     B --> E
     E --> F[X11VNC]
     F --> G[noVNC]
-    E --> H[Xpra]
+    
     C --> H
     E --> I[ServiceHealth]
     F --> I
@@ -140,7 +136,7 @@ graph TD
 1. **Infrastructure**: Xvfb, D-Bus start first
 2. **Audio**: PulseAudio with virtual device setup
 3. **Desktop**: KDE Plasma desktop environment
-4. **Remote Access**: VNC, Xpra, SSH, TTYD services
+4. **Remote Access**: VNC, SSH, TTYD services
 5. **Validation**: Health monitoring and system validation
 
 ### Service Scripts Location
@@ -156,7 +152,7 @@ graph TD
 | 22 | SSH | SSH | Secure shell |
 | 5901 | X11VNC | VNC | VNC server |
 | 7681 | TTYD | HTTP | Web terminal |
-| 14500 | Xpra | HTTP | Remote display with audio |
+
 | 4713 | PulseAudio | TCP | Audio server |
 
 ## Service Management
@@ -204,11 +200,9 @@ docker exec webtop-kde ps aux | grep plasma
 # Restart VNC services
 docker exec webtop-kde supervisorctl restart X11VNC noVNC
 
-# Restart Xpra
-docker exec webtop-kde supervisorctl restart Xpra
 
 # Test port accessibility
-docker exec webtop-kde netstat -tlnp | grep -E "(80|5901|14500|7681)"
+docker exec webtop-kde netstat -tlnp | grep -E "(80|5901|7681)"
 ```
 
 ## Service Health Monitoring
@@ -265,7 +259,7 @@ docker exec webtop-kde ps aux | grep <service>
 docker exec webtop-kde netstat -tlnp
 
 # Check for external conflicts
-netstat -tlnp | grep -E "(80|5901|14500|7681|22)"
+netstat -tlnp | grep -E "(80|5901|7681|22)"
 ```
 
 ### Service Recovery Procedures
@@ -288,7 +282,7 @@ docker exec webtop-kde supervisorctl start AudioValidation KDE
 sleep 15
 
 # Start remote access
-docker exec webtop-kde supervisorctl start X11VNC noVNC Xpra sshd ttyd
+docker exec webtop-kde supervisorctl start X11VNC noVNC sshd ttyd
 
 # Start monitoring
 docker exec webtop-kde supervisorctl start ServiceHealth SystemValidation
@@ -300,7 +294,7 @@ docker exec webtop-kde supervisorctl start ServiceHealth SystemValidation
 docker exec webtop-kde supervisorctl restart pulseaudio AudioValidation AudioMonitor
 
 # Restart remote access chain
-docker exec webtop-kde supervisorctl restart X11VNC noVNC Xpra
+docker exec webtop-kde supervisorctl restart X11VNC noVNC
 ```
 
 ## Service Customization

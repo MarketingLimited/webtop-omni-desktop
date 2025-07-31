@@ -46,7 +46,6 @@ OPTIONAL_SERVICES=(
     "pulseaudio"
     "polkitd"
     "sshd"
-    "xpra"
     "ttyd"
 )
 
@@ -69,7 +68,6 @@ ESSENTIAL_PORTS=(
 OPTIONAL_PORTS=(
     "22:SSH"
     "7681:ttyd"
-    "14500:Xpra"
     "4713:PulseAudio"
 )
 

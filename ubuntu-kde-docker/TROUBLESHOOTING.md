@@ -36,39 +36,6 @@ docker exec webtop-kde /usr/local/bin/test-desktop-audio.sh
 
 ### 🖥️ Remote Desktop Issues
 
-#### Xpra not accessible on port 14500
-**Cause**: Xpra service crashing or port conflicts
-
-**Solution**:
-```bash
-# Check Xpra status
-docker exec webtop-kde supervisorctl status Xpra
-
-# Check Xpra logs
-docker exec webtop-kde supervisorctl tail Xpra
-
-# Restart Xpra
-docker exec webtop-kde supervisorctl restart Xpra
-
-# Test port accessibility
-docker exec webtop-kde netstat -tlnp | grep 14500
-```
-
-#### Xpra shows blank screen
-**Cause**: Xpra not attaching to KDE desktop properly
-
-**Solution**:
-```bash
-# Check KDE is running
-docker exec webtop-kde supervisorctl status KDE
-
-# Check display environment
-docker exec webtop-kde echo $DISPLAY
-docker exec webtop-kde xwininfo -root
-
-# Restart desktop and Xpra
-docker exec webtop-kde supervisorctl restart KDE Xpra
-```
 
 #### VNC shows black screen
 **Cause**: X11VNC not capturing desktop or resolution issues
@@ -220,7 +187,7 @@ docker logs webtop-kde
 
 # Check port conflicts
 docker ps -a
-netstat -tlnp | grep -E "(80|5901|14500|7681|22)"
+netstat -tlnp | grep -E "(80|5901|7681|22)"
 
 # Check Docker resources
 docker system df
@@ -242,11 +209,11 @@ docker exec webtop-kde route -n
 
 # Test internal connectivity
 docker exec webtop-kde curl -s http://localhost:80
-docker exec webtop-kde curl -s http://localhost:14500
+
 
 # Check host networking
 curl -s http://localhost:80
-curl -s http://localhost:14500
+
 ```
 
 ## Diagnostic Commands
@@ -296,7 +263,7 @@ docker exec webtop-kde netstat -tlnp
 
 # Service connectivity
 docker exec webtop-kde curl -I http://localhost:80
-docker exec webtop-kde curl -I http://localhost:14500
+
 docker exec webtop-kde curl -I http://localhost:7681
 ```
 
@@ -317,7 +284,7 @@ docker exec webtop-kde supervisorctl start pulseaudio
 sleep 5
 docker exec webtop-kde supervisorctl start KDE
 sleep 10
-docker exec webtop-kde supervisorctl start X11VNC noVNC Xpra sshd ttyd
+docker exec webtop-kde supervisorctl start X11VNC noVNC sshd ttyd
 sleep 5
 docker exec webtop-kde supervisorctl start SystemValidation
 ```

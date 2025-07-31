@@ -34,7 +34,7 @@ jobs:
       run: |
         cd ubuntu-kde-docker
         grep -q "pulseaudio" supervisord.conf
-        grep -q "xpra.*speaker" supervisord.conf
+        
 
   build:
     needs: test

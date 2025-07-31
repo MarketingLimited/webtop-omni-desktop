@@ -106,18 +106,6 @@ test_remote_audio_forwarding() {
         red "❌ VNC server not running"
     fi
     
-    # Test Xpra audio forwarding
-    if pgrep -f "xpra" > /dev/null; then
-        green "✅ Xpra is running"
-        
-        if netstat -tuln 2>/dev/null | grep -q ":14500 "; then
-            green "✅ Xpra port 14500 is listening"
-        else
-            yellow "⚠️  Xpra port 14500 not listening"
-        fi
-    else
-        yellow "⚠️  Xpra not running"
-    fi
     
     # Test PulseAudio network capability
     if pgrep -f "pulseaudio" > /dev/null; then
@@ -268,7 +256,6 @@ generate_integration_report() {
     echo "📡 Remote Access:"
     echo "   VNC (port 5901): $(netstat -tuln 2>/dev/null | grep -q ":5901 " && echo "LISTENING" || echo "NOT LISTENING")"
     echo "   noVNC (port 80): $(netstat -tuln 2>/dev/null | grep -q ":80 " && echo "LISTENING" || echo "NOT LISTENING")"
-    echo "   Xpra (port 14500): $(netstat -tuln 2>/dev/null | grep -q ":14500 " && echo "LISTENING" || echo "NOT LISTENING")"
     
     echo "=" * 50
 }

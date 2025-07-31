@@ -29,7 +29,7 @@ A comprehensive Docker environment featuring Ubuntu with KDE Plasma desktop, spe
 - **Cross-Platform** - ARM64 and AMD64 architecture support
 
 ### 🌐 Remote Access & Infrastructure
-- **Multiple Access Methods** - noVNC, Xpra, SSH, web terminal
+- **Multiple Access Methods** - noVNC, SSH, web terminal
 - **Performance Monitoring** - Resource usage, health checks
 - **CI/CD Ready** - GitHub Actions, automated builds, multi-environment support
 
@@ -70,7 +70,7 @@ docker compose -f docker-compose.prod.yml up -d
 
 | Service | URL | Description | Status Check |
 |---------|-----|-------------|--------------|
-| 🖥️ **KDE Desktop** | `http://localhost:14500` | Full desktop via Xpra | Auto-validated |
+
 | 🖥️ **VNC Desktop** | `http://localhost:80` | Desktop via noVNC | Auto-validated |
 | 💻 **Terminal** | `http://localhost:7681` | Web terminal (TTYD) | Auto-validated |
 | 🔐 **SSH** | `ssh user@localhost -p 2222` | Direct SSH access | Auto-validated |
@@ -116,7 +116,7 @@ The system includes a container-compatible audio setup:
 
 1. **Virtual Audio Devices**: Software-based virtual speakers and microphones
 2. **PulseAudio Server**: Runs with container-compatible dummy/null sinks
-3. **Audio Forwarding**: Routes audio through VNC and Xpra remote access
+3. **Audio Forwarding**: Routes audio through VNC remote access
 4. **KDE Integration**: Virtual devices appear in KDE System Settings
 
 ### Audio Management Commands
@@ -377,4 +377,4 @@ This WebTop is specifically optimized for marketing agencies with:
 
 ---
 
-**Ready to transform your marketing agency's digital workspace? Start with `./webtop.sh up` and access your new environment at `http://localhost:14500`!** 🚀
+**Ready to transform your marketing agency's digital workspace? Start with `./webtop.sh up` and access your new environment at `http://localhost:32768`!** 🚀

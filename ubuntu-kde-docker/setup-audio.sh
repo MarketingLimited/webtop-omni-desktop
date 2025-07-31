@@ -58,7 +58,7 @@ load-module module-virtual-source source_name=virtual_mic_source master=virtual_
 # Create loopback for audio routing between devices
 load-module module-loopback source=virtual_microphone.monitor sink=virtual_speaker latency_msec=50
 
-# Enable TCP module for remote audio access (VNC/Xpra)
+# Enable TCP module for remote audio access (VNC)
 load-module module-native-protocol-tcp auth-anonymous=1 port=4713 listen=0.0.0.0
 
 # Load X11 integration modules for desktop audio
@@ -243,23 +243,6 @@ test_vnc_audio() {
     fi
 }
 
-# Test Xpra audio integration
-test_xpra_audio() {
-    echo "🔍 Testing Xpra audio integration..."
-    
-    if pgrep -f "xpra.*14500" > /dev/null; then
-        green "✅ Xpra server is running"
-        
-        # Check if Xpra has PulseAudio integration
-        if pgrep -f "xpra.*pulseaudio" > /dev/null; then
-            green "✅ Xpra PulseAudio integration active"
-        else
-            yellow "⚠️  Xpra PulseAudio integration not detected"
-        fi
-    else
-        red "❌ Xpra server not running"
-    fi
-}
 
 # Test audio generation capability
 test_audio_generation() {
@@ -339,7 +322,7 @@ generate_audio_report() {
     
     echo ""
     echo "Network Audio Ports:"
-    netstat -tuln | grep -E ":4713|:5901|:14500" || echo "No audio-related network ports detected"
+    netstat -tuln | grep -E ":4713|:5901" || echo "No audio-related network ports detected"
 }
 
 # Main test execution
@@ -349,7 +332,6 @@ main() {
     test_pulseaudio_connectivity || true
     test_audio_devices || true
     test_vnc_audio || true  
-    test_xpra_audio || true
     test_audio_generation || true
     test_desktop_audio_integration || true
     
