@@ -55,13 +55,60 @@ const wss = new WebSocket.Server({ server });
 wss.on('connection', (ws) => {
     console.log('Client connected for audio streaming');
     
-    // Start PulseAudio capture and stream to client
-    const parecord = spawn('parecord', [
-        '--format=s16le',
-        '--rate=44100',
-        '--channels=2',
-        '--raw'
-    ]);
+    // Start PulseAudio capture and stream to client with connection retry
+    let parecord;
+    const startRecording = () => {
+        // Try different PulseAudio connection methods
+        const parecordOptions = [
+            // Try default (local socket)
+            ['--format=s16le', '--rate=44100', '--channels=2', '--raw'],
+            // Try TCP server fallback
+            ['--server=tcp:localhost:4713', '--format=s16le', '--rate=44100', '--channels=2', '--raw'],
+            // Try specific device fallback
+            ['--device=virtual_speaker.monitor', '--format=s16le', '--rate=44100', '--channels=2', '--raw']
+        ];
+        
+        let optionIndex = 0;
+        
+        const tryNextOption = () => {
+            if (optionIndex >= parecordOptions.length) {
+                console.error('All PulseAudio connection methods failed');
+                ws.close();
+                return;
+            }
+            
+            console.log(`Trying PulseAudio connection method ${optionIndex + 1}/${parecordOptions.length}`);
+            parecord = spawn('parecord', parecordOptions[optionIndex]);
+            
+            parecord.stdout.on('data', (data) => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(data);
+                }
+            });
+            
+            parecord.stderr.on('data', (data) => {
+                console.error(`PulseAudio error (method ${optionIndex + 1}):`, data.toString());
+            });
+            
+            parecord.on('error', (err) => {
+                console.error(`PulseAudio spawn error (method ${optionIndex + 1}):`, err);
+                optionIndex++;
+                setTimeout(tryNextOption, 1000);
+            });
+            
+            parecord.on('exit', (code) => {
+                if (code !== 0) {
+                    console.log(`PulseAudio exited with code ${code}, trying next method...`);
+                    optionIndex++;
+                    setTimeout(tryNextOption, 1000);
+                }
+            });
+        };
+        
+        tryNextOption();
+    };
+    
+    startRecording();
     
     parecord.stdout.on('data', (data) => {
         if (ws.readyState === WebSocket.OPEN) {

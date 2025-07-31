@@ -26,11 +26,19 @@ fi
 cat <<EOF > /etc/asound.conf
 pcm.!default {
     type pulse
-    server "tcp:localhost:4713"
+    server "unix:/run/user/1000/pulse/native"
+    fallback {
+        type pulse
+        server "tcp:localhost:4713"
+    }
 }
 ctl.!default {
     type pulse
-    server "tcp:localhost:4713"
+    server "unix:/run/user/1000/pulse/native"
+    fallback {
+        type pulse
+        server "tcp:localhost:4713"
+    }
 }
 
 pcm.marketing_virtual {
@@ -58,15 +66,18 @@ load-module module-stream-restore
 load-module module-card-restore
 load-module module-augment-properties
 
-# Create virtual audio devices for container environment
+# Load native protocol first (local socket)
+load-module module-native-protocol-unix auth-anonymous=1 socket=/run/user/1000/pulse/native
+
+# Enable TCP module for remote audio access (VNC)
+load-module module-native-protocol-tcp auth-anonymous=1 port=4713 listen=0.0.0.0
+
+# Create virtual audio devices for container environment  
 load-module module-null-sink sink_name=virtual_speaker sink_properties=device.description="Virtual_Marketing_Speaker"
 load-module module-null-sink sink_name=virtual_microphone sink_properties=device.description="Virtual_Marketing_Microphone"
 
 # Create a virtual source from the microphone sink's monitor
 load-module module-virtual-source source_name=virtual_mic_source master=virtual_microphone.monitor source_properties=device.description="Virtual_Marketing_Mic_Source"
-
-# Enable TCP module for remote audio access (VNC)
-load-module module-native-protocol-tcp auth-anonymous=1 port=4713 listen=0.0.0.0
 
 # Load essential modules only
 load-module module-default-device-restore
@@ -105,19 +116,31 @@ echo "✅ Using software-only audio pipeline (container-optimized)"
 if [ "$IS_RUNTIME" = true ]; then
     mkdir -p "/home/${DEV_USERNAME}/.asoundrc.d"
     cat <<EOF > "/home/${DEV_USERNAME}/.asoundrc"
-# Container-compatible ALSA configuration
+# Container-compatible ALSA configuration with fallback
 pcm.!default {
     type pulse
-    server "tcp:localhost:4713"
+    server "unix:/run/user/1000/pulse/native"
     hint {
         show on
-        description "PulseAudio TCP Socket"
+        description "PulseAudio Local Socket"
+    }
+    fallback {
+        type pulse
+        server "tcp:localhost:4713"
+        hint {
+            show on
+            description "PulseAudio TCP Fallback"
+        }
     }
 }
 
 ctl.!default {
     type pulse
-    server "tcp:localhost:4713"
+    server "unix:/run/user/1000/pulse/native"
+    fallback {
+        type pulse
+        server "tcp:localhost:4713"
+    }
 }
 
 # Virtual marketing devices
