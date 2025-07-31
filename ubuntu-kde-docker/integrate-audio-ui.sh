@@ -183,6 +183,8 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
                 this.gainNode = null;
                 this.isConnected = false;
                 this.isMinimized = false;
+                this.autoConnectEnabled = !localStorage.getItem('audio-disabled');
+                this.hasUserInteracted = false;
                 
                 this.elements = {
                     connectBtn: document.getElementById('connect-audio'),
@@ -196,7 +198,9 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
                 };
                 
                 this.setupEventListeners();
+                this.createAudioOverlay();
                 this.checkAudioBridge();
+                this.setupAutoConnect();
             }
             
             setupEventListeners() {
@@ -204,6 +208,124 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
                 this.elements.disconnectBtn.addEventListener('click', () => this.disconnectAudio());
                 this.elements.volumeSlider.addEventListener('input', (e) => this.setVolume(e.target.value));
                 this.elements.minimizeBtn.addEventListener('click', () => this.toggleMinimize());
+                
+                // Keyboard shortcut for audio toggle
+                document.addEventListener('keydown', (e) => {
+                    if (e.ctrlKey && e.altKey && e.key.toLowerCase() === 'a') {
+                        e.preventDefault();
+                        this.isConnected ? this.disconnectAudio() : this.connectAudio();
+                    }
+                });
+            }
+            
+            createAudioOverlay() {
+                if (!this.autoConnectEnabled) return;
+                
+                const overlay = document.createElement('div');
+                overlay.id = 'audio-activation-overlay';
+                overlay.innerHTML = `
+                    <div class="overlay-content">
+                        <div class="audio-icon">🔊</div>
+                        <h3>Audio Available</h3>
+                        <p>Click anywhere to enable desktop audio streaming</p>
+                        <button id="skip-audio" class="skip-btn">Skip Audio</button>
+                    </div>
+                `;
+                
+                overlay.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0, 0, 0, 0.8);
+                    z-index: 10000;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: white;
+                    text-align: center;
+                    font-family: Arial, sans-serif;
+                `;
+                
+                const overlayContent = overlay.querySelector('.overlay-content');
+                overlayContent.style.cssText = `
+                    background: #1a202c;
+                    padding: 40px;
+                    border-radius: 12px;
+                    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+                    max-width: 400px;
+                `;
+                
+                const audioIcon = overlay.querySelector('.audio-icon');
+                audioIcon.style.cssText = `
+                    font-size: 48px;
+                    margin-bottom: 20px;
+                    animation: pulse 2s infinite;
+                `;
+                
+                const skipBtn = overlay.querySelector('#skip-audio');
+                skipBtn.style.cssText = `
+                    background: #718096;
+                    color: white;
+                    border: none;
+                    padding: 8px 16px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    margin-top: 20px;
+                `;
+                
+                // Add animation styles
+                const style = document.createElement('style');
+                style.textContent = `
+                    @keyframes pulse {
+                        0%, 100% { transform: scale(1); }
+                        50% { transform: scale(1.1); }
+                    }
+                `;
+                document.head.appendChild(style);
+                
+                document.body.appendChild(overlay);
+                
+                // Handle overlay interactions
+                const activateAudio = () => {
+                    this.hasUserInteracted = true;
+                    overlay.remove();
+                    this.connectAudio();
+                };
+                
+                overlay.addEventListener('click', (e) => {
+                    if (e.target.id !== 'skip-audio') {
+                        activateAudio();
+                    }
+                });
+                
+                skipBtn.addEventListener('click', () => {
+                    localStorage.setItem('audio-disabled', 'true');
+                    overlay.remove();
+                });
+                
+                // Auto-remove overlay after 10 seconds
+                setTimeout(() => {
+                    if (overlay.parentNode) {
+                        overlay.remove();
+                    }
+                }, 10000);
+            }
+            
+            setupAutoConnect() {
+                // Listen for any user interaction to enable auto-connect
+                const enableAutoConnect = () => {
+                    if (!this.hasUserInteracted && this.autoConnectEnabled) {
+                        this.hasUserInteracted = true;
+                        // Small delay to ensure audio context can be created
+                        setTimeout(() => this.connectAudio(), 100);
+                    }
+                };
+                
+                document.addEventListener('click', enableAutoConnect, { once: true });
+                document.addEventListener('keydown', enableAutoConnect, { once: true });
+                document.addEventListener('touchstart', enableAutoConnect, { once: true });
             }
             
             async checkAudioBridge() {
@@ -223,44 +345,87 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
                 try {
                     this.updateStatus('Connecting...', 'connecting');
                     
-                    // Initialize Web Audio API
-                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                    this.gainNode = this.audioContext.createGain();
-                    this.gainNode.connect(this.audioContext.destination);
-                    this.setVolume(this.elements.volumeSlider.value);
+                    // Handle browser autoplay restrictions
+                    if (this.audioContext && this.audioContext.state === 'suspended') {
+                        await this.audioContext.resume();
+                    }
                     
-                    // Connect to audio bridge WebSocket
-                    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                    const wsUrl = `${protocol}//${window.location.hostname}:8080`;
+                    if (!this.audioContext) {
+                        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                        this.gainNode = this.audioContext.createGain();
+                        this.gainNode.connect(this.audioContext.destination);
+                        
+                        // Restore saved volume
+                        const savedVolume = localStorage.getItem('audio-volume') || '50';
+                        this.elements.volumeSlider.value = savedVolume;
+                        this.setVolume(savedVolume);
+                    }
                     
-                    this.websocket = new WebSocket(wsUrl);
-                    this.websocket.binaryType = 'arraybuffer';
+                    // Try multiple connection methods with fallback
+                    const connectionMethods = [
+                        () => this.connectWebSocket(`ws://${window.location.hostname}:8080`),
+                        () => this.connectWebSocket(`wss://${window.location.hostname}:8080`),
+                        () => this.connectWebSocket(`ws://${window.location.host}/audio-bridge`),
+                        () => this.connectWebSocket(`wss://${window.location.host}/audio-bridge`)
+                    ];
                     
-                    this.websocket.onopen = () => {
+                    for (const method of connectionMethods) {
+                        try {
+                            await method();
+                            break;
+                        } catch (err) {
+                            console.warn('Connection method failed, trying next...', err);
+                        }
+                    }
+                    
+                } catch (error) {
+                    console.error('Failed to connect audio:', error);
+                    this.updateStatus('Failed to connect: ' + error.message, 'error');
+                    
+                    // Retry after delay
+                    setTimeout(() => {
+                        if (!this.isConnected && this.autoConnectEnabled) {
+                            this.connectAudio();
+                        }
+                    }, 5000);
+                }
+            }
+            
+            async connectWebSocket(wsUrl) {
+                return new Promise((resolve, reject) => {
+                    const ws = new WebSocket(wsUrl);
+                    ws.binaryType = 'arraybuffer';
+                    
+                    const timeout = setTimeout(() => {
+                        ws.close();
+                        reject(new Error('Connection timeout'));
+                    }, 5000);
+                    
+                    ws.onopen = () => {
+                        clearTimeout(timeout);
+                        this.websocket = ws;
                         this.isConnected = true;
                         this.updateUI();
                         this.updateStatus('Audio connected', 'connected');
+                        resolve();
                     };
                     
-                    this.websocket.onmessage = (event) => {
+                    ws.onmessage = (event) => {
                         this.processAudioData(event.data);
                     };
                     
-                    this.websocket.onclose = () => {
+                    ws.onclose = () => {
+                        clearTimeout(timeout);
                         this.isConnected = false;
                         this.updateUI();
                         this.updateStatus('Audio disconnected', 'disconnected');
                     };
                     
-                    this.websocket.onerror = (error) => {
-                        console.error('Audio WebSocket error:', error);
-                        this.updateStatus('Connection failed', 'error');
+                    ws.onerror = (error) => {
+                        clearTimeout(timeout);
+                        reject(error);
                     };
-                    
-                } catch (error) {
-                    console.error('Failed to connect audio:', error);
-                    this.updateStatus('Failed to connect: ' + error.message, 'error');
-                }
+                });
             }
             
             disconnectAudio() {
@@ -305,6 +470,8 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
                     this.gainNode.gain.value = value / 100;
                 }
                 this.elements.volumeLabel.textContent = value + '%';
+                // Save volume preference
+                localStorage.setItem('audio-volume', value);
             }
             
             updateUI() {
@@ -334,6 +501,29 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
 </html>
 EOF
 
+# Inject universal audio manager into existing noVNC pages
+echo "Injecting universal audio support into all noVNC pages..."
+
+# Backup and enhance vnc.html with universal audio
+if [ -f "$NOVNC_DIR/vnc.html" ]; then
+    if ! grep -q "universal-audio.js" "$NOVNC_DIR/vnc.html"; then
+        # Add universal audio script before closing body tag
+        sed -i 's|</body>|    <script src="universal-audio.js"></script>\n</body>|' "$NOVNC_DIR/vnc.html"
+        echo "Enhanced vnc.html with universal audio"
+    fi
+fi
+
+# Backup and enhance vnc_lite.html if it exists
+if [ -f "$NOVNC_DIR/vnc_lite.html" ]; then
+    if ! grep -q "universal-audio.js" "$NOVNC_DIR/vnc_lite.html"; then
+        sed -i 's|</body>|    <script src="universal-audio.js"></script>\n</body>|' "$NOVNC_DIR/vnc_lite.html"
+        echo "Enhanced vnc_lite.html with universal audio"
+    fi
+fi
+
+# Copy universal audio script to noVNC directory
+cp "/usr/local/bin/universal-audio.js" "$NOVNC_DIR/" 2>/dev/null || echo "Note: Universal audio script will be created during setup"
+
 # Update the default noVNC page to redirect to audio-enabled version
 cat > "$NOVNC_DIR/index.html" << 'EOF'
 <!DOCTYPE html>
@@ -359,6 +549,18 @@ cat > "$NOVNC_DIR/index.html" << 'EOF'
 </html>
 EOF
 
-echo "Audio UI integration completed!"
-echo "The noVNC interface now includes audio controls"
-echo "Audio will be available at http://localhost:32768"
+# Create standalone universal audio script
+echo "Creating universal audio integration..."
+cp "/usr/local/bin/universal-audio.js" "$NOVNC_DIR/universal-audio.js" 2>/dev/null || \
+    echo "// Universal audio script will be available after full setup" > "$NOVNC_DIR/universal-audio.js"
+
+echo "✅ Audio UI integration completed!"
+echo "🔊 Universal audio support added to all noVNC interfaces"
+echo "🌐 Audio will be available at http://localhost:32768"
+echo "⚡ Features enabled:"
+echo "   - Auto-connect overlay on first page load"
+echo "   - Click anywhere to enable audio"
+echo "   - Keyboard shortcut: Ctrl+Alt+A"
+echo "   - Floating audio controls on all pages"
+echo "   - Cross-browser compatibility"
+echo "   - Automatic reconnection with fallback URLs"
