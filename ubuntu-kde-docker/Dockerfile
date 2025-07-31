@@ -146,6 +146,7 @@ RUN mkdir -p /var/run/sshd /root/.vnc /tmp/.X11-unix && \
 # Desktop and Flatpak setup scripts
 COPY setup-flatpak-apps.sh /usr/local/bin/setup-flatpak-apps.sh
 COPY setup-desktop.sh /usr/local/bin/setup-desktop.sh
+COPY setup-xvfb-optimization.sh /usr/local/bin/setup-xvfb-optimization.sh
 COPY setup-audio.sh /usr/local/bin/setup-audio.sh
 COPY fix-audio-startup.sh /usr/local/bin/fix-audio-startup.sh
 COPY setup-marketing-shortcuts.sh /usr/local/bin/setup-marketing-shortcuts.sh

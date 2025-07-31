@@ -356,7 +356,17 @@ chmod +x /usr/local/bin/monitor-services.sh
 log_info "Setting up service health monitoring..."
 if [ -f "/usr/local/bin/service-health.sh" ]; then
     chmod +x /usr/local/bin/service-health.sh
-    echo "✅ Service health monitoring setup completed"
+echo "✅ Service health monitoring setup completed"
+
+# Setup Xvfb optimization
+log_info "Setting up Xvfb display server optimization..."
+if [ -f "/setup-xvfb-optimization.sh" ]; then
+    chmod +x /setup-xvfb-optimization.sh
+    /setup-xvfb-optimization.sh
+    log_info "✅ Xvfb optimization setup completed"
+else
+    log_warn "⚠️  Xvfb optimization script not found"
+fi
 else
     echo "⚠️  Service health monitoring script not found"
 fi
