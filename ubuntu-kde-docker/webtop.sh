@@ -126,9 +126,19 @@ find_available_port() {
     echo $current_port
 }
 
+# Ensure JQ is installed for container registry management
+ensure_jq() {
+    if ! command -v jq &> /dev/null; then
+        print_status "Installing jq for container registry management..."
+        ./install-jq.sh
+    fi
+}
+
 # Get assigned ports for container
 get_container_ports() {
     local container_name=$1
+    
+    ensure_jq
     
     if [ ! -f "$CONTAINER_REGISTRY" ]; then
         echo "{}" > "$CONTAINER_REGISTRY"
@@ -1349,7 +1359,12 @@ main() {
             ;;
         up|start)
             check_env
-            start_containers "$2"
+            # If container name was provided, handle named container creation
+            if [ -n "$CONTAINER_NAME" ]; then
+                start_containers "$2"
+            else
+                start_containers "$2"
+            fi
             ;;
         down|stop)
             stop_containers
@@ -1359,6 +1374,7 @@ main() {
             start_containers "$2"
             ;;
         list)
+            ensure_jq
             list_containers
             ;;
         remove)
