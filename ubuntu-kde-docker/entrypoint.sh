@@ -407,6 +407,16 @@ if [ -f "/usr/local/bin/setup-system-optimization.sh" ]; then
 else
     log_warn "⚠️  System optimization script not found"
 fi
+
+# Setup network and streaming optimization
+log_info "Setting up network and streaming optimization..."
+if [ -f "/usr/local/bin/setup-network-optimization.sh" ]; then
+    chmod +x /usr/local/bin/setup-network-optimization.sh
+    /usr/local/bin/setup-network-optimization.sh
+    log_info "✅ Network optimization setup completed"
+else
+    log_warn "⚠️  Network optimization script not found"
+fi
 else
     echo "⚠️  Service health monitoring script not found"
 fi
