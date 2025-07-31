@@ -8,19 +8,13 @@ services:
     privileged: true
     shm_size: "4gb"
     ports:
-      - 32768:80      # noVNC
-      - 2222:22       # SSH
-      - 7681:7681     # ttyd terminal
-      - 14500:14500   # Xpra
-      - 4713:4713     # PulseAudio
-    environment:
-      - DEV_USERNAME=developer
-      - DEV_PASSWORD=DevPass123!
-      - ADMIN_USERNAME=admin
-      - ADMIN_PASSWORD=AdminPass123!
-      - ROOT_PASSWORD=RootPass123!
-      - TTYD_USER=terminal
-      - TTYD_PASSWORD=terminal
+      - "32768:80"      # noVNC
+      - "2222:22"       # SSH
+      - "7681:7681"     # ttyd terminal
+      - "14500:14500"   # Xpra
+      - "4713:4713"     # PulseAudio
+    env_file:
+      - .env
     volumes:
       - ./dev_config:/config
       - ./logs:/var/log/supervisor
