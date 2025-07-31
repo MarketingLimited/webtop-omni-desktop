@@ -74,13 +74,21 @@ load-module module-rescue-streams
 load-module module-always-sink
 load-module module-suspend-on-idle
 
+# Load additional modules for virtual device persistence
+load-module module-switch-on-port-available
+load-module module-switch-on-connect
+
 # Set defaults for container environment
 set-default-sink virtual_speaker
 set-default-source virtual_mic_source
 
-# Set volume levels for virtual devices
-set-sink-volume virtual_speaker 65536
-set-sink-volume virtual_microphone 65536
+# Set volume levels for virtual devices (50% volume = 32768)
+set-sink-volume virtual_speaker 32768
+set-sink-volume virtual_microphone 32768
+
+# Create additional fallback devices for stability
+load-module module-null-sink sink_name=fallback_speaker sink_properties=device.description="Fallback_Speaker"
+load-module module-null-sink sink_name=fallback_microphone sink_properties=device.description="Fallback_Microphone"
 EOF
 
     # Set proper ownership (runtime only)
