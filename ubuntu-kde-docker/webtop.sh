@@ -89,6 +89,87 @@ check_env() {
     fi
 }
 
+# Load environment variables with defaults
+load_env() {
+    source .env
+    
+    # Set default base ports if not defined
+    export BASE_HTTP_PORT=${BASE_HTTP_PORT:-32769}
+    export BASE_SSH_PORT=${BASE_SSH_PORT:-2223}
+    export BASE_TTYD_PORT=${BASE_TTYD_PORT:-7682}
+    export BASE_AUDIO_PORT=${BASE_AUDIO_PORT:-8081}
+    export BASE_PULSE_PORT=${BASE_PULSE_PORT:-4714}
+}
+
+# Check if port is available
+is_port_available() {
+    local port=$1
+    ! ss -tuln | grep -q ":$port "
+}
+
+# Find next available port starting from base
+find_available_port() {
+    local base_port=$1
+    local current_port=$base_port
+    
+    while ! is_port_available $current_port; do
+        ((current_port++))
+        # Prevent infinite loop
+        if [ $current_port -gt $((base_port + 1000)) ]; then
+            print_error "Could not find available port starting from $base_port"
+            exit 1
+        fi
+    done
+    
+    echo $current_port
+}
+
+# Get assigned ports for container
+get_container_ports() {
+    local container_name=$1
+    
+    if [ ! -f "$CONTAINER_REGISTRY" ]; then
+        echo "{}" > "$CONTAINER_REGISTRY"
+    fi
+    
+    # Check if container already has assigned ports
+    if jq -e ".\"$container_name\"" "$CONTAINER_REGISTRY" > /dev/null 2>&1; then
+        local http_port=$(jq -r ".\"$container_name\".ports.http" "$CONTAINER_REGISTRY")
+        local ssh_port=$(jq -r ".\"$container_name\".ports.ssh" "$CONTAINER_REGISTRY")
+        local ttyd_port=$(jq -r ".\"$container_name\".ports.ttyd" "$CONTAINER_REGISTRY")
+        local audio_port=$(jq -r ".\"$container_name\".ports.audio" "$CONTAINER_REGISTRY")
+        local pulse_port=$(jq -r ".\"$container_name\".ports.pulse" "$CONTAINER_REGISTRY")
+        
+        echo "$http_port:80,$ssh_port:22,$ttyd_port:7681,$audio_port:8080,$pulse_port:4713"
+        return
+    fi
+    
+    # Find available ports
+    load_env
+    local http_port=$(find_available_port $BASE_HTTP_PORT)
+    local ssh_port=$(find_available_port $BASE_SSH_PORT)
+    local ttyd_port=$(find_available_port $BASE_TTYD_PORT)
+    local audio_port=$(find_available_port $BASE_AUDIO_PORT)
+    local pulse_port=$(find_available_port $BASE_PULSE_PORT)
+    
+    # Store in registry
+    local temp_file=$(mktemp)
+    jq ".\"$container_name\" = {
+        \"name\": \"webtop-$container_name\",
+        \"ports\": {
+            \"http\": $http_port,
+            \"ssh\": $ssh_port,
+            \"ttyd\": $ttyd_port,
+            \"audio\": $audio_port,
+            \"pulse\": $pulse_port
+        },
+        \"created\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",
+        \"status\": \"assigned\"
+    }" "$CONTAINER_REGISTRY" > "$temp_file" && mv "$temp_file" "$CONTAINER_REGISTRY"
+    
+    echo "$http_port:80,$ssh_port:22,$ttyd_port:7681,$audio_port:8080,$pulse_port:4713"
+}
+
 # Display help
 show_help() {
     print_header
@@ -350,6 +431,12 @@ start_containers() {
     local config=$(get_config "$1")
     local compose_file=$(get_compose_file "$config")
     
+    # Check if a custom container name was provided
+    if [ -n "$CONTAINER_NAME" ]; then
+        start_named_container "$CONTAINER_NAME" "$config"
+        return
+    fi
+    
     print_status "Starting containers (${config} configuration)..."
     
     if [ ! -f "$compose_file" ]; then
@@ -361,6 +448,99 @@ start_containers() {
     
     print_success "Containers started successfully!"
     show_access_info "$config"
+}
+
+# Start named container with auto port assignment
+start_named_container() {
+    local container_name="$1"
+    local config="$2"
+    
+    print_status "Starting container: $container_name (${config} configuration)..."
+    
+    # Get auto-assigned ports
+    local port_mappings=$(get_container_ports "$container_name")
+    
+    # Setup authentication if enabled
+    if [ "$ENABLE_AUTH" = "true" ] || [ "$VNC_AUTH_ENABLED" = "true" ]; then
+        load_env
+        ./auth-setup.sh setup "$container_name"
+    fi
+    
+    # Create temporary docker-compose file for this container
+    local temp_compose="docker-compose-${container_name}.yml"
+    create_named_compose "$container_name" "$config" "$port_mappings" > "$temp_compose"
+    
+    # Start the container
+    $DOCKER_COMPOSE_CMD -f "$temp_compose" up -d
+    
+    # Update registry status
+    local temp_file=$(mktemp)
+    jq ".\"$container_name\".status = \"running\"" "$CONTAINER_REGISTRY" > "$temp_file" && mv "$temp_file" "$CONTAINER_REGISTRY"
+    
+    print_success "Container '$container_name' started successfully!"
+    show_named_container_info "$container_name"
+    
+    # Clean up temporary compose file
+    rm -f "$temp_compose"
+}
+
+# Create docker-compose file for named container
+create_named_compose() {
+    local container_name="$1"
+    local config="$2"
+    local port_mappings="$3"
+    
+    # Parse port mappings
+    local http_mapping=$(echo "$port_mappings" | cut -d',' -f1)
+    local ssh_mapping=$(echo "$port_mappings" | cut -d',' -f2)
+    local ttyd_mapping=$(echo "$port_mappings" | cut -d',' -f3)
+    local audio_mapping=$(echo "$port_mappings" | cut -d',' -f4)
+    local pulse_mapping=$(echo "$port_mappings" | cut -d',' -f5)
+    
+    cat << EOF
+services:
+  webtop:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: webtop-$container_name
+    restart: unless-stopped
+    privileged: true
+    shm_size: "4gb"
+    ports:
+      - "$http_mapping"
+      - "$ssh_mapping"
+      - "$ttyd_mapping"
+      - "$audio_mapping"
+      - "$pulse_mapping"
+    env_file:
+      - .env
+    volumes:
+      - ${container_name}_config:/config
+      - ${container_name}_logs:/var/log/supervisor
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+    devices:
+      - /dev/snd:/dev/snd
+    tmpfs:
+      - /tmp
+      - /run
+      - /run/lock
+    cap_add:
+      - SYS_ADMIN
+      - NET_ADMIN
+    security_opt:
+      - seccomp:unconfined
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/health-check.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  ${container_name}_config:
+  ${container_name}_logs:
+EOF
 }
 
 # Stop containers
@@ -400,7 +580,6 @@ show_access_info() {
             ;;
         *)
             echo "  🌐 noVNC (Web):        http://localhost:32768"
-            
             echo "  🔒 SSH:                ssh devuser@localhost -p 2222"
             echo "  💻 Web Terminal:       http://localhost:7681"
             ;;
@@ -417,6 +596,38 @@ show_access_info() {
     echo "  ✅ Android Apps (via Waydroid)"
     echo "  ✅ Design & Graphics Tools"
     echo "  ✅ Communication & Collaboration"
+    echo
+}
+
+# Show named container access information
+show_named_container_info() {
+    local container_name="$1"
+    
+    if [ ! -f "$CONTAINER_REGISTRY" ]; then
+        print_error "Container registry not found"
+        return 1
+    fi
+    
+    local http_port=$(jq -r ".\"$container_name\".ports.http" "$CONTAINER_REGISTRY")
+    local ssh_port=$(jq -r ".\"$container_name\".ports.ssh" "$CONTAINER_REGISTRY")
+    local ttyd_port=$(jq -r ".\"$container_name\".ports.ttyd" "$CONTAINER_REGISTRY")
+    local audio_port=$(jq -r ".\"$container_name\".ports.audio" "$CONTAINER_REGISTRY")
+    local pulse_port=$(jq -r ".\"$container_name\".ports.pulse" "$CONTAINER_REGISTRY")
+    
+    echo
+    print_success "Container '$container_name' is running!"
+    echo
+    echo -e "${CYAN}Access Points:${NC}"
+    echo "  🌐 noVNC (Web):        http://localhost:$http_port"
+    echo "  🔒 SSH:                ssh devuser@localhost -p $ssh_port"
+    echo "  💻 Web Terminal:       http://localhost:$ttyd_port"
+    echo "  🔊 Audio Bridge:       http://localhost:$audio_port"
+    echo "  🎵 PulseAudio:         localhost:$pulse_port"
+    echo
+    echo -e "${YELLOW}Container Info:${NC}"
+    echo "  📦 Name:               webtop-$container_name"
+    echo "  🏷️  Label:              $container_name"
+    echo "  📊 Registry:           $CONTAINER_REGISTRY"
     echo
 }
 
@@ -550,8 +761,209 @@ update_system() {
     print_success "System updated successfully!"
 }
 
+# Parse command line arguments
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --name=*)
+                CONTAINER_NAME="${1#*=}"
+                shift
+                ;;
+            --name)
+                CONTAINER_NAME="$2"
+                shift 2
+                ;;
+            --ports=*)
+                CONTAINER_PORTS="${1#*=}"
+                shift
+                ;;
+            --ports)
+                CONTAINER_PORTS="$2"
+                shift 2
+                ;;
+            --auth)
+                ENABLE_AUTH="true"
+                shift
+                ;;
+            *)
+                break
+                ;;
+        esac
+    done
+}
+
+# List all managed containers
+list_containers() {
+    if [ ! -f "$CONTAINER_REGISTRY" ]; then
+        print_warning "No containers registered yet"
+        return 0
+    fi
+    
+    print_status "Managed Containers:"
+    echo
+    
+    local containers=$(jq -r 'keys[]' "$CONTAINER_REGISTRY" 2>/dev/null)
+    if [ -z "$containers" ]; then
+        print_warning "No containers found in registry"
+        return 0
+    fi
+    
+    printf "%-15s %-20s %-10s %-15s %-10s\n" "NAME" "CONTAINER" "STATUS" "HTTP_PORT" "SSH_PORT"
+    printf "%-15s %-20s %-10s %-15s %-10s\n" "----" "---------" "------" "---------" "--------"
+    
+    for container in $containers; do
+        local container_id=$(jq -r ".\"$container\".name" "$CONTAINER_REGISTRY")
+        local status=$(jq -r ".\"$container\".status" "$CONTAINER_REGISTRY")
+        local http_port=$(jq -r ".\"$container\".ports.http" "$CONTAINER_REGISTRY")
+        local ssh_port=$(jq -r ".\"$container\".ports.ssh" "$CONTAINER_REGISTRY")
+        
+        # Check if container is actually running
+        if docker ps --format "table {{.Names}}" | grep -q "^$container_id$"; then
+            status="running"
+        else
+            status="stopped"
+        fi
+        
+        printf "%-15s %-20s %-10s %-15s %-10s\n" "$container" "$container_id" "$status" "$http_port" "$ssh_port"
+    done
+    echo
+}
+
+# Remove specific container
+remove_container() {
+    local container_name="$1"
+    
+    if [ -z "$container_name" ]; then
+        print_error "Container name required"
+        echo "Usage: $0 remove <container_name>"
+        exit 1
+    fi
+    
+    if [ ! -f "$CONTAINER_REGISTRY" ]; then
+        print_error "Container registry not found"
+        exit 1
+    fi
+    
+    # Check if container exists in registry
+    if ! jq -e ".\"$container_name\"" "$CONTAINER_REGISTRY" > /dev/null 2>&1; then
+        print_error "Container '$container_name' not found in registry"
+        exit 1
+    fi
+    
+    local container_id="webtop-$container_name"
+    
+    print_status "Removing container: $container_name"
+    
+    # Stop and remove the container
+    if docker ps -a --format "table {{.Names}}" | grep -q "^$container_id$"; then
+        docker stop "$container_id" 2>/dev/null || true
+        docker rm "$container_id" 2>/dev/null || true
+        print_success "Container '$container_id' stopped and removed"
+    fi
+    
+    # Remove volumes
+    local volumes=$(docker volume ls --format "table {{.Name}}" | grep "^${container_name}_" || true)
+    if [ -n "$volumes" ]; then
+        echo "$volumes" | xargs docker volume rm 2>/dev/null || true
+        print_success "Container volumes removed"
+    fi
+    
+    # Remove from registry
+    local temp_file=$(mktemp)
+    jq "del(.\"$container_name\")" "$CONTAINER_REGISTRY" > "$temp_file" && mv "$temp_file" "$CONTAINER_REGISTRY"
+    
+    print_success "Container '$container_name' removed from registry"
+}
+
+# Show container info
+show_container_info() {
+    local container_name="$1"
+    
+    if [ -z "$container_name" ]; then
+        print_error "Container name required"
+        echo "Usage: $0 info <container_name>"
+        exit 1
+    fi
+    
+    if [ ! -f "$CONTAINER_REGISTRY" ] || ! jq -e ".\"$container_name\"" "$CONTAINER_REGISTRY" > /dev/null 2>&1; then
+        print_error "Container '$container_name' not found in registry"
+        exit 1
+    fi
+    
+    show_named_container_info "$container_name"
+}
+
+# Open container in browser
+open_container() {
+    local container_name="$1"
+    
+    if [ -z "$container_name" ]; then
+        print_error "Container name required"
+        echo "Usage: $0 open <container_name>"
+        exit 1
+    fi
+    
+    if [ ! -f "$CONTAINER_REGISTRY" ] || ! jq -e ".\"$container_name\"" "$CONTAINER_REGISTRY" > /dev/null 2>&1; then
+        print_error "Container '$container_name' not found in registry"
+        exit 1
+    fi
+    
+    local http_port=$(jq -r ".\"$container_name\".ports.http" "$CONTAINER_REGISTRY")
+    local url="http://localhost:$http_port"
+    
+    print_status "Opening container '$container_name' at $url"
+    
+    if command -v xdg-open > /dev/null; then
+        xdg-open "$url"
+    elif command -v open > /dev/null; then
+        open "$url"
+    else
+        echo "Please open $url in your browser"
+    fi
+}
+
+# Connect to container via SSH
+connect_container() {
+    local container_name="$1"
+    
+    if [ -z "$container_name" ]; then
+        print_error "Container name required"
+        echo "Usage: $0 connect <container_name>"
+        exit 1
+    fi
+    
+    if [ ! -f "$CONTAINER_REGISTRY" ] || ! jq -e ".\"$container_name\"" "$CONTAINER_REGISTRY" > /dev/null 2>&1; then
+        print_error "Container '$container_name' not found in registry"
+        exit 1
+    fi
+    
+    local ssh_port=$(jq -r ".\"$container_name\".ports.ssh" "$CONTAINER_REGISTRY")
+    
+    print_status "Connecting to container '$container_name' via SSH on port $ssh_port"
+    ssh devuser@localhost -p "$ssh_port"
+}
+
 # Main command handling
 main() {
+    # Parse arguments first
+    parse_args "$@"
+    
+    # Remove parsed arguments to get the command
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --name=*|--name|--ports=*|--ports|--auth)
+                if [[ $1 == --name || $1 == --ports ]]; then
+                    shift 2
+                else
+                    shift
+                fi
+                ;;
+            *)
+                break
+                ;;
+        esac
+    done
+    
     # Always check Docker first
     check_docker
     
@@ -590,6 +1002,21 @@ main() {
         restart)
             stop_containers
             start_containers "$2"
+            ;;
+        list)
+            list_containers
+            ;;
+        remove)
+            remove_container "$2"
+            ;;
+        info)
+            show_container_info "$2"
+            ;;
+        open)
+            open_container "$2"
+            ;;
+        connect)
+            connect_container "$2"
             ;;
         logs)
             local config=$(get_config "$2")

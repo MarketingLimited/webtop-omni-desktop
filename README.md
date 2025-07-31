@@ -66,8 +66,8 @@
    # Or with authentication enabled
    ./webtop.sh up --auth
    
-   # Multi-container setup
-   ./webtop.sh up --name=client1 --ports=32769:80,2223:22 --auth
+    # Multi-container setup with auto port discovery
+    ./webtop.sh up --name=client1 --auth   # Auto-assigns available ports
    ```
 
 4. **Background Building (Optional)**
