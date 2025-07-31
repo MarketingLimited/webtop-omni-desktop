@@ -68,12 +68,13 @@ docker compose -f docker-compose.prod.yml up -d
 
 ### 3. Access Services
 
-| Service | URL | Description |
-|---------|-----|-------------|
-| 🖥️ **KDE Desktop** | `http://localhost:14500` | Full desktop via Xpra |
-| 🖥️ **VNC Desktop** | `http://localhost:80` | Desktop via noVNC |
-| 💻 **Terminal** | `http://localhost:7681` | Web terminal |
-| 🔐 **SSH** | `ssh user@localhost -p 2222` | Direct SSH access |
+| Service | URL | Description | Status Check |
+|---------|-----|-------------|--------------|
+| 🖥️ **KDE Desktop** | `http://localhost:14500` | Full desktop via Xpra | Auto-validated |
+| 🖥️ **VNC Desktop** | `http://localhost:80` | Desktop via noVNC | Auto-validated |
+| 💻 **Terminal** | `http://localhost:7681` | Web terminal (TTYD) | Auto-validated |
+| 🔐 **SSH** | `ssh user@localhost -p 2222` | Direct SSH access | Auto-validated |
+| 🎵 **Audio** | KDE System Settings | Virtual audio devices | Auto-validated |
 
 ## 🛠️ Management Scripts
 
@@ -88,34 +89,42 @@ docker compose -f docker-compose.prod.yml up -d
 ./webtop.sh shell     # Open shell
 ```
 
-### Health Check
+### System Validation
 ```bash
-docker exec webtop-kde /usr/local/bin/health-check.sh
-```
+# Comprehensive system validation
+docker exec webtop-kde /usr/local/bin/system-validation.sh
 
-### Audio Test
-```bash
-docker exec webtop-kde /usr/local/bin/test-audio.sh
+# Service health check
+docker exec webtop-kde /usr/local/bin/health-check.sh
+
+# Service-specific monitoring
+docker exec webtop-kde /usr/local/bin/service-health.sh status
 ```
 
 ## 🎵 Audio Configuration
 
-The system includes a sophisticated audio setup:
+The system includes a container-compatible audio setup:
 
-1. **Virtual Audio Devices**: ALSA loopback creates virtual speakers/microphones
-2. **PulseAudio Server**: Runs in user mode with TCP access
-3. **Xpra Audio Bridge**: Routes audio from apps to browser
-4. **Browser Playback**: Audio streams directly to your browser
+1. **Virtual Audio Devices**: Software-based virtual speakers and microphones
+2. **PulseAudio Server**: Runs with container-compatible dummy/null sinks
+3. **Audio Forwarding**: Routes audio through VNC and Xpra remote access
+4. **KDE Integration**: Virtual devices appear in KDE System Settings
 
-### Troubleshooting Audio
+### Audio Management Commands
 ```bash
-# Check audio status
+# Comprehensive audio validation
+docker exec webtop-kde /usr/local/bin/audio-validation.sh
+
+# Desktop audio integration test
+docker exec webtop-kde /usr/local/bin/test-desktop-audio.sh
+
+# Continuous audio monitoring
+docker exec webtop-kde /usr/local/bin/audio-monitor.sh monitor
+
+# Check PulseAudio status
 docker exec webtop-kde pactl list short sinks
 
-# Test audio generation
-docker exec webtop-kde speaker-test -t sine -f 1000 -l 1
-
-# Restart audio services
+# Manual audio restart (if needed)
 docker exec webtop-kde supervisorctl restart pulseaudio
 ```
 
@@ -251,12 +260,19 @@ docker compose -f docker-compose.dev.yml up -d
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
+## 📚 Documentation
+
+- **[Validation Guide](VALIDATION.md)**: Comprehensive system validation and testing
+- **[Troubleshooting Guide](TROUBLESHOOTING.md)**: Advanced troubleshooting and recovery
+- **[Service Architecture](SERVICES.md)**: Detailed service documentation and management
+- **[Audio Configuration](#-audio-configuration)**: Container-compatible audio setup
+
 ## 🆘 Support
 
-- **Documentation**: Check this README and inline documentation
+- **System Validation**: Run `/usr/local/bin/system-validation.sh` for complete diagnostics
+- **Health Check**: Run `/usr/local/bin/health-check.sh` for quick status
 - **Issues**: Create GitHub issues for bugs/features
 - **Discussions**: Use GitHub Discussions for questions
-- **Health Check**: Run `health-check.sh` for diagnostics
 
 ## 🎯 Marketing Agency Optimizations
 
