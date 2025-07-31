@@ -6,10 +6,21 @@ DEV_UID="${DEV_UID:-1000}"
 
 echo "🔊 Setting up audio system for marketing agency..."
 
-# Ensure runtime directories exist
-mkdir -p "/run/user/${DEV_UID}" "/run/user/${DEV_UID}/pulse"
-chown "${DEV_USERNAME}:${DEV_USERNAME}" "/run/user/${DEV_UID}" "/run/user/${DEV_UID}/pulse"
-chmod 700 "/run/user/${DEV_UID}"
+# Check if we're running during build (user doesn't exist yet) or runtime
+if id "$DEV_USERNAME" >/dev/null 2>&1; then
+    IS_RUNTIME=true
+    echo "🔧 Runtime mode: Setting up user-specific audio configuration"
+else
+    IS_RUNTIME=false
+    echo "🔧 Build mode: Setting up system-wide audio configuration only"
+fi
+
+# Create runtime directories (build-safe)
+mkdir -p "/run/user/${DEV_UID}" "/run/user/${DEV_UID}/pulse" || true
+if [ "$IS_RUNTIME" = true ]; then
+    chown "${DEV_USERNAME}:${DEV_USERNAME}" "/run/user/${DEV_UID}" "/run/user/${DEV_UID}/pulse" || true
+    chmod 700 "/run/user/${DEV_UID}" || true
+fi
 
 # Create ALSA configuration for virtual audio devices
 cat <<EOF > /etc/asound.conf
@@ -35,9 +46,10 @@ pcm.marketing_loopback {
 }
 EOF
 
-# Create user-specific PulseAudio configuration
-mkdir -p "/home/${DEV_USERNAME}/.config/pulse"
-cat <<EOF > "/home/${DEV_USERNAME}/.config/pulse/default.pa"
+# Create user-specific PulseAudio configuration (runtime only)
+if [ "$IS_RUNTIME" = true ]; then
+    mkdir -p "/home/${DEV_USERNAME}/.config/pulse"
+    cat <<EOF > "/home/${DEV_USERNAME}/.config/pulse/default.pa"
 #!/usr/bin/pulseaudio -nF
 
 # Load core modules required for basic operation
@@ -71,8 +83,9 @@ set-sink-volume virtual_speaker 65536
 set-sink-volume virtual_microphone 65536
 EOF
 
-# Set proper ownership
-chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/.config"
+    # Set proper ownership (runtime only)
+    chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/.config"
+fi
 
 # Create container-compatible audio devices with software fallbacks
 echo "🔧 Setting up container-compatible audio devices..."
@@ -80,9 +93,10 @@ echo "🔧 Setting up container-compatible audio devices..."
 # Skip hardware module loading in containers - use pure software approach
 echo "✅ Using software-only audio pipeline (container-optimized)"
 
-# Create software-only ALSA devices for container environment
-mkdir -p "/home/${DEV_USERNAME}/.asoundrc.d"
-cat <<EOF > "/home/${DEV_USERNAME}/.asoundrc"
+# Create software-only ALSA devices for container environment (runtime only)
+if [ "$IS_RUNTIME" = true ]; then
+    mkdir -p "/home/${DEV_USERNAME}/.asoundrc.d"
+    cat <<EOF > "/home/${DEV_USERNAME}/.asoundrc"
 # Container-compatible ALSA configuration
 pcm.!default {
     type pulse
@@ -127,18 +141,21 @@ pcm.null {
 }
 EOF
 
-chown "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/.asoundrc"
-
-# Ensure audio device permissions
-if [ -d "/dev/snd" ]; then
-    chown -R "${DEV_USERNAME}:audio" /dev/snd || echo "⚠️  Could not set audio device permissions"
-    chmod -R g+rw /dev/snd || echo "⚠️  Could not set audio device permissions"
+    chown "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/.asoundrc"
 fi
 
-# Create pulse directories with proper ownership
-mkdir -p "/run/user/${DEV_UID}/pulse"
-chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/run/user/${DEV_UID}"
-chmod 700 "/run/user/${DEV_UID}"
+# Ensure audio device permissions (runtime only)
+if [ "$IS_RUNTIME" = true ]; then
+    if [ -d "/dev/snd" ]; then
+        chown -R "${DEV_USERNAME}:audio" /dev/snd || echo "⚠️  Could not set audio device permissions"
+        chmod -R g+rw /dev/snd || echo "⚠️  Could not set audio device permissions"
+    fi
+
+    # Create pulse directories with proper ownership
+    mkdir -p "/run/user/${DEV_UID}/pulse"
+    chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/run/user/${DEV_UID}"
+    chmod 700 "/run/user/${DEV_UID}"
+fi
 
 # Create advanced audio test script with connectivity testing
 cat <<'EOF' > /usr/local/bin/test-audio.sh

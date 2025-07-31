@@ -150,6 +150,12 @@ if [ -f "/usr/local/bin/setup-audio.sh" ]; then
     /usr/local/bin/setup-audio.sh
     echo "✅ Audio system setup completed"
     
+    # Apply runtime audio fixes after user creation
+    if [ -f "/usr/local/bin/fix-audio-startup.sh" ]; then
+        /usr/local/bin/fix-audio-startup.sh
+        echo "✅ Audio startup configuration completed"
+    fi
+    
     # Schedule audio validation after services start
     if [ -f "/usr/local/bin/audio-validation.sh" ]; then
         chmod +x /usr/local/bin/audio-validation.sh

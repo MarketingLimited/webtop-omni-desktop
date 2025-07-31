@@ -9,22 +9,36 @@ DEV_UID="${DEV_UID:-1000}"
 
 echo "🔧 Fixing audio system startup configuration..."
 
-# Ensure runtime directories exist with proper permissions
+# Check if we're running during build (user doesn't exist yet) or runtime
+if id "$DEV_USERNAME" >/dev/null 2>&1; then
+    IS_RUNTIME=true
+    echo "🔧 Runtime mode: Setting user-specific permissions"
+else
+    IS_RUNTIME=false
+    echo "🔧 Build mode: Skipping user-specific operations"
+fi
+
+# Ensure runtime directories exist (build-safe)
 mkdir -p "/run/user/${DEV_UID}"
 mkdir -p "/run/user/${DEV_UID}/pulse"
-chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/run/user/${DEV_UID}"
-chmod 700 "/run/user/${DEV_UID}"
+if [ "$IS_RUNTIME" = true ]; then
+    chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/run/user/${DEV_UID}"
+    chmod 700 "/run/user/${DEV_UID}"
+fi
 
 # Create systemd-style runtime directory structure
 mkdir -p "/run/user/${DEV_UID}/systemd"
-chown "${DEV_USERNAME}:${DEV_USERNAME}" "/run/user/${DEV_UID}/systemd"
+if [ "$IS_RUNTIME" = true ]; then
+    chown "${DEV_USERNAME}:${DEV_USERNAME}" "/run/user/${DEV_UID}/systemd"
 
-# Ensure PulseAudio config directory exists
-mkdir -p "/home/${DEV_USERNAME}/.config/pulse"
-chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/.config"
+    # Ensure PulseAudio config directory exists
+    mkdir -p "/home/${DEV_USERNAME}/.config/pulse"
+    chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/.config"
+fi
 
-# Create optimized PulseAudio client configuration
-cat <<EOF > "/home/${DEV_USERNAME}/.config/pulse/client.conf"
+# Create optimized PulseAudio client configuration (runtime only)
+if [ "$IS_RUNTIME" = true ]; then
+    cat <<EOF > "/home/${DEV_USERNAME}/.config/pulse/client.conf"
 # Container-optimized PulseAudio client configuration
 default-server = unix:/run/user/${DEV_UID}/pulse/native
 enable-shm = no
@@ -33,8 +47,8 @@ auto-connect-localhost = yes
 auto-connect-display = yes
 EOF
 
-# Create ALSA configuration that properly connects to PulseAudio
-cat <<EOF > "/home/${DEV_USERNAME}/.asoundrc"
+    # Create ALSA configuration that properly connects to PulseAudio
+    cat <<EOF > "/home/${DEV_USERNAME}/.asoundrc"
 # Container-optimized ALSA configuration
 pcm.!default {
     type pulse
@@ -58,11 +72,12 @@ pcm.fallback {
 }
 EOF
 
-chown "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/.asoundrc"
-chown "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/.config/pulse/client.conf"
+    chown "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/.asoundrc"
+    chown "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/.config/pulse/client.conf"
+fi
 
-# Set proper permissions for audio devices if they exist
-if [ -d "/dev/snd" ]; then
+# Set proper permissions for audio devices if they exist (runtime only)
+if [ "$IS_RUNTIME" = true ] && [ -d "/dev/snd" ]; then
     chown -R root:audio /dev/snd
     chmod -R g+rw /dev/snd
     usermod -a -G audio "${DEV_USERNAME}" 2>/dev/null || true
