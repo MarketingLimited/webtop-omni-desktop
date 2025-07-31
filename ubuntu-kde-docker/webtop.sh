@@ -95,6 +95,8 @@ show_help() {
     echo "  validate                Run system validation"
     echo "  health [action]         Advanced health monitoring"
     echo "  performance [action]    Performance tuning and benchmarks"
+    echo "  web-ui                  Start web management interface"
+    echo "  backup [action]         Advanced cloud backup system"
     echo "  config [action]         Configuration management"
     echo "  monitor                 Monitor resource usage"
     echo
@@ -365,6 +367,19 @@ main() {
                     ;;
                 *)
                     ./scripts/performance-tuner.sh monitor
+                    ;;
+            esac
+            ;;
+        web-ui)
+            python3 scripts/web-interface.py
+            ;;
+        backup)
+            case "$2" in
+                init|full|incremental|restore|list|verify|upload|schedule|auto-full|auto-incremental)
+                    ./scripts/cloud-backup.sh "$2" "$3" "$4" "$5" "$6"
+                    ;;
+                *)
+                    ./scripts/cloud-backup.sh list
                     ;;
             esac
             ;;
