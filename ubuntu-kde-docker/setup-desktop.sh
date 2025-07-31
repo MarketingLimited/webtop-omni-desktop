@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euxo pipefail
+set -euo pipefail
 
 DEV_USERNAME="${DEV_USERNAME:-devuser}"
 DESKTOP_DIR="/home/${DEV_USERNAME}/Desktop"
@@ -139,7 +139,8 @@ chmod +x "${DESKTOP_DIR}/GoogleAdsEditor.desktop"
 
 # Set wallpaper (optional)
 WALLPAPER_URL="https://wallpaperaccess.com/full/3314875.jpg"
-wget -O /usr/share/backgrounds/kde-custom-wallpaper.jpg "${WALLPAPER_URL}" || true
+echo "📸 Downloading wallpaper..."
+wget -O /usr/share/backgrounds/kde-custom-wallpaper.jpg "${WALLPAPER_URL}" 2>/dev/null || echo "⚠️ Wallpaper download failed, skipping"
 
 chmod -R +x "${DESKTOP_DIR}"
 chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "${DESKTOP_DIR}" "${AUTOSTART_DIR}"

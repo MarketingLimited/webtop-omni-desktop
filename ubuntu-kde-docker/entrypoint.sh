@@ -69,7 +69,16 @@ getent passwd messagebus >/dev/null || useradd -r -g messagebus -s /sbin/nologin
 if command -v setcap >/dev/null 2>&1; then
     setcap cap_setgid=pe /usr/lib/polkit-1/polkitd || true
 fi
-chmod 4755 /usr/lib/policykit-1/polkit-agent-helper-1
+chmod 4755 /usr/lib/policykit-1/polkit-agent-helper-1 2>/dev/null || true
+
+# Create missing PolicyKit config files for Ubuntu 24.04 bug fix
+mkdir -p /etc/polkit-1/localauthority.conf.d /etc/polkit-1/rules.d /var/lib/polkit-1/localauthority
+cp -f /tmp/polkit-localauthority.conf /etc/polkit-1/localauthority.conf.d/51-ubuntu-admin.conf 2>/dev/null || true
+cp -f /tmp/polkit-dbus.conf /etc/dbus-1/system.d/org.freedesktop.PolicyKit1.conf 2>/dev/null || true
+
+# Fix PolicyKit permissions
+chown polkitd:polkitd /var/lib/polkit-1/localauthority 2>/dev/null || true
+chmod 755 /var/lib/polkit-1/localauthority 2>/dev/null || true
 
 # Ensure group and user exist
 if ! getent group "$DEV_USERNAME" > /dev/null; then

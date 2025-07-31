@@ -163,17 +163,24 @@ COPY setup-waydroid.sh /usr/local/bin/setup-waydroid.sh
 COPY setup-video-editing.sh /usr/local/bin/setup-video-editing.sh
 COPY health-check.sh /usr/local/bin/health-check.sh
 COPY fix-permissions.sh /usr/local/bin/fix-permissions.sh
-RUN chmod +x /usr/local/bin/setup-*.sh /usr/local/bin/health-check.sh /usr/local/bin/fix-permissions.sh
+COPY test-polkit.sh /usr/local/bin/test-polkit.sh
+RUN chmod +x /usr/local/bin/setup-*.sh /usr/local/bin/health-check.sh /usr/local/bin/fix-permissions.sh /usr/local/bin/test-polkit.sh
 
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# Copy PolicyKit configuration files for Ubuntu 24.04 bug fix
 COPY polkit-localauthority.conf /tmp/polkit-localauthority.conf
 COPY polkit-dbus.conf /tmp/polkit-dbus.conf
-
-
 
 # Ensure updated accountsservice
 RUN apt-get update && apt-get install -y accountsservice policykit-1 && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Create default PolicyKit configuration directories and files for Ubuntu 24.04
+RUN mkdir -p /etc/polkit-1/localauthority.conf.d /etc/polkit-1/rules.d /var/lib/polkit-1/localauthority \
+    && echo "[Configuration]" > /etc/polkit-1/localauthority.conf.d/50-localauthority.conf \
+    && echo "AdminIdentities=unix-group:sudo;unix-group:wheel;unix-user:root" >> /etc/polkit-1/localauthority.conf.d/50-localauthority.conf \
+    && chmod 644 /etc/polkit-1/localauthority.conf.d/50-localauthority.conf
 
 # Ensure KDE polkit agent starts correctly
 RUN ln -sf /usr/lib/x86_64-linux-gnu/libexec/polkit-kde-authentication-agent-1 /usr/lib/polkit-kde-authentication-agent-1 && \
