@@ -945,24 +945,44 @@ connect_container() {
 
 # Main command handling
 main() {
-    # Parse arguments first
+    # Ensure jq is available for container registry management
+    if ! command -v jq &> /dev/null; then
+        print_status "Installing jq for container registry management..."
+        if [ -f "./install-jq.sh" ]; then
+            ./install-jq.sh
+        else
+            print_error "jq is required but not installed. Please install jq manually."
+            exit 1
+        fi
+    fi
+    
+    # Initialize container registry if it doesn't exist
+    if [ ! -f "$CONTAINER_REGISTRY" ]; then
+        echo "{}" > "$CONTAINER_REGISTRY"
+    fi
+    
+    # Parse arguments to extract --name, --ports, --auth
     parse_args "$@"
     
-    # Remove parsed arguments to get the command
+    # Remove parsed options to get the actual command
+    local remaining_args=()
     while [[ $# -gt 0 ]]; do
         case $1 in
-            --name=*|--name|--ports=*|--ports|--auth)
-                if [[ $1 == --name || $1 == --ports ]]; then
-                    shift 2
-                else
-                    shift
-                fi
+            --name=*|--ports=*|--auth)
+                shift
+                ;;
+            --name|--ports)
+                shift 2
                 ;;
             *)
-                break
+                remaining_args+=("$1")
+                shift
                 ;;
         esac
     done
+    
+    # Restore remaining arguments
+    set -- "${remaining_args[@]}"
     
     # Always check Docker first
     check_docker
