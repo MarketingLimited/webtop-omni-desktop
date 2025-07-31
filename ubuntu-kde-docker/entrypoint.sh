@@ -278,8 +278,31 @@ fi
 chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}"
 chown -R "${ADMIN_USERNAME}:${ADMIN_USERNAME}" "/home/${ADMIN_USERNAME}"
 
+# Setup Wine and Windows applications
+log_info "Setting up Wine and Google Ads Editor..."
+if /opt/setup-wine.sh; then
+    log_info "Wine setup completed successfully"
+    
+    # Setup Google Ads Editor
+    if /opt/setup-google-ads-editor.sh; then
+        log_info "Google Ads Editor setup completed successfully"
+    else
+        log_warn "Google Ads Editor setup failed"
+    fi
+else
+    log_warn "Wine setup failed"
+fi
+
+# Setup Android subsystem (Waydroid/Anbox)
+log_info "Setting up Android subsystem..."
+if /opt/setup-waydroid.sh; then
+    log_info "Android subsystem setup completed"
+else
+    log_warn "Android subsystem setup failed"
+fi
+
 # Ensure binder/ashmem are available for Waydroid (optional, may fail in containers)
-log_info "Setting up Android subsystem support (optional)..."
+log_info "Setting up Android kernel support (optional)..."
 if command -v modprobe >/dev/null 2>&1; then
     modprobe binder_linux 2>/dev/null || log_warn "Could not load binder_linux module (container limitation)"
     modprobe ashmem_linux 2>/dev/null || log_warn "Could not load ashmem_linux module (container limitation)"
