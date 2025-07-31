@@ -162,6 +162,15 @@ else
     echo "⚠️  TTYD setup script not found"
 fi
 
+# Set up desktop audio integration testing
+log_info "Setting up desktop audio integration..."
+if [ -f "/usr/local/bin/test-desktop-audio.sh" ]; then
+    chmod +x /usr/local/bin/test-desktop-audio.sh
+    echo "✅ Desktop audio integration testing setup completed"
+else
+    echo "⚠️  Desktop audio integration script not found"
+fi
+
 # Generate SSH host keys if they don't exist
 log_info "Setting up SSH host keys..."
 mkdir -p /etc/ssh /run/sshd
