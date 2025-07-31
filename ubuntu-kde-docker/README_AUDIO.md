@@ -1,23 +1,31 @@
-# Desktop Audio Integration
+# Audio System for Ubuntu KDE WebTop
 
-This Docker environment now includes complete audio support through a web-based audio bridge.
+This WebTop includes a comprehensive audio system with web-based streaming capabilities, optimized for container environments.
+
+## Features
+
+- **Container-Optimized**: Pure software audio pipeline that works without hardware dependencies
+- **Virtual Audio Devices**: Software-based audio devices for reliable operation
+- **Web Audio Bridge**: Stream audio directly to your browser alongside VNC
+- **KDE Integration**: Full audio support within KDE Plasma desktop
+- **Automatic Recovery**: Self-healing audio system with validation and monitoring
 
 ## How It Works
 
-1. **PulseAudio Virtual Devices**: The container creates virtual audio devices that capture all desktop audio
-2. **Audio Bridge Server**: A Node.js WebSocket server streams PulseAudio output in real-time
-3. **Web Audio Integration**: The noVNC interface includes audio controls that receive and play the stream
+### Audio Architecture
 
-## Accessing Audio
+1. **PulseAudio Core**: Container-optimized audio server with virtual devices
+2. **Runtime Environment**: Proper user session and permission management
+3. **Web Bridge**: Node.js WebSocket audio streaming server
+4. **Browser Integration**: Seamless audio playback in web browsers
+5. **Monitoring**: Continuous health checks and automatic recovery
 
-### Web Interface (Recommended)
-- Open `http://localhost:32768` in your browser
-- The noVNC interface will include audio controls at the bottom
-- Click "🔊 Connect Audio" to start receiving desktop audio
-- Adjust volume with the slider
-- Minimize controls if needed
+### Accessing Audio
 
-### Direct Audio Bridge
+#### Via noVNC Web Interface
+- Open browser to `http://localhost:32768`
+- Audio controls automatically appear in the interface
+- Click "Connect Audio" to start streaming
 - Audio bridge is available at `http://localhost:8080/audio-player.html`
 - Standalone audio player for testing and debugging
 

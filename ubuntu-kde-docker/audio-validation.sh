@@ -19,40 +19,47 @@ blue() { echo -e "\033[34m$*\033[0m"; }
 validate_pulseaudio() {
     echo "🔍 Validating PulseAudio configuration..."
     
-    # Wait for PulseAudio to start
-    timeout=30
+    # Wait for PulseAudio to start with proper environment
+    export XDG_RUNTIME_DIR="/run/user/${DEV_UID}"
+    export PULSE_RUNTIME_PATH="/run/user/${DEV_UID}/pulse"
+    
+    timeout=60
     while [ $timeout -gt 0 ]; do
-        if pactl info >/dev/null 2>&1; then
+        if su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl info" >/dev/null 2>&1; then
             break
         fi
-        sleep 1
-        timeout=$((timeout - 1))
+        sleep 2
+        timeout=$((timeout - 2))
     done
     
-    if ! pactl info >/dev/null 2>&1; then
-        red "❌ PulseAudio not responding after 30 seconds"
+    if ! su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl info" >/dev/null 2>&1; then
+        red "❌ PulseAudio not responding after 60 seconds"
+        # Try to restart PulseAudio
+        yellow "🔄 Attempting to restart PulseAudio..."
+        /usr/local/bin/fix-audio-startup.sh
+        sleep 5
         return 1
     fi
     
-    # Check for virtual devices
-    if pactl list short sinks | grep -q "virtual_speaker"; then
+    # Check for virtual devices with proper environment
+    if su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl list short sinks" | grep -q "virtual_speaker"; then
         green "✅ Virtual speaker device found"
     else
         yellow "⚠️  Virtual speaker device missing, attempting to create..."
-        pactl load-module module-null-sink sink_name=virtual_speaker sink_properties=device.description="Virtual_Marketing_Speaker" || true
+        su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl load-module module-null-sink sink_name=virtual_speaker sink_properties=device.description=\"Virtual_Marketing_Speaker\"" || true
     fi
     
-    if pactl list short sources | grep -q "virtual_mic_source\|virtual_microphone.monitor"; then
+    if su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl list short sources" | grep -q "virtual_mic_source\|virtual_microphone.monitor"; then
         green "✅ Virtual microphone source found"
     else
         yellow "⚠️  Virtual microphone source missing, attempting to create..."
-        pactl load-module module-null-sink sink_name=virtual_microphone sink_properties=device.description="Virtual_Marketing_Microphone" || true
+        su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl load-module module-null-sink sink_name=virtual_microphone sink_properties=device.description=\"Virtual_Marketing_Microphone\"" || true
     fi
     
     # Set defaults if not already set
-    current_sink=$(pactl get-default-sink 2>/dev/null || echo "")
+    current_sink=$(su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl get-default-sink" 2>/dev/null || echo "")
     if [ "$current_sink" != "virtual_speaker" ]; then
-        pactl set-default-sink virtual_speaker 2>/dev/null || yellow "⚠️  Could not set default sink"
+        su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl set-default-sink virtual_speaker" 2>/dev/null || yellow "⚠️  Could not set default sink"
     fi
     
     return 0
@@ -74,7 +81,7 @@ test_kde_audio_integration() {
     
     # Check if audio volume applet can find devices
     export DISPLAY=:1
-    if command -v pactl >/dev/null && pactl list short sinks | grep -q virtual; then
+    if command -v pactl >/dev/null && su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl list short sinks" | grep -q virtual; then
         green "✅ Virtual audio devices available for KDE"
     else
         yellow "⚠️  Audio devices may not be visible in KDE"

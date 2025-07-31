@@ -41,39 +41,26 @@ cat <<EOF > "/home/${DEV_USERNAME}/.config/pulse/default.pa"
 #!/usr/bin/pulseaudio -nF
 
 # Load core modules required for basic operation
-.fail
 load-module module-device-restore
 load-module module-stream-restore
 load-module module-card-restore
 load-module module-augment-properties
-load-module module-switch-on-port-available
 
 # Create virtual audio devices for container environment
-load-module module-null-sink sink_name=virtual_speaker sink_properties=device.description="Virtual_Marketing_Speaker",device.class="sound"
-load-module module-null-sink sink_name=virtual_microphone sink_properties=device.description="Virtual_Marketing_Microphone",device.class="sound"
+load-module module-null-sink sink_name=virtual_speaker sink_properties=device.description="Virtual_Marketing_Speaker"
+load-module module-null-sink sink_name=virtual_microphone sink_properties=device.description="Virtual_Marketing_Microphone"
 
 # Create a virtual source from the microphone sink's monitor
 load-module module-virtual-source source_name=virtual_mic_source master=virtual_microphone.monitor source_properties=device.description="Virtual_Marketing_Mic_Source"
 
-# Create loopback for audio routing between devices
-load-module module-loopback source=virtual_microphone.monitor sink=virtual_speaker latency_msec=50
-
 # Enable TCP module for remote audio access (VNC)
 load-module module-native-protocol-tcp auth-anonymous=1 port=4713 listen=0.0.0.0
 
-# Load X11 integration modules for desktop audio
-load-module module-x11-bell sample=bell-windowing-system
-load-module module-x11-publish
-
-# Load policy and role management modules
+# Load essential modules only
 load-module module-default-device-restore
 load-module module-rescue-streams
 load-module module-always-sink
-load-module module-intended-roles
 load-module module-suspend-on-idle
-
-# Create combined sink for multiple output support
-load-module module-combine-sink sink_name=combined_output slaves=virtual_speaker sink_properties=device.description="Combined_Marketing_Output"
 
 # Set defaults for container environment
 set-default-sink virtual_speaker
@@ -90,12 +77,8 @@ chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/.config"
 # Create container-compatible audio devices with software fallbacks
 echo "🔧 Setting up container-compatible audio devices..."
 
-# Try to load kernel modules but don't fail if they're not available
-if ! lsmod | grep -q snd_aloop; then
-    modprobe snd-aloop 2>/dev/null || echo "⚠️  Could not load snd-aloop module (may need privileged mode)"
-    modprobe snd-dummy numid=2 2>/dev/null || echo "⚠️  Could not load snd-dummy module (creating software fallback)"
-    modprobe snd-pcm-oss 2>/dev/null || echo "⚠️  Could not load OSS compatibility module"
-fi
+# Skip hardware module loading in containers - use pure software approach
+echo "✅ Using software-only audio pipeline (container-optimized)"
 
 # Create software-only ALSA devices for container environment
 mkdir -p "/home/${DEV_USERNAME}/.asoundrc.d"

@@ -23,7 +23,8 @@ check_pulseaudio() {
 
 check_audio_devices() {
     local device_count
-    device_count=$(pactl list short sinks 2>/dev/null | wc -l)
+    export XDG_RUNTIME_DIR="/run/user/${DEV_UID:-1000}"
+    device_count=$(su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID:-1000}; pactl list short sinks 2>/dev/null" | wc -l)
     
     if [ "$device_count" -gt 0 ]; then
         log_audio "✅ Audio devices available: $device_count sinks"
@@ -54,12 +55,12 @@ generate_audio_status() {
         
         # List available devices
         log_audio "Available audio sinks:"
-        pactl list short sinks 2>/dev/null | while read -r line; do
+        su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID:-1000}; pactl list short sinks 2>/dev/null" | while read -r line; do
             log_audio "  - $line"
         done
         
         log_audio "Available audio sources:"
-        pactl list short sources 2>/dev/null | while read -r line; do
+        su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID:-1000}; pactl list short sources 2>/dev/null" | while read -r line; do
             log_audio "  - $line"
         done
     fi
@@ -97,7 +98,7 @@ main() {
             log_audio "Starting continuous audio monitoring..."
             while true; do
                 generate_audio_status
-                sleep 300  # Check every 5 minutes
+                sleep 600  # Check every 10 minutes
             done
             ;;
         *)
