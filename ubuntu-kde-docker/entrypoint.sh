@@ -153,6 +153,15 @@ else
     echo "⚠️  Audio setup script not found"
 fi
 
+# Set up TTYD terminal service
+log_info "Setting up TTYD terminal service..."
+if [ -f "/usr/local/bin/setup-ttyd.sh" ]; then
+    /usr/local/bin/setup-ttyd.sh
+    echo "✅ TTYD setup completed"
+else
+    echo "⚠️  TTYD setup script not found"
+fi
+
 # Generate SSH host keys if they don't exist
 log_info "Setting up SSH host keys..."
 mkdir -p /etc/ssh /run/sshd
