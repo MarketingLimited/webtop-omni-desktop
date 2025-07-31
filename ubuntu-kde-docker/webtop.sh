@@ -93,8 +93,10 @@ show_help() {
     echo
     echo -e "${YELLOW}SYSTEM:${NC}"
     echo "  validate                Run system validation"
+    echo "  health [action]         Advanced health monitoring"
+    echo "  performance [action]    Performance tuning and benchmarks"
+    echo "  config [action]         Configuration management"
     echo "  monitor                 Monitor resource usage"
-    echo "  health                  Perform health check"
     echo
     echo -e "${YELLOW}OPTIONS:${NC}"
     echo "  --name=<n>              Custom container name"
@@ -346,6 +348,36 @@ main() {
         validate)
             ./scripts/setup-validation.sh
             ;;
+        health)
+            case "$2" in
+                init|check|monitor|report|cleanup|containers|resources|network|endpoints|docker)
+                    ./scripts/health-monitor.sh "$2" "$3" "$4"
+                    ;;
+                *)
+                    ./scripts/health-monitor.sh check
+                    ;;
+            esac
+            ;;
+        performance)
+            case "$2" in
+                init|optimize|benchmark|compare|monitor|report)
+                    ./scripts/performance-tuner.sh "$2" "$3" "$4" "$5"
+                    ;;
+                *)
+                    ./scripts/performance-tuner.sh monitor
+                    ;;
+            esac
+            ;;
+        config)
+            case "$2" in
+                init|load|validate|generate|list|export|import|migrate)
+                    ./scripts/config-manager.sh "$2" "$3" "$4" "$5"
+                    ;;
+                *)
+                    ./scripts/config-manager.sh list
+                    ;;
+            esac
+            ;;
         dev-setup)
             dev_setup
             ;;
@@ -360,9 +392,6 @@ main() {
             ;;
         monitor)
             monitor_resources
-            ;;
-        health)
-            health_check
             ;;
         clean)
             clean_system
