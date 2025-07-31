@@ -387,6 +387,16 @@ if [ -f "/usr/local/bin/setup-novnc-enhancement.sh" ]; then
 else
     log_warn "⚠️  noVNC enhancement script not found"
 fi
+
+# Setup KDE optimization
+log_info "Setting up KDE Plasma desktop optimization..."
+if [ -f "/usr/local/bin/setup-kde-optimization.sh" ]; then
+    chmod +x /usr/local/bin/setup-kde-optimization.sh
+    /usr/local/bin/setup-kde-optimization.sh
+    log_info "✅ KDE optimization setup completed"
+else
+    log_warn "⚠️  KDE optimization script not found"
+fi
 else
     echo "⚠️  Service health monitoring script not found"
 fi
