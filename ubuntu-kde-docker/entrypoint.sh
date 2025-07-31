@@ -417,6 +417,40 @@ if [ -f "/usr/local/bin/setup-network-optimization.sh" ]; then
 else
     log_warn "⚠️  Network optimization script not found"
 fi
+
+# Setup advanced features (Phase 7)
+log_info "Setting up advanced desktop features..."
+if [ -f "/setup-advanced-features.sh" ]; then
+    chmod +x /setup-advanced-features.sh
+    ./setup-advanced-features.sh 2>&1 | tee -a "/var/log/setup-advanced-features.log"
+    log_info "✅ Advanced features setup completed"
+else
+    log_warn "⚠️  Advanced features script not found"
+fi
+
+# Setup marketing optimization (Phase 8)
+log_info "Setting up marketing agency optimizations..."
+if [ -f "/setup-marketing-optimization.sh" ]; then
+    chmod +x /setup-marketing-optimization.sh
+    ./setup-marketing-optimization.sh 2>&1 | tee -a "/var/log/setup-marketing-optimization.log"
+    log_info "✅ Marketing optimization setup completed"
+else
+    log_warn "⚠️  Marketing optimization script not found"
+fi
+
+# Setup modern features
+log_info "Setting up modern desktop features..."
+if [ -f "/setup-modern-features.sh" ]; then
+    chmod +x /setup-modern-features.sh
+    ./setup-modern-features.sh 2>&1 | tee -a "/var/log/setup-modern-features.log"
+    log_info "✅ Modern features setup completed"
+else
+    log_warn "⚠️  Modern features script not found"
+fi
+    log_info "✅ Network optimization setup completed"
+else
+    log_warn "⚠️  Network optimization script not found"
+fi
 else
     echo "⚠️  Service health monitoring script not found"
 fi

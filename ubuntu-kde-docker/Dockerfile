@@ -160,6 +160,9 @@ COPY setup-wine.sh /usr/local/bin/setup-wine.sh
 COPY setup-google-ads-editor.sh /usr/local/bin/setup-google-ads-editor.sh
 COPY setup-waydroid.sh /usr/local/bin/setup-waydroid.sh
 COPY setup-video-editing.sh /usr/local/bin/setup-video-editing.sh
+COPY setup-advanced-features.sh /usr/local/bin/setup-advanced-features.sh
+COPY setup-marketing-optimization.sh /usr/local/bin/setup-marketing-optimization.sh
+COPY setup-modern-features.sh /usr/local/bin/setup-modern-features.sh
 COPY setup-ttyd.sh /usr/local/bin/setup-ttyd.sh
 COPY service-health.sh /usr/local/bin/service-health.sh
 COPY test-desktop-audio.sh /usr/local/bin/test-desktop-audio.sh
@@ -185,6 +188,13 @@ RUN /usr/local/bin/setup-audio.sh && \
 
 # Run TTYD setup to create wrapper script
 RUN /usr/local/bin/setup-ttyd.sh
+
+# Install additional dependencies for enhanced features
+RUN apt-get update && apt-get install -y \
+    python3-pip python3-websockets python3-psutil python3-requests \
+    python3-schedule rclone imagemagick ffmpeg nodejs npm curl jq git \
+    && pip3 install websockets psutil requests schedule aiohttp \
+    && npm install -g ws express socket.io
 
 # Setup audio bridge
 COPY setup-audio-bridge.sh /usr/local/bin/
