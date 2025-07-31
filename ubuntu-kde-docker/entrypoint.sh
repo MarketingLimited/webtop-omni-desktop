@@ -149,6 +149,12 @@ log_info "Setting up audio system..."
 if [ -f "/usr/local/bin/setup-audio.sh" ]; then
     /usr/local/bin/setup-audio.sh
     echo "✅ Audio system setup completed"
+    
+    # Schedule audio validation after services start
+    if [ -f "/usr/local/bin/audio-validation.sh" ]; then
+        chmod +x /usr/local/bin/audio-validation.sh
+        echo "✅ Audio validation scheduled"
+    fi
 else
     echo "⚠️  Audio setup script not found"
 fi

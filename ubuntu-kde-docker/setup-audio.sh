@@ -40,49 +40,111 @@ mkdir -p "/home/${DEV_USERNAME}/.config/pulse"
 cat <<EOF > "/home/${DEV_USERNAME}/.config/pulse/default.pa"
 #!/usr/bin/pulseaudio -nF
 
-# Load audio drivers statically
+# Load core modules required for basic operation
+.fail
 load-module module-device-restore
 load-module module-stream-restore
 load-module module-card-restore
 load-module module-augment-properties
 load-module module-switch-on-port-available
 
-# Create virtual audio sink for marketing applications
-load-module module-null-sink sink_name=virtual_speaker sink_properties=device.description="Virtual_Marketing_Speaker"
-load-module module-null-sink sink_name=virtual_microphone sink_properties=device.description="Virtual_Marketing_Microphone"
+# Create virtual audio devices for container environment
+load-module module-null-sink sink_name=virtual_speaker sink_properties=device.description="Virtual_Marketing_Speaker",device.class="sound"
+load-module module-null-sink sink_name=virtual_microphone sink_properties=device.description="Virtual_Marketing_Microphone",device.class="sound"
 
-# Create loopback for audio routing
+# Create a virtual source from the microphone sink's monitor
+load-module module-virtual-source source_name=virtual_mic_source master=virtual_microphone.monitor source_properties=device.description="Virtual_Marketing_Mic_Source"
+
+# Create loopback for audio routing between devices
 load-module module-loopback source=virtual_microphone.monitor sink=virtual_speaker latency_msec=50
 
-# Enable TCP module for remote audio access
-load-module module-native-protocol-tcp auth-anonymous=1 port=4713
+# Enable TCP module for remote audio access (VNC/Xpra)
+load-module module-native-protocol-tcp auth-anonymous=1 port=4713 listen=0.0.0.0
 
-# Load the X11 bell module
+# Load X11 integration modules for desktop audio
 load-module module-x11-bell sample=bell-windowing-system
+load-module module-x11-publish
 
-# Load module to restore the default sink/source when changed by the user
+# Load policy and role management modules
 load-module module-default-device-restore
-
-# Automatically restore the volume of streams and devices
 load-module module-rescue-streams
 load-module module-always-sink
 load-module module-intended-roles
 load-module module-suspend-on-idle
 
-# Make virtual speaker the default
+# Create combined sink for multiple output support
+load-module module-combine-sink sink_name=combined_output slaves=virtual_speaker sink_properties=device.description="Combined_Marketing_Output"
+
+# Set defaults for container environment
 set-default-sink virtual_speaker
-set-default-source virtual_microphone.monitor
+set-default-source virtual_mic_source
+
+# Set volume levels for virtual devices
+set-sink-volume virtual_speaker 65536
+set-sink-volume virtual_microphone 65536
 EOF
 
 # Set proper ownership
 chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/.config"
 
-# Create ALSA loopback device if not exists with fallbacks
+# Create container-compatible audio devices with software fallbacks
+echo "🔧 Setting up container-compatible audio devices..."
+
+# Try to load kernel modules but don't fail if they're not available
 if ! lsmod | grep -q snd_aloop; then
-    modprobe snd-aloop || echo "⚠️  Could not load snd-aloop module (may need privileged mode)"
-    modprobe snd-dummy || echo "⚠️  Could not load snd-dummy module (creating software fallback)"
-    modprobe snd-pcm-oss || echo "⚠️  Could not load OSS compatibility module"
+    modprobe snd-aloop 2>/dev/null || echo "⚠️  Could not load snd-aloop module (may need privileged mode)"
+    modprobe snd-dummy numid=2 2>/dev/null || echo "⚠️  Could not load snd-dummy module (creating software fallback)"
+    modprobe snd-pcm-oss 2>/dev/null || echo "⚠️  Could not load OSS compatibility module"
 fi
+
+# Create software-only ALSA devices for container environment
+mkdir -p "/home/${DEV_USERNAME}/.asoundrc.d"
+cat <<EOF > "/home/${DEV_USERNAME}/.asoundrc"
+# Container-compatible ALSA configuration
+pcm.!default {
+    type pulse
+    server "tcp:localhost:4713"
+    hint {
+        show on
+        description "PulseAudio TCP Socket"
+    }
+}
+
+ctl.!default {
+    type pulse
+    server "tcp:localhost:4713"
+}
+
+# Virtual marketing devices
+pcm.marketing_speaker {
+    type pulse
+    device "virtual_speaker"
+    hint {
+        show on
+        description "Virtual Marketing Speaker"
+    }
+}
+
+pcm.marketing_microphone {
+    type pulse
+    device "virtual_mic_source"  
+    hint {
+        show on
+        description "Virtual Marketing Microphone"
+    }
+}
+
+# Null device fallback for container compatibility
+pcm.null {
+    type null
+    hint {
+        show on
+        description "Null Audio Device"
+    }
+}
+EOF
+
+chown "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/.asoundrc"
 
 # Ensure audio device permissions
 if [ -d "/dev/snd" ]; then
