@@ -139,25 +139,10 @@ export XDG_RUNTIME_DIR="/run/user/${DEV_UID}"
 
 # Register user with AccountsService
 
-# Initialize D-Bus system bus
-echo "🔧 Initializing D-Bus system bus..."
-if [ ! -S /run/dbus/system_bus_socket ]; then
-    if command -v dbus-daemon >/dev/null 2>&1; then
-        dbus-daemon --system --fork
-        for i in {1..20}; do
-            [ -S /run/dbus/system_bus_socket ] && break
-            sleep 0.5
-        done
-        
-        if [ ! -S /run/dbus/system_bus_socket ]; then
-            echo "⚠️  Warning: D-Bus system bus failed to start"
-        else
-            echo "✅ D-Bus system bus started successfully"
-        fi
-    else
-        echo "❌ dbus-daemon not found"
-    fi
-fi
+# D-Bus will be managed by supervisor, just ensure directory exists
+echo "🔧 Preparing D-Bus directories..."
+mkdir -p /run/dbus
+echo "✅ D-Bus directories prepared"
 
 # Generate SSH host keys if they don't exist
 log_info "Setting up SSH host keys..."
@@ -281,5 +266,8 @@ log_info "Starting supervisor daemon..."
 exec env \
     ENV_DEV_USERNAME="${DEV_USERNAME}" \
     ENV_DEV_UID="${DEV_UID}" \
+    ENV_TTYD_USER="${TTYD_USER}" \
+    ENV_TTYD_PASSWORD="${TTYD_PASSWORD}" \
     DEV_USERNAME="${DEV_USERNAME}" DEV_UID="${DEV_UID}" \
+    TTYD_USER="${TTYD_USER}" TTYD_PASSWORD="${TTYD_PASSWORD}" \
     /usr/bin/supervisord -c /etc/supervisor/supervisord.conf -n
