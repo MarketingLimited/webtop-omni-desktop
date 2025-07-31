@@ -13,7 +13,7 @@ services:
       - "32768:80"      # noVNC
       - "2222:22"       # SSH
       - "7681:7681"     # ttyd terminal
-      
+      - "8080:8080"     # Audio Bridge
       - "4713:4713"     # PulseAudio
     env_file:
       - .env

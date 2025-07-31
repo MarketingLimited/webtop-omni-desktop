@@ -1,0 +1,344 @@
+#!/bin/bash
+
+# Audio Bridge Setup Script
+# Sets up web-based audio streaming from PulseAudio to browser
+
+set -e
+
+echo "Setting up PulseAudio Web Audio Bridge..."
+
+# Install Node.js and npm for the audio bridge
+curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+apt-get install -y nodejs
+
+# Create audio bridge directory
+mkdir -p /opt/audio-bridge
+cd /opt/audio-bridge
+
+# Create package.json for the audio bridge
+cat > package.json << 'EOF'
+{
+  "name": "pulseaudio-web-bridge",
+  "version": "1.0.0",
+  "description": "Web bridge for PulseAudio streaming",
+  "main": "server.js",
+  "dependencies": {
+    "ws": "^8.14.2",
+    "express": "^4.18.2"
+  }
+}
+EOF
+
+# Install dependencies
+npm install
+
+# Create the audio bridge server
+cat > server.js << 'EOF'
+const WebSocket = require('ws');
+const express = require('express');
+const { spawn } = require('child_process');
+const path = require('path');
+
+const app = express();
+const PORT = 8080;
+
+// Serve static files
+app.use(express.static(path.join(__dirname, 'public')));
+
+const server = app.listen(PORT, () => {
+    console.log(`Audio bridge server listening on port ${PORT}`);
+});
+
+// WebSocket server for audio streaming
+const wss = new WebSocket.Server({ server });
+
+wss.on('connection', (ws) => {
+    console.log('Client connected for audio streaming');
+    
+    // Start PulseAudio capture and stream to client
+    const parecord = spawn('parecord', [
+        '--format=s16le',
+        '--rate=44100',
+        '--channels=2',
+        '--raw'
+    ]);
+    
+    parecord.stdout.on('data', (data) => {
+        if (ws.readyState === WebSocket.OPEN) {
+            ws.send(data);
+        }
+    });
+    
+    parecord.stderr.on('data', (data) => {
+        console.error('PulseAudio error:', data.toString());
+    });
+    
+    ws.on('close', () => {
+        console.log('Client disconnected');
+        parecord.kill();
+    });
+    
+    ws.on('error', (error) => {
+        console.error('WebSocket error:', error);
+        parecord.kill();
+    });
+});
+
+console.log('PulseAudio Web Audio Bridge started');
+EOF
+
+# Create public directory for web assets
+mkdir -p public
+
+# Create audio player web page
+cat > public/audio-player.html << 'EOF'
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Desktop Audio</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #2d3748;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        .audio-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            background: #4299e1;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #3182ce;
+        }
+        button:disabled {
+            background: #718096;
+            cursor: not-allowed;
+        }
+        .volume-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        input[type="range"] {
+            width: 100px;
+        }
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .status.connected {
+            background: #38a169;
+        }
+        .status.disconnected {
+            background: #e53e3e;
+        }
+    </style>
+</head>
+<body>
+    <h1>Desktop Audio Stream</h1>
+    
+    <div class="audio-controls">
+        <button id="connectBtn">Connect Audio</button>
+        <button id="disconnectBtn" disabled>Disconnect</button>
+        
+        <div class="volume-control">
+            <label>Volume:</label>
+            <input type="range" id="volumeSlider" min="0" max="100" value="50">
+            <span id="volumeLabel">50%</span>
+        </div>
+    </div>
+    
+    <div id="status" class="status disconnected">Disconnected</div>
+    
+    <script>
+        class AudioStreamer {
+            constructor() {
+                this.audioContext = null;
+                this.websocket = null;
+                this.gainNode = null;
+                this.isConnected = false;
+                
+                this.connectBtn = document.getElementById('connectBtn');
+                this.disconnectBtn = document.getElementById('disconnectBtn');
+                this.volumeSlider = document.getElementById('volumeSlider');
+                this.volumeLabel = document.getElementById('volumeLabel');
+                this.status = document.getElementById('status');
+                
+                this.setupEventListeners();
+            }
+            
+            setupEventListeners() {
+                this.connectBtn.addEventListener('click', () => this.connect());
+                this.disconnectBtn.addEventListener('click', () => this.disconnect());
+                this.volumeSlider.addEventListener('input', (e) => this.setVolume(e.target.value));
+            }
+            
+            async connect() {
+                try {
+                    // Initialize audio context
+                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    this.gainNode = this.audioContext.createGain();
+                    this.gainNode.connect(this.audioContext.destination);
+                    this.setVolume(this.volumeSlider.value);
+                    
+                    // Connect WebSocket
+                    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                    this.websocket = new WebSocket(`${protocol}//${window.location.host}`);
+                    this.websocket.binaryType = 'arraybuffer';
+                    
+                    this.websocket.onopen = () => {
+                        this.isConnected = true;
+                        this.updateUI();
+                        this.updateStatus('Connected to audio stream', 'connected');
+                    };
+                    
+                    this.websocket.onmessage = (event) => {
+                        this.processAudioData(event.data);
+                    };
+                    
+                    this.websocket.onclose = () => {
+                        this.isConnected = false;
+                        this.updateUI();
+                        this.updateStatus('Disconnected from audio stream', 'disconnected');
+                    };
+                    
+                    this.websocket.onerror = (error) => {
+                        console.error('WebSocket error:', error);
+                        this.updateStatus('Connection error', 'disconnected');
+                    };
+                    
+                } catch (error) {
+                    console.error('Failed to connect:', error);
+                    this.updateStatus('Failed to connect: ' + error.message, 'disconnected');
+                }
+            }
+            
+            disconnect() {
+                if (this.websocket) {
+                    this.websocket.close();
+                }
+                if (this.audioContext) {
+                    this.audioContext.close();
+                }
+                this.isConnected = false;
+                this.updateUI();
+            }
+            
+            processAudioData(data) {
+                if (!this.audioContext || !this.gainNode) return;
+                
+                try {
+                    // Convert raw PCM data to AudioBuffer
+                    const samples = new Int16Array(data);
+                    const audioBuffer = this.audioContext.createBuffer(2, samples.length / 2, 44100);
+                    
+                    // Deinterleave stereo data
+                    const leftChannel = audioBuffer.getChannelData(0);
+                    const rightChannel = audioBuffer.getChannelData(1);
+                    
+                    for (let i = 0; i < samples.length / 2; i++) {
+                        leftChannel[i] = samples[i * 2] / 32768.0;
+                        rightChannel[i] = samples[i * 2 + 1] / 32768.0;
+                    }
+                    
+                    // Play the audio
+                    const source = this.audioContext.createBufferSource();
+                    source.buffer = audioBuffer;
+                    source.connect(this.gainNode);
+                    source.start();
+                    
+                } catch (error) {
+                    console.error('Error processing audio data:', error);
+                }
+            }
+            
+            setVolume(value) {
+                if (this.gainNode) {
+                    this.gainNode.gain.value = value / 100;
+                }
+                this.volumeLabel.textContent = value + '%';
+            }
+            
+            updateUI() {
+                this.connectBtn.disabled = this.isConnected;
+                this.disconnectBtn.disabled = !this.isConnected;
+            }
+            
+            updateStatus(message, type) {
+                this.status.textContent = message;
+                this.status.className = `status ${type}`;
+            }
+        }
+        
+        // Initialize audio streamer when page loads
+        window.addEventListener('load', () => {
+            new AudioStreamer();
+        });
+    </script>
+</body>
+</html>
+EOF
+
+# Create audio bridge iframe for integration
+cat > public/audio-embed.js << 'EOF'
+(function() {
+    // Create audio control iframe
+    const audioFrame = document.createElement('iframe');
+    audioFrame.src = '/audio-player.html';
+    audioFrame.style.position = 'fixed';
+    audioFrame.style.bottom = '10px';
+    audioFrame.style.right = '10px';
+    audioFrame.style.width = '400px';
+    audioFrame.style.height = '150px';
+    audioFrame.style.border = '1px solid #ccc';
+    audioFrame.style.borderRadius = '5px';
+    audioFrame.style.backgroundColor = 'white';
+    audioFrame.style.zIndex = '9999';
+    audioFrame.style.display = 'none';
+    
+    // Create toggle button
+    const toggleBtn = document.createElement('button');
+    toggleBtn.innerHTML = '🔊 Audio';
+    toggleBtn.style.position = 'fixed';
+    toggleBtn.style.bottom = '10px';
+    toggleBtn.style.right = '10px';
+    toggleBtn.style.padding = '10px 15px';
+    toggleBtn.style.backgroundColor = '#4299e1';
+    toggleBtn.style.color = 'white';
+    toggleBtn.style.border = 'none';
+    toggleBtn.style.borderRadius = '5px';
+    toggleBtn.style.cursor = 'pointer';
+    toggleBtn.style.zIndex = '10000';
+    toggleBtn.style.fontSize = '14px';
+    
+    let audioVisible = false;
+    
+    toggleBtn.addEventListener('click', () => {
+        audioVisible = !audioVisible;
+        audioFrame.style.display = audioVisible ? 'block' : 'none';
+        toggleBtn.style.right = audioVisible ? '420px' : '10px';
+    });
+    
+    document.body.appendChild(audioFrame);
+    document.body.appendChild(toggleBtn);
+})();
+EOF
+
+# Make the setup script executable
+chmod +x /opt/audio-bridge/server.js
+
+echo "Audio bridge setup completed!"
+echo "The audio bridge will be available on port 8080"
+echo "Audio controls will be embedded in the noVNC interface"
