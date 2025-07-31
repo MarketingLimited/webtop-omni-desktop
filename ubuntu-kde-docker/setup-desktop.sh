@@ -142,18 +142,8 @@ Categories=System;
 Terminal=false
 EOF
 
-# Google Ads Editor shortcut  
-cat > "/home/$DEV_USERNAME/Desktop/GoogleAdsEditor.desktop" << 'EOF'
-[Desktop Entry]
-Version=1.0
-Type=Application
-Name=Google Ads Editor
-Comment=Manage your Google Ads campaigns
-Exec=wine "/home/DEV_USERNAME/.wine/drive_c/Program Files/Google/Google Ads Editor/google_ads_editor.exe"
-Icon=wine
-Categories=Office;
-Terminal=false
-EOF
+# Google Ads Editor shortcut will be created by setup-google-ads-editor.sh
+# This ensures the shortcut is only created after successful installation
 
 # Download wallpaper
 echo "🖼️ Downloading wallpaper..."

@@ -6,31 +6,31 @@ DEV_HOME="/home/${DEV_USERNAME}"
 
 echo "🍷 Setting up Wine for Windows applications..."
 
-# Initialize Wine prefix
+# Initialize Wine prefix with proper architecture
 export WINEPREFIX="${DEV_HOME}/.wine"
+export WINEARCH="win64"
 export WINEDLLOVERRIDES="mscoree,mshtml="
 mkdir -p "$WINEPREFIX"
 
 # Set up Wine as the dev user
 sudo -u "$DEV_USERNAME" bash << 'WINE_SETUP'
 export WINEPREFIX="/home/devuser/.wine"
+export WINEARCH="win64"
 export WINEDLLOVERRIDES="mscoree,mshtml="
 export DISPLAY=:1
 
-# Initialize Wine
+# Initialize Wine with no GUI prompts
 echo "🔧 Initializing Wine prefix..."
-winecfg /v win10 || true
+WINEDEBUG=-all wine wineboot --init || true
 
 # Install essential Windows components
 echo "📦 Installing Wine components..."
-winetricks -q corefonts vcrun2019 dotnet48 gdiplus msxml6 d3dx9 || true
+WINEDEBUG=-all winetricks -q --unattended corefonts vcrun2019 dotnet48 gdiplus msxml6 d3dx9 || true
 
 # Install additional libraries for marketing applications
-winetricks -q win10 || true
-winetricks -q ie8 || true
-winetricks -q flash || true
+WINEDEBUG=-all winetricks -q --unattended win10 || true
 
-echo "✅ Wine applications installed"
+echo "✅ Wine setup completed"
 WINE_SETUP
 
 # Create desktop shortcuts

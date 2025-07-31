@@ -118,12 +118,9 @@ RUN apt-get update && apt-get install -y \
     handbrake \
     && apt-get clean && rm -rf /var/lib/apt/lists/* || true
 
-# Install Google Ads Editor using Wine
+# Install winetricks for runtime Wine configuration
 RUN apt-get update && apt-get install -y winetricks \
-    && wget -qO /tmp/GoogleAdsEditorSetup.exe https://dl.google.com/adwords_editor/GoogleAdsEditorSetup.exe \
-    && winetricks -q win7 || true \
-    && wine /tmp/GoogleAdsEditorSetup.exe /silent || true \
-    && rm -f /tmp/GoogleAdsEditorSetup.exe
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Setup Flathub remote
 RUN flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
@@ -154,6 +151,7 @@ COPY fix-audio-startup.sh /usr/local/bin/fix-audio-startup.sh
 COPY setup-marketing-shortcuts.sh /usr/local/bin/setup-marketing-shortcuts.sh
 COPY setup-development.sh /usr/local/bin/setup-development.sh
 COPY setup-wine.sh /usr/local/bin/setup-wine.sh
+COPY setup-google-ads-editor.sh /usr/local/bin/setup-google-ads-editor.sh
 COPY setup-waydroid.sh /usr/local/bin/setup-waydroid.sh
 COPY setup-video-editing.sh /usr/local/bin/setup-video-editing.sh
 COPY setup-ttyd.sh /usr/local/bin/setup-ttyd.sh

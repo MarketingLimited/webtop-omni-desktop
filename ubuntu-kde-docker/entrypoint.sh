@@ -183,6 +183,23 @@ else
     echo "⚠️  Desktop audio integration script not found"
 fi
 
+# Set up Wine for Windows applications
+log_info "Setting up Wine for Windows applications..."
+if [ -f "/usr/local/bin/setup-wine.sh" ]; then
+    /usr/local/bin/setup-wine.sh
+    echo "✅ Wine setup completed"
+    
+    # Set up Google Ads Editor after Wine is ready
+    if [ -f "/usr/local/bin/setup-google-ads-editor.sh" ]; then
+        /usr/local/bin/setup-google-ads-editor.sh
+        echo "✅ Google Ads Editor setup completed"
+    else
+        echo "⚠️  Google Ads Editor setup script not found"
+    fi
+else
+    echo "⚠️  Wine setup script not found"
+fi
+
 # Generate SSH host keys if they don't exist
 log_info "Setting up SSH host keys..."
 mkdir -p /etc/ssh /run/sshd
