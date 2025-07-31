@@ -7,6 +7,8 @@ set -e
 DEV_USERNAME="${DEV_USERNAME:-devuser}"
 VALIDATION_LOG="/var/log/system-validation.log"
 REPORT_FILE="/tmp/system-validation-report.txt"
+CACHE_FILE="/tmp/validation-cache.txt"
+OPTIMIZED_MODE=false
 
 # Color functions for output
 red() { echo -e "\033[31m$1\033[0m"; }
@@ -14,9 +16,22 @@ green() { echo -e "\033[32m$1\033[0m"; }
 yellow() { echo -e "\033[33m$1\033[0m"; }
 blue() { echo -e "\033[34m$1\033[0m"; }
 
-# Logging function
+# Logging function with level support
 log_validation() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') [VALIDATION] $1" | tee -a "$VALIDATION_LOG"
+    local level="${2:-INFO}"
+    if [ "$OPTIMIZED_MODE" = "false" ] || [ "$level" = "ERROR" ] || [ "$level" = "WARN" ]; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') [$level] [VALIDATION] $1" | tee -a "$VALIDATION_LOG"
+    fi
+}
+
+# Check if validation cache is valid (within last hour)
+is_cache_valid() {
+    if [ -f "$CACHE_FILE" ]; then
+        local cache_age=$(($(date +%s) - $(stat -c %Y "$CACHE_FILE" 2>/dev/null || echo 0)))
+        [ $cache_age -lt 3600 ]  # 1 hour cache validity
+    else
+        false
+    fi
 }
 
 # Initialize validation report
@@ -252,9 +267,44 @@ Generated: $(date)
 EOF
 }
 
+# Quick validation for optimized mode
+quick_validation() {
+    log_validation "Running quick validation check..." "INFO"
+    
+    # Quick supervisor check
+    if ! supervisorctl status | grep -q "RUNNING"; then
+        log_validation "Quick validation failed - supervisor issues detected" "WARN"
+        return 1
+    fi
+    
+    # Quick port check
+    local critical_ports=(80 5901)
+    for port in "${critical_ports[@]}"; do
+        if ! netstat -ln | grep -q ":$port "; then
+            log_validation "Quick validation failed - critical port $port not listening" "WARN"
+            return 1
+        fi
+    done
+    
+    log_validation "Quick validation passed - system appears healthy" "INFO"
+    return 0
+}
+
 # Main validation function
 main() {
-    log_validation "Starting system validation..."
+    # Check for optimized mode flag
+    if [ "$1" = "--optimized" ]; then
+        OPTIMIZED_MODE=true
+        log_validation "Starting optimized system validation..." "INFO"
+        
+        # If cache is valid and quick validation passes, exit early
+        if is_cache_valid && quick_validation; then
+            log_validation "Using cached validation results (system stable)" "INFO"
+            exit 0
+        fi
+    else
+        log_validation "Starting full system validation..." "INFO"
+    fi
     
     init_report
     
@@ -271,12 +321,19 @@ main() {
     # Generate summary
     generate_summary
     
-    # Display report
-    echo ""
-    blue "=== SYSTEM VALIDATION REPORT ==="
-    cat "$REPORT_FILE"
+    # Cache results if successful
+    if [ $exit_code -eq 0 ]; then
+        echo "$(date +%s)" > "$CACHE_FILE"
+    fi
     
-    log_validation "System validation completed with exit code: $exit_code"
+    # Display report (only in non-optimized mode or if there are issues)
+    if [ "$OPTIMIZED_MODE" = "false" ] || [ $exit_code -ne 0 ]; then
+        echo ""
+        blue "=== SYSTEM VALIDATION REPORT ==="
+        cat "$REPORT_FILE"
+    fi
+    
+    log_validation "System validation completed with exit code: $exit_code" "INFO"
     
     # Copy report to accessible location
     cp "$REPORT_FILE" "/home/$DEV_USERNAME/system-validation-report.txt" 2>/dev/null || true
@@ -292,5 +349,7 @@ case "${1:-}" in
     "services") validate_supervisor_services ;;
     "ports") validate_ports ;;
     "kde") validate_kde ;;
+    "quick") quick_validation ;;
+    "--optimized") main "$@" ;;
     *) main "$@" ;;
 esac

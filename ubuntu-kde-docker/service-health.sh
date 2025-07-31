@@ -4,8 +4,10 @@
 # Provides service status monitoring and reporting
 
 # Configuration
-HEALTH_CHECK_INTERVAL=${HEALTH_CHECK_INTERVAL:-30}
+HEALTH_CHECK_INTERVAL=${HEALTH_CHECK_INTERVAL:-300}
 LOG_FILE="/var/log/supervisor/service-health.log"
+STATE_FILE="/tmp/service-health-state.txt"
+LAST_REPORT_FILE="/tmp/last-health-report.txt"
 
 # Utility functions
 health_log() {
@@ -152,6 +154,66 @@ check_port_status() {
     done
 }
 
+# Smart monitoring with state tracking
+smart_monitor() {
+    health_log "🚀 Starting smart health monitoring..."
+    
+    local current_state=""
+    local last_state=""
+    local monitor_cycle=0
+    
+    while true; do
+        current_state=$(generate_service_state_hash)
+        
+        if [ -f "$STATE_FILE" ]; then
+            last_state=$(cat "$STATE_FILE")
+        fi
+        
+        # Only report if state changed or every 10th cycle (for heartbeat)
+        if [ "$current_state" != "$last_state" ] || [ $((monitor_cycle % 10)) -eq 0 ]; then
+            if [ "$current_state" != "$last_state" ]; then
+                health_log "📊 Service state changed, generating report..."
+            else
+                health_log "💓 Health monitoring heartbeat (cycle $monitor_cycle)"
+            fi
+            
+            generate_status_report
+            check_port_status
+            echo "$current_state" > "$STATE_FILE"
+        fi
+        
+        monitor_cycle=$((monitor_cycle + 1))
+        sleep "$HEALTH_CHECK_INTERVAL"
+    done
+}
+
+# Generate hash of current service states
+generate_service_state_hash() {
+    local services=(
+        "supervisord:pgrep -f supervisord"
+        "Xvfb:check_xvfb"
+        "D-Bus:check_dbus"
+        "KDE:check_kde"
+        "PulseAudio:check_pulseaudio"
+        "VNC:check_vnc"
+        "noVNC:check_novnc"
+        "TTYD:check_ttyd"
+        "SSH:check_ssh"
+    )
+    
+    local state_string=""
+    for service_info in "${services[@]}"; do
+        local check_cmd="${service_info##*:}"
+        if eval "$check_cmd" > /dev/null 2>&1; then
+            state_string="${state_string}1"
+        else
+            state_string="${state_string}0"
+        fi
+    done
+    
+    echo "$state_string" | md5sum | cut -d' ' -f1
+}
+
 # Main execution logic
 main() {
     case "${1:-status}" in
@@ -166,11 +228,15 @@ main() {
             health_log "🚀 Starting service health monitoring..."
             check_service_dependencies
             ;;
+        "smart-monitor")
+            smart_monitor
+            ;;
         *)
-            echo "Usage: $0 {check|status|wait}"
-            echo "  check  - Check service dependencies and wait for readiness"
-            echo "  status - Generate service and port status report"
-            echo "  wait   - Start in dependency wait mode"
+            echo "Usage: $0 {check|status|wait|smart-monitor}"
+            echo "  check        - Check service dependencies and wait for readiness"
+            echo "  status       - Generate service and port status report"
+            echo "  wait         - Start in dependency wait mode"
+            echo "  smart-monitor - Start intelligent monitoring with state tracking"
             exit 1
             ;;
     esac
