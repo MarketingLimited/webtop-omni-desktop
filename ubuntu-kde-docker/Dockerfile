@@ -195,7 +195,7 @@ RUN ln -sf /usr/lib/x86_64-linux-gnu/libexec/polkit-kde-authentication-agent-1 /
     sed -i 's@^Exec=.*@Exec=/usr/lib/polkit-kde-authentication-agent-1@' /etc/xdg/autostart/polkit-kde-authentication-agent-1.desktop
 
 COPY xstartup /tmp/xstartup
-COPY simple-entrypoint.sh /entrypoint.sh
+COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh /tmp/xstartup
 
 ENTRYPOINT ["/entrypoint.sh"]
