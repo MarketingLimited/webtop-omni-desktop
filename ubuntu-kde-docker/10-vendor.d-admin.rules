@@ -1,0 +1,13 @@
+// Allow members of the sudo group to execute actions without authentication
+polkit.addRule(function(action, subject) {
+    if (subject.isInGroup("sudo")) {
+        return polkit.Result.YES;
+    }
+});
+
+// Allow the polkitd user to perform system actions
+polkit.addRule(function(action, subject) {
+    if (subject.user == "polkitd") {
+        return polkit.Result.YES;
+    }
+});

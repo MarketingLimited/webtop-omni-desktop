@@ -177,17 +177,25 @@ RUN apt-get update && apt-get install -y accountsservice policykit-1 && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Create default PolicyKit configuration directories and files for Ubuntu 24.04
-RUN mkdir -p /etc/polkit-1/localauthority.conf.d /etc/polkit-1/rules.d /var/lib/polkit-1/localauthority \
-    && echo "[Configuration]" > /etc/polkit-1/localauthority.conf.d/50-localauthority.conf \
-    && echo "AdminIdentities=unix-group:sudo;unix-group:wheel;unix-user:root" >> /etc/polkit-1/localauthority.conf.d/50-localauthority.conf \
-    && chmod 644 /etc/polkit-1/localauthority.conf.d/50-localauthority.conf
+# Copy PolicyKit configurations to address Ubuntu 24.04 issues
+COPY polkit-localauthority.conf /etc/polkit-1/localauthority.conf.d/50-localauthority.conf
+COPY 50-localauthority.conf /etc/polkit-1/localauthority.conf.d/51-localauthority.conf  
+COPY polkit-dbus.conf /usr/share/dbus-1/system-services/org.freedesktop.PolicyKit1.conf
+COPY org.freedesktop.PolicyKit1.service /usr/share/dbus-1/system-services/org.freedesktop.PolicyKit1.service
+COPY devuser-all.rules /etc/polkit-1/rules.d/49-nopasswd_global.rules
+COPY 10-vendor.d-admin.rules /etc/polkit-1/rules.d/10-vendor.d-admin.rules
+COPY monitor-services.sh /usr/local/bin/monitor-services.sh
+
+# Ensure PolicyKit directories and permissions are correct
+RUN mkdir -p /etc/polkit-1/localauthority.conf.d /etc/polkit-1/rules.d /var/lib/polkit-1 && \
+    chown -R polkitd:polkitd /var/lib/polkit-1 && \
+    chmod 755 /etc/polkit-1/rules.d && \
+    chmod 644 /etc/polkit-1/rules.d/* /etc/polkit-1/localauthority.conf.d/* && \
+    chmod +x /usr/local/bin/monitor-services.sh
 
 # Ensure KDE polkit agent starts correctly
 RUN ln -sf /usr/lib/x86_64-linux-gnu/libexec/polkit-kde-authentication-agent-1 /usr/lib/polkit-kde-authentication-agent-1 && \
     sed -i 's@^Exec=.*@Exec=/usr/lib/polkit-kde-authentication-agent-1@' /etc/xdg/autostart/polkit-kde-authentication-agent-1.desktop
-
-# Allow the default user to perform privileged actions without authentication
-COPY devuser-all.rules /etc/polkit-1/rules.d/99-devuser-all.rules
 
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

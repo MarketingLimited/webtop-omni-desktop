@@ -269,9 +269,11 @@ while true; do
     echo "$(date) [MONITOR] Services check completed" >> /var/log/supervisor/monitor.log
 done &
 EOF
+
+# The monitor-services.sh is now copied from external file, just make it executable
 chmod +x /usr/local/bin/monitor-services.sh
 
-# Start the monitor
+# Start the enhanced monitor
 /usr/local/bin/monitor-services.sh &
 
 log_info "Starting supervisor daemon..."
