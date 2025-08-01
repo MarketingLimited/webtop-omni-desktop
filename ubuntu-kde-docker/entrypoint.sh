@@ -505,11 +505,47 @@ fi
 
 log_info "Starting supervisor daemon..."
 
+# Default performance and service configuration
+: "${XVFB_PERFORMANCE_PROFILE:=balanced}"
+: "${XVFB_RESOLUTION:=1920x1080x24}"
+: "${XVFB_DPI:=96}"
+: "${KDE_PERFORMANCE_PROFILE:=performance}"
+: "${KDE_EFFECTS_DISABLED:=true}"
+: "${X11VNC_PERFORMANCE_PROFILE:=balanced}"
+: "${X11VNC_QUALITY:=6}"
+: "${X11VNC_ADAPTIVE:=true}"
+: "${NOVNC_PORT:=80}"
+: "${NOVNC_VNC_PORT:=5901}"
+: "${NOVNC_WEBGL:=true}"
+: "${NOVNC_COMPRESSION:=auto}"
+: "${WEBRTC_PORT:=8443}"
+
+# Log selected profiles for troubleshooting
+log_info "Xvfb profile: ${XVFB_PERFORMANCE_PROFILE}, resolution: ${XVFB_RESOLUTION}, dpi: ${XVFB_DPI}"
+log_info "KDE profile: ${KDE_PERFORMANCE_PROFILE}, effects disabled: ${KDE_EFFECTS_DISABLED}"
+log_info "x11vnc profile: ${X11VNC_PERFORMANCE_PROFILE}, quality: ${X11VNC_QUALITY}, adaptive: ${X11VNC_ADAPTIVE}"
+log_info "noVNC port: ${NOVNC_PORT}, VNC port: ${NOVNC_VNC_PORT}, webgl: ${NOVNC_WEBGL}, compression: ${NOVNC_COMPRESSION}"
+log_info "WebRTC signaling port: ${WEBRTC_PORT}"
+
 exec env \
     ENV_DEV_USERNAME="${DEV_USERNAME}" \
     ENV_DEV_UID="${DEV_UID}" \
+    ENV_DEV_GID="${DEV_GID}" \
     ENV_TTYD_USER="${TTYD_USER}" \
     ENV_TTYD_PASSWORD="${TTYD_PASSWORD}" \
-    DEV_USERNAME="${DEV_USERNAME}" DEV_UID="${DEV_UID}" \
+    ENV_XVFB_PERFORMANCE_PROFILE="${XVFB_PERFORMANCE_PROFILE}" \
+    ENV_XVFB_RESOLUTION="${XVFB_RESOLUTION}" \
+    ENV_XVFB_DPI="${XVFB_DPI}" \
+    ENV_KDE_PERFORMANCE_PROFILE="${KDE_PERFORMANCE_PROFILE}" \
+    ENV_KDE_EFFECTS_DISABLED="${KDE_EFFECTS_DISABLED}" \
+    ENV_X11VNC_PERFORMANCE_PROFILE="${X11VNC_PERFORMANCE_PROFILE}" \
+    ENV_X11VNC_QUALITY="${X11VNC_QUALITY}" \
+    ENV_X11VNC_ADAPTIVE="${X11VNC_ADAPTIVE}" \
+    ENV_NOVNC_PORT="${NOVNC_PORT}" \
+    ENV_NOVNC_VNC_PORT="${NOVNC_VNC_PORT}" \
+    ENV_NOVNC_WEBGL="${NOVNC_WEBGL}" \
+    ENV_NOVNC_COMPRESSION="${NOVNC_COMPRESSION}" \
+    ENV_WEBRTC_PORT="${WEBRTC_PORT}" \
+    DEV_USERNAME="${DEV_USERNAME}" DEV_UID="${DEV_UID}" DEV_GID="${DEV_GID}" \
     TTYD_USER="${TTYD_USER}" TTYD_PASSWORD="${TTYD_PASSWORD}" \
     /usr/bin/supervisord -c /etc/supervisor/supervisord.conf -n
