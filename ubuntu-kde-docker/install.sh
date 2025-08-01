@@ -179,7 +179,7 @@ show_installation_summary() {
     echo -e "${CYAN}Quick Start Commands:${NC}"
     echo "  1. Build the environment:    ./webtop.sh build"
     echo "  2. Start the environment:    ./webtop.sh up"
-    echo "  3. Access via web browser:   http://localhost:32768 (noVNC)"
+    echo "  3. Access via web browser:   http://localhost:32768 (KasmVNC)"
     echo "  4. Check status:             ./webtop.sh status"
     echo
     echo -e "${CYAN}For Development:${NC}"

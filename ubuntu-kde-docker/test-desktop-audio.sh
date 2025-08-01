@@ -94,8 +94,8 @@ test_remote_audio_forwarding() {
     echo "$(blue '📡 Testing Remote Audio Forwarding...')"
     
     # Test VNC audio forwarding
-    if pgrep -f "x11vnc" > /dev/null; then
-        green "✅ VNC server is running"
+    if pgrep -f "kasmvncserver" > /dev/null; then
+        green "✅ KasmVNC server is running"
         
         if netstat -tuln 2>/dev/null | grep -q ":5901 "; then
             green "✅ VNC port 5901 is listening"
@@ -255,7 +255,7 @@ generate_integration_report() {
     # Remote access
     echo "📡 Remote Access:"
     echo "   VNC (port 5901): $(netstat -tuln 2>/dev/null | grep -q ":5901 " && echo "LISTENING" || echo "NOT LISTENING")"
-    echo "   noVNC (port 80): $(netstat -tuln 2>/dev/null | grep -q ":80 " && echo "LISTENING" || echo "NOT LISTENING")"
+    echo "   KasmVNC (port 80): $(netstat -tuln 2>/dev/null | grep -q ":80 " && echo "LISTENING" || echo "NOT LISTENING")"
     
     printf '=%.0s' {1..50}; echo
 }

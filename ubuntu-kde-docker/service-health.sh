@@ -73,11 +73,7 @@ check_kde() {
 }
 
 check_vnc() {
-    pgrep -f "x11vnc.*:1" > /dev/null
-}
-
-check_novnc() {
-    pgrep -f "websockify.*80.*:5901" > /dev/null
+    pgrep -f "kasmvncserver" > /dev/null
 }
 
 
@@ -108,8 +104,7 @@ check_service_dependencies() {
     wait_for_service "PulseAudio" "check_pulseaudio" 30
     
     # Stage 4: Remote access services
-    wait_for_service "VNC" "check_vnc" 30
-    wait_for_service "noVNC" "check_novnc" 30
+    wait_for_service "KasmVNC" "check_vnc" 30
     
     # Stage 5: Optional services
     
@@ -134,8 +129,7 @@ generate_status_report() {
         "D-Bus:check_dbus"
         "KDE:check_kde"
         "PulseAudio:check_pulseaudio"
-        "VNC:check_vnc"
-        "noVNC:check_novnc"
+        "KasmVNC:check_vnc"
         "TTYD:check_ttyd"
         "SSH:check_ssh"
     )
@@ -157,7 +151,7 @@ check_port_status() {
     health_log "🌐 Checking port status..."
     
     local ports=(
-        "80:noVNC Web Interface"
+        "80:KasmVNC Web Interface"
         "5901:VNC Server"
         "7681:TTYD Web Terminal"
         "22:SSH Server"
@@ -217,8 +211,7 @@ generate_service_state_hash() {
         "D-Bus:check_dbus"
         "KDE:check_kde"
         "PulseAudio:check_pulseaudio"
-        "VNC:check_vnc"
-        "noVNC:check_novnc"
+        "KasmVNC:check_vnc"
         "TTYD:check_ttyd"
         "SSH:check_ssh"
     )

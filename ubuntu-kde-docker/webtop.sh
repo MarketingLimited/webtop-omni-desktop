@@ -41,7 +41,7 @@ show_help() {
     echo "  logs                     Show container logs"
     echo "  status                   Show container status"
     echo "  shell                    Access container shell"
-    echo "  web                      Open noVNC in browser"
+    echo "  web                      Open KasmVNC in browser"
     echo "  update                   Update and rebuild"
     echo "  clean                    Clean Docker system"
     echo

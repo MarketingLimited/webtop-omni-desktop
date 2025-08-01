@@ -57,22 +57,15 @@ KDE Plasma desktop session.
 ### Remote Access Services (Priority 40-50)
 Multiple methods for accessing the desktop remotely.
 
-#### X11VNC (Priority 40)
+#### KasmVNC (Priority 40)
 - **Purpose**: VNC server for desktop sharing
 - **Port**: 5901
 - **Dependencies**: KDE, Xvfb
 - **Authentication**: Password-based
 - **Critical**: Yes - Primary remote access method
 
-#### noVNC (Priority 45)
-- **Purpose**: Web-based VNC client
-- **Port**: 80 (HTTP)
-- **Dependencies**: X11VNC
-- **Access**: `http://localhost:80`
-- **Critical**: Yes - Web interface for VNC
-
+- **Web Access**: `http://localhost:80`
 - **Features**: Audio forwarding, better compression
-- **Critical**: Yes - Advanced remote access
 
 #### SSH (Priority 46)
 - **Purpose**: Secure shell access
@@ -120,8 +113,8 @@ graph TD
     C --> E
     A --> E
     B --> E
-    E --> F[X11VNC]
-    F --> G[noVNC]
+    E --> F[KasmVNC]
+    F --> G[KasmVNC]
     
     C --> H
     E --> I[ServiceHealth]
@@ -148,9 +141,9 @@ graph TD
 
 | Port | Service | Protocol | Purpose |
 |------|---------|----------|---------|
-| 80 | noVNC | HTTP | Web VNC client |
+| 80 | KasmVNC | HTTP | Web VNC client |
 | 22 | SSH | SSH | Secure shell |
-| 5901 | X11VNC | VNC | VNC server |
+| 5901 | KasmVNC | VNC | VNC server |
 | 7681 | TTYD | HTTP | Web terminal |
 
 | 4713 | PulseAudio | TCP | Audio server |
@@ -198,7 +191,7 @@ docker exec webtop-kde ps aux | grep plasma
 #### Remote Access Services
 ```bash
 # Restart VNC services
-docker exec webtop-kde supervisorctl restart X11VNC noVNC
+docker exec webtop-kde supervisorctl restart KasmVNC
 
 
 # Test port accessibility
@@ -282,7 +275,7 @@ docker exec webtop-kde supervisorctl start AudioValidation KDE
 sleep 15
 
 # Start remote access
-docker exec webtop-kde supervisorctl start X11VNC noVNC sshd ttyd
+docker exec webtop-kde supervisorctl start KasmVNC sshd ttyd
 
 # Start monitoring
 docker exec webtop-kde supervisorctl start ServiceHealth SystemValidation
@@ -294,7 +287,7 @@ docker exec webtop-kde supervisorctl start ServiceHealth SystemValidation
 docker exec webtop-kde supervisorctl restart pulseaudio AudioValidation AudioMonitor
 
 # Restart remote access chain
-docker exec webtop-kde supervisorctl restart X11VNC noVNC
+docker exec webtop-kde supervisorctl restart KasmVNC
 ```
 
 ## Service Customization

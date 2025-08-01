@@ -38,7 +38,7 @@ echo "📊 Checking Core Services..."
 ESSENTIAL_SERVICES=(
     "supervisord"
     "Xvfb"
-    "x11vnc"
+    "kasmvncserver"
 )
 
 for service in "${ESSENTIAL_SERVICES[@]}"; do
@@ -71,7 +71,7 @@ done
 echo ""
 echo "🌐 Checking Network Ports..."
 ESSENTIAL_PORTS=(
-    "80:noVNC"
+    "80:KasmVNC"
     "5901:VNC"
 )
 

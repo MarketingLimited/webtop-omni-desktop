@@ -626,7 +626,7 @@ adapt_quality() {
         echo "$current_quality" > /tmp/adaptive_quality
         
         # Signal quality change to streaming services
-        pkill -USR1 x11vnc 2>/dev/null || true
+        pkill -USR1 kasmvncserver 2>/dev/null || true
     else
         echo "📊 Quality maintained at $current_quality (score: $quality_score)"
     fi

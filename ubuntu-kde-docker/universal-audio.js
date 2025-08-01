@@ -1,6 +1,6 @@
 /**
- * Universal Audio Manager for noVNC Integration
- * Automatically adds audio streaming capability to any noVNC page
+ * Universal Audio Manager for browser-based VNC sessions
+ * Automatically adds audio streaming capability to any web VNC page
  */
 (function() {
     'use strict';

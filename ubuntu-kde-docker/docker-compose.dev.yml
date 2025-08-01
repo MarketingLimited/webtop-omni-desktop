@@ -8,7 +8,7 @@ services:
     privileged: true
     shm_size: "4gb"
     ports:
-      - "32768:80"      # noVNC
+      - "32768:80"      # KasmVNC
       - "2222:22"       # SSH
       - "7681:7681"     # ttyd terminal
       

@@ -25,7 +25,7 @@
 - **Cross-Platform**: Seamless file sharing and workflow integration
 
 ### **Remote Access & Collaboration**
-- **Browser-Based Access**: noVNC and Xpra web interfaces
+- **Browser-Based Access**: KasmVNC web interface
 - **Audio Support**: Full audio streaming with virtual devices
 - **SSH Access**: Secure terminal access for advanced users
 - **Resource Monitoring**: Real-time performance dashboards

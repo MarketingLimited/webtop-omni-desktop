@@ -171,7 +171,7 @@ show_named_container_info() {
     print_success "Container '$container_name' is running!"
     echo
     echo -e "${CYAN}Access Points:${NC}"
-    echo "  🌐 noVNC (Web):        http://localhost:$http_port"
+    echo "  🌐 KasmVNC (Web):      http://localhost:$http_port"
     echo "  🔒 SSH:                ssh devuser@localhost -p $ssh_port"
     echo "  💻 Web Terminal:       http://localhost:$ttyd_port"
     echo "  🔊 Audio Bridge:       http://localhost:$audio_port"
