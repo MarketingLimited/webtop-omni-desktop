@@ -1,10 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
-# Install KasmVNC from latest release
+# Install KasmVNC version 1.3.4 for the current architecture
 ARCH="$(dpkg --print-architecture)"
 RELEASE="noble"
-DEB_URL="https://github.com/kasmtech/KasmVNC/releases/latest/download/kasmvncserver_${RELEASE}_${ARCH}.deb"
+VERSION="1.3.4"
+DEB_URL="https://github.com/kasmtech/KasmVNC/releases/download/v${VERSION}/kasmvncserver_${RELEASE}_${VERSION}_${ARCH}.deb"
 
 wget -q -O /tmp/kasmvncserver.deb "$DEB_URL"
 apt-get update

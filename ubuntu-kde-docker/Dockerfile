@@ -48,7 +48,7 @@ RUN apt-get update && apt-get install -y \
     nextcloud-desktop \
     fonts-noto-core fonts-noto-ui-core fonts-noto-color-emoji fonts-noto-extra \
     fonts-dejavu fonts-crosextra-carlito fonts-crosextra-caladea fonts-hosny-amiri fonts-kacst qttranslations5-l10n libqt5script5 fonts-freefont-ttf \
-    supervisor kasmvncserver xvfb \
+    supervisor xvfb \
     dbus-x11 x11-xserver-utils xfonts-base snapd kmod \
     mesa-utils libgl1-mesa-dri libglx-mesa0 libosmesa6 libglu1-mesa \
     gnome-terminal lxterminal terminator accountsservice policykit-1 \

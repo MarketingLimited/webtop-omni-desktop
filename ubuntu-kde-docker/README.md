@@ -77,6 +77,20 @@ docker compose -f docker-compose.prod.yml up -d
 ./webtop.sh up
 ```
 
+### Optional: Install KasmVNC Manually
+
+If you prefer to install KasmVNC yourself instead of using the provided setup
+script, download the package that matches your distribution from the
+[KasmVNC releases](https://github.com/kasmtech/KasmVNC/releases) page and run:
+
+```bash
+wget https://github.com/kasmtech/KasmVNC/releases/download/v1.3.4/kasmvncserver_noble_1.3.4_$(dpkg --print-architecture).deb
+sudo apt-get install ./kasmvncserver_noble_1.3.4_*.deb
+sudo adduser "$USER" ssl-cert
+vncserver
+tail -f ~/.vnc/*.log
+```
+
 ### 3. Access Services
 
 | Service | URL | Description | Status Check |
