@@ -98,6 +98,7 @@ RUN mkdir -p /etc/apt/keyrings \
     && apt-get update \
     && apt-get install -y \
         google-chrome-stable brave-browser opera-stable code \
+    && rm /etc/apt/sources.list.d/opera.list \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Allow running Chromium-based browsers as root
@@ -192,8 +193,7 @@ RUN /usr/local/bin/setup-ttyd.sh
 # Install additional dependencies for enhanced features
 RUN apt-get update && apt-get install -y \
     python3-pip python3-websockets python3-psutil python3-requests \
-    python3-schedule rclone imagemagick ffmpeg \
-    && pip3 install websockets psutil requests schedule aiohttp \
+    python3-schedule rclone imagemagick ffmpeg python3-aiohttp \
     && npm install -g ws express socket.io
 
 # Setup audio bridge
