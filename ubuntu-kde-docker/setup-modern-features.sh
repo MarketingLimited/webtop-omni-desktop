@@ -23,7 +23,7 @@ mkdir -p \
     "/opt/modern-features/ai-assistant" \
     "/opt/modern-features/collaboration"
 
-# Progressive Web App (PWA) Enhancement for noVNC
+# Progressive Web App (PWA) Enhancement for KasmVNC
 cat > "/opt/modern-features/pwa/service-worker.js" << 'EOF'
 const CACHE_NAME = 'webtop-desktop-v1.0';
 const urlsToCache = [
@@ -880,8 +880,8 @@ if __name__ == '__main__':
     hub.start_server()
 EOF
 
-# Enhanced noVNC Client with Modern Features
-cat > "/opt/modern-features/enhanced-novnc.html" << 'EOF'
+# Enhanced KasmVNC Client with Modern Features
+cat > "/opt/modern-features/enhanced-kasmvnc.html" << 'EOF'
 <!DOCTYPE html>
 <html>
 <head>
@@ -1120,8 +1120,8 @@ cat > "/opt/modern-features/enhanced-novnc.html" << 'EOF'
 
     <!-- VNC Container -->
     <div id="vnc-container">
-        <div id="noVNC_container">
-            <canvas id="noVNC_canvas">
+        <div id="KasmVNC_container">
+            <canvas id="KasmVNC_canvas">
                 Canvas not supported.
             </canvas>
         </div>
@@ -1162,18 +1162,18 @@ cat > "/opt/modern-features/enhanced-novnc.html" << 'EOF'
         </div>
     </div>
 
-    <!-- Include noVNC -->
+    <!-- Include KasmVNC -->
     <script src="/app/ui.js"></script>
 
     <script>
-        // Enhanced noVNC with modern features
+        // Enhanced KasmVNC with modern features
         let rfb;
         let collaborationWS;
         let qualitySettings = 6;
         
-        // Initialize enhanced noVNC
+        // Initialize enhanced KasmVNC
         function initializeVNC() {
-            const canvas = document.getElementById('noVNC_canvas');
+            const canvas = document.getElementById('KasmVNC_canvas');
             
             rfb = new RFB(canvas, 'ws://localhost:6080/websockify');
             
@@ -1484,4 +1484,4 @@ log_info "Services available on ports:"
 log_info "- Cloud Integration: 8088"
 log_info "- AI Assistant: 8089"
 log_info "- Collaboration Hub: 8090"
-log_info "- Enhanced noVNC: /opt/modern-features/enhanced-novnc.html"
+log_info "- Enhanced KasmVNC: /opt/modern-features/enhanced-kasmvnc.html"

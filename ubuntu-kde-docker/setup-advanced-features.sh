@@ -374,7 +374,7 @@ EOF
 
 # Mobile Touch and Gesture Support
 cat > "/opt/advanced-features/mobile/touch-handler.js" << 'EOF'
-// Enhanced mobile touch and gesture support for noVNC
+// Enhanced mobile touch and gesture support for KasmVNC
 class MobileTouchHandler {
     constructor() {
         this.setupTouchGestures();
@@ -447,7 +447,7 @@ class MobileTouchHandler {
                 
                 if (lastPinchDistance > 0) {
                     const scale = distance / lastPinchDistance;
-                    // Apply zoom to noVNC viewport
+                    // Apply zoom to KasmVNC viewport
                     if (window.rfb && window.rfb.clipViewport) {
                         const currentScale = window.rfb.scale;
                         window.rfb.scale = Math.max(0.1, Math.min(3.0, currentScale * scale));
@@ -529,7 +529,7 @@ class MobileTouchHandler {
         `;
         
         input.addEventListener('input', (e) => {
-            // Forward keyboard input to noVNC
+            // Forward keyboard input to KasmVNC
             if (window.rfb) {
                 for (let char of e.target.value) {
                     window.rfb.sendKey(char.charCodeAt(0));
@@ -559,11 +559,11 @@ class MobileTouchHandler {
         mobileStyles.textContent = `
             @media (max-width: 768px) {
                 body { overflow: hidden; }
-                #noVNC_container { 
+                #KasmVNC_container { 
                     width: 100vw !important;
                     height: 100vh !important;
                 }
-                .noVNC_status { font-size: 16px !important; }
+                .KasmVNC_status { font-size: 16px !important; }
             }
         `;
         document.head.appendChild(mobileStyles);

@@ -9,8 +9,8 @@ const ServicesGrid = () => {
       title: "KDE Desktop",
       description: "Full Ubuntu 24.04 + KDE Plasma desktop environment",
       icon: Monitor,
-      url: "http://localhost:14500",
-      port: "14500",
+      url: "http://localhost:32768",
+      port: "32768",
       status: "active",
       features: ["KasmVNC Client", "Graphics Acceleration", "Audio Support"]
     },

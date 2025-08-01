@@ -326,7 +326,7 @@ pactl list short sinks
 #### Network Access Problems
 ```bash
 # Check if ports are available
-netstat -tlnp | grep -E ':(32768|14500|2222|7681)'
+netstat -tlnp | grep -E ':(32768|2222|7681)'
 
 # Verify firewall settings
 sudo ufw status
