@@ -192,7 +192,7 @@ RUN /usr/local/bin/setup-ttyd.sh
 # Install additional dependencies for enhanced features
 RUN apt-get update && apt-get install -y \
     python3-pip python3-websockets python3-psutil python3-requests \
-    python3-schedule rclone imagemagick ffmpeg nodejs npm curl jq git \
+    python3-schedule rclone imagemagick ffmpeg \
     && pip3 install websockets psutil requests schedule aiohttp \
     && npm install -g ws express socket.io
 
