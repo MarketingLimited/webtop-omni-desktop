@@ -77,6 +77,7 @@
    ```bash
    # Initialize volume management (auto-run during install)
    ./setup-volumes.sh
+   # Container data is stored under $DATA_ROOT (default /data/ubuntu-kde-docker)
    
    # One-click backup and restore
    ./webtop.sh backup client1
@@ -118,6 +119,7 @@
    # Configure environment
    cp .env.example .env
    # Edit .env with your preferences
+   # DATA_ROOT controls where container data is stored on the host
    ```
 
 3. **Build and start**
