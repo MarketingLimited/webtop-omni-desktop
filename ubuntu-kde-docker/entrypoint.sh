@@ -186,18 +186,24 @@ fi
 # Set up Wine for Windows applications
 log_info "Setting up Wine for Windows applications..."
 if [ -f "/usr/local/bin/setup-wine.sh" ]; then
-    /usr/local/bin/setup-wine.sh
-    echo "✅ Wine setup completed"
-    
-    # Set up Google Ads Editor after Wine is ready
-    if [ -f "/usr/local/bin/setup-google-ads-editor.sh" ]; then
-        /usr/local/bin/setup-google-ads-editor.sh
-        echo "✅ Google Ads Editor setup completed"
+    if /usr/local/bin/setup-wine.sh; then
+        log_info "Wine setup completed"
+
+        # Set up Google Ads Editor after Wine is ready with error handling
+        if [ -f "/usr/local/bin/setup-google-ads-editor.sh" ]; then
+            if /usr/local/bin/setup-google-ads-editor.sh; then
+                log_info "Google Ads Editor setup completed"
+            else
+                log_warn "Google Ads Editor setup failed (continuing)"
+            fi
+        else
+            log_warn "Google Ads Editor setup script not found"
+        fi
     else
-        echo "⚠️  Google Ads Editor setup script not found"
+        log_warn "Wine setup failed (continuing)"
     fi
 else
-    echo "⚠️  Wine setup script not found"
+    log_warn "Wine setup script not found"
 fi
 
 # Generate SSH host keys if they don't exist
