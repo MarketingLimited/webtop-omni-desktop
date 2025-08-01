@@ -1,7 +1,17 @@
 #!/bin/bash
-set -euo pipefail
+set -e
 
 echo "🩺 Ubuntu KDE Marketing Agency WebTop Health Check"
+
+# Use enhanced health check if available
+if [ -f "/usr/local/bin/enhanced-health-check.sh" ]; then
+    echo "🔍 Running enhanced health check..."
+    /usr/local/bin/enhanced-health-check.sh
+    exit $?
+fi
+
+# Fallback to basic health check
+echo "🔍 Running basic health check..."
 
 # Initialize counters
 CRITICAL_ISSUES=0
@@ -27,8 +37,8 @@ echo ""
 echo "📊 Checking Core Services..."
 ESSENTIAL_SERVICES=(
     "supervisord"
-    "Xvnc"
-    "noVNC"
+    "Xvfb"
+    "x11vnc"
 )
 
 for service in "${ESSENTIAL_SERVICES[@]}"; do

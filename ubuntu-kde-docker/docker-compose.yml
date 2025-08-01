@@ -1,4 +1,4 @@
-# Removed obsolete version declaration
+# Enhanced Docker Compose Configuration for Container Fixes
 
 services:
   webtop:
@@ -8,30 +8,48 @@ services:
     container_name: webtop-kde
     restart: unless-stopped
     privileged: true
-    shm_size: "4gb"
+    shm_size: "8gb"
+    init: true  # Proper init system
     ports:
       - "32768:80"      # noVNC
       - "2222:22"       # SSH
       - "7681:7681"     # ttyd terminal
       - "8080:8080"     # Audio Bridge
       - "4713:4713"     # PulseAudio
+      - "5555:5555"     # ADB for Android
     env_file:
       - .env
+    environment:
+      - DISPLAY=:1
+      - XDG_RUNTIME_DIR=/run/user/1000
+      - DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
     volumes:
       - webtop_config:/config
       - webtop_logs:/var/log/supervisor
-      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw  # Read-write for X11
+      - /lib/modules:/lib/modules:ro      # Kernel modules access
+      - /dev:/dev:rw                      # Device access for Android
+      - dbus_session:/run/user/1000       # D-Bus session
+      - wine_data:/home/devuser/.wine     # Wine persistent data
+      - android_data:/data/android        # Android emulation data
     devices:
       - /dev/snd:/dev/snd
+      - /dev/kvm:/dev/kvm                 # KVM for Android emulation
+      - /dev/net/tun:/dev/net/tun         # Network tunneling
     tmpfs:
-      - /tmp
-      - /run
-      - /run/lock
+      - /tmp:exec,size=2g
+      - /run:exec,size=1g
+      - /run/lock:size=100m
     cap_add:
       - SYS_ADMIN
       - NET_ADMIN
+      - SYS_MODULE        # Kernel module loading
+      - SYS_PTRACE        # Process tracing for debugging
+      - MKNOD            # Device node creation
+      - DAC_OVERRIDE     # File permission override
     security_opt:
       - seccomp:unconfined
+      - apparmor:unconfined
     healthcheck:
       test: ["CMD", "/usr/local/bin/health-check.sh"]
       interval: 30s
@@ -42,3 +60,6 @@ services:
 volumes:
   webtop_config:
   webtop_logs:
+  dbus_session:
+  wine_data:
+  android_data:

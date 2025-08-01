@@ -278,11 +278,28 @@ fi
 chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}"
 chown -R "${ADMIN_USERNAME}:${ADMIN_USERNAME}" "/home/${ADMIN_USERNAME}"
 
-# Setup Wine and Windows applications (runtime only)
-log_info "Setting up Wine and Google Ads Editor..."
-if [ -f "/usr/local/bin/setup-wine.sh" ]; then
-    if /usr/local/bin/setup-wine.sh; then
-        log_info "Wine setup completed successfully"
+# Setup container-optimized D-Bus first
+log_info "Setting up container D-Bus..."
+if [ -f "/usr/local/bin/setup-container-dbus.sh" ]; then
+    /usr/local/bin/setup-container-dbus.sh || log_warn "D-Bus setup failed"
+fi
+
+# Setup font configuration early
+log_info "Setting up font configuration..."
+if [ -f "/usr/local/bin/setup-font-config.sh" ]; then
+    /usr/local/bin/setup-font-config.sh || log_warn "Font config setup failed"
+fi
+
+# Setup container-optimized Wine
+log_info "Setting up container Wine..."
+if [ -f "/usr/local/bin/setup-wine-container.sh" ]; then
+    /usr/local/bin/setup-wine-container.sh || log_warn "Wine container setup failed"
+else
+    # Fallback to original Wine setup
+    log_info "Setting up Wine and Google Ads Editor..."
+    if [ -f "/usr/local/bin/setup-wine.sh" ]; then
+        if /usr/local/bin/setup-wine.sh; then
+            log_info "Wine setup completed successfully"
         
         # Setup Google Ads Editor
         if [ -f "/usr/local/bin/setup-google-ads-editor.sh" ]; then
@@ -301,16 +318,22 @@ else
     log_warn "Wine setup script not found"
 fi
 
-# Setup Android subsystem (Waydroid/Anbox)
-log_info "Setting up Android subsystem..."
-if [ -f "/usr/local/bin/setup-waydroid.sh" ]; then
-    if /usr/local/bin/setup-waydroid.sh; then
-        log_info "Android subsystem setup completed"
-    else
-        log_warn "Android subsystem setup failed"
-    fi
+# Setup container Android solutions
+log_info "Setting up container Android..."
+if [ -f "/usr/local/bin/setup-android-container.sh" ]; then
+    /usr/local/bin/setup-android-container.sh || log_warn "Android container setup failed"
 else
-    log_warn "Android subsystem setup script not found"
+    # Fallback to original Android setup
+    log_info "Setting up Android subsystem..."
+    if [ -f "/usr/local/bin/setup-waydroid.sh" ]; then
+        if /usr/local/bin/setup-waydroid.sh; then
+            log_info "Android subsystem setup completed"
+        else
+            log_warn "Android subsystem setup failed"
+        fi
+    else
+        log_warn "Android subsystem setup script not found"
+    fi
 fi
 
 # Ensure binder/ashmem are available for Waydroid (optional, may fail in containers)
@@ -352,11 +375,17 @@ chmod +x /usr/local/bin/monitor-services.sh
 # Start the enhanced monitor
 /usr/local/bin/monitor-services.sh &
 
+# Setup enhanced monitoring
+log_info "Setting up enhanced monitoring..."
+if [ -f "/usr/local/bin/setup-enhanced-monitoring.sh" ]; then
+    /usr/local/bin/setup-enhanced-monitoring.sh || log_warn "Enhanced monitoring setup failed"
+fi
+
 # Set up service health monitoring
 log_info "Setting up service health monitoring..."
 if [ -f "/usr/local/bin/service-health.sh" ]; then
     chmod +x /usr/local/bin/service-health.sh
-echo "✅ Service health monitoring setup completed"
+    echo "✅ Service health monitoring setup completed"
 
 # Setup Xvfb optimization
 log_info "Setting up Xvfb display server optimization..."
