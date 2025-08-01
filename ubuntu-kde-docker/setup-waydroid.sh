@@ -105,6 +105,20 @@ EOF
 # Main Android setup logic
 ANDROID_SOLUTION=""
 
+# Verify required kernel modules are available
+missing_mods=0
+for mod in binder_linux ashmem_linux; do
+    if ! lsmod | grep -q "^$mod" 2>/dev/null; then
+        log_warn "Kernel module $mod not loaded"
+        missing_mods=1
+    fi
+done
+
+if [ "$missing_mods" -eq 1 ]; then
+    log_warn "Android kernel support unavailable; skipping Android setup"
+    ANDROID_SOLUTION="none"
+else
+
 # Check if Waydroid is available
 if command -v waydroid >/dev/null 2>&1; then
     log_info "Waydroid found, attempting container setup..."
@@ -141,6 +155,7 @@ else
         log_warn "No Android solution available"
         ANDROID_SOLUTION="none"
     fi
+fi
 fi
 
 # Create desktop shortcuts based on available solution
