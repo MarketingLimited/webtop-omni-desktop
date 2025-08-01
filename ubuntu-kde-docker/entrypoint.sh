@@ -290,10 +290,25 @@ if [ -f "/usr/local/bin/setup-container-dbus.sh" ]; then
     /usr/local/bin/setup-container-dbus.sh || log_warn "D-Bus setup failed"
 fi
 
+# Ensure D-Bus services are running so applications can connect
+if [ -f "/usr/local/bin/start-dbus" ]; then
+    /usr/local/bin/start-dbus || log_warn "Failed to start D-Bus services"
+fi
+
 # Setup font configuration early
 log_info "Setting up font configuration..."
 if [ -f "/usr/local/bin/setup-font-config.sh" ]; then
     /usr/local/bin/setup-font-config.sh || log_warn "Font config setup failed"
+fi
+
+# Guarantee fontconfig exists to avoid KDE errors
+if [ ! -f "/home/${DEV_USERNAME}/.config/fontconfig/fonts.conf" ]; then
+    mkdir -p "/home/${DEV_USERNAME}/.config/fontconfig"
+    cat > "/home/${DEV_USERNAME}/.config/fontconfig/fonts.conf" <<'EOF'
+<?xml version="1.0"?>
+<fontconfig></fontconfig>
+EOF
+    chown ${DEV_USERNAME}:${DEV_USERNAME} "/home/${DEV_USERNAME}/.config/fontconfig/fonts.conf"
 fi
 
 # Setup container-optimized Wine
