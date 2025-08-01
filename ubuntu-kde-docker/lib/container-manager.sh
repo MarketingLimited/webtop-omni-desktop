@@ -93,11 +93,12 @@ services:
     env_file:
       - .env
     volumes:
-      - ${container_name}_config:/config
-      - ${container_name}_home:/home/devuser
-      - ${container_name}_wine:/home/devuser/.wine
-      - ${container_name}_projects:/home/devuser/projects
-      - ${container_name}_logs:/var/log/supervisor
+      - ${DATA_ROOT}/${container_name}/config:/config
+      - ${DATA_ROOT}/${container_name}/home:/home/devuser
+      - ${DATA_ROOT}/${container_name}/wine:/home/devuser/.wine
+      - ${DATA_ROOT}/${container_name}/projects:/home/devuser/projects
+      - ${DATA_ROOT}/${container_name}/logs:/var/log/supervisor
+      - ${DATA_ROOT}/${container_name}/dbus_session:/run/user/1000
       - shared_resources:/shared:ro
       - /tmp/.X11-unix:/tmp/.X11-unix:ro
     devices:
@@ -119,11 +120,6 @@ services:
       start_period: 60s
 
 volumes:
-  ${container_name}_config:
-  ${container_name}_home:
-  ${container_name}_wine:
-  ${container_name}_projects:
-  ${container_name}_logs:
   shared_resources:
 EOF
 }

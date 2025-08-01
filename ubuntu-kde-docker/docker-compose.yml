@@ -24,14 +24,14 @@ services:
       - XDG_RUNTIME_DIR=/run/user/1000
       - DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
     volumes:
-      - webtop_config:/config
-      - webtop_logs:/var/log/supervisor
+      - ${DATA_ROOT}/default/config:/config
+      - ${DATA_ROOT}/default/logs:/var/log/supervisor
       - /tmp/.X11-unix:/tmp/.X11-unix:rw  # Read-write for X11
       - /lib/modules:/lib/modules:ro      # Kernel modules access
       - /dev:/dev:rw                      # Device access for Android
-      - dbus_session:/run/user/1000       # D-Bus session
-      - wine_data:/home/devuser/.wine     # Wine persistent data
-      - android_data:/data/android        # Android emulation data
+      - ${DATA_ROOT}/default/dbus_session:/run/user/1000
+      - ${DATA_ROOT}/default/wine_data:/home/devuser/.wine
+      - ${DATA_ROOT}/default/android_data:/data/android
     devices:
       - /dev/snd:/dev/snd
       - /dev/kvm:/dev/kvm                 # KVM for Android emulation
@@ -56,10 +56,3 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-
-volumes:
-  webtop_config:
-  webtop_logs:
-  dbus_session:
-  wine_data:
-  android_data:

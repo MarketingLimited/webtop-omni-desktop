@@ -86,6 +86,7 @@ load_env() {
     export BASE_TTYD_PORT=${BASE_TTYD_PORT:-7682}
     export BASE_AUDIO_PORT=${BASE_AUDIO_PORT:-8081}
     export BASE_PULSE_PORT=${BASE_PULSE_PORT:-4714}
+    export DATA_ROOT=${DATA_ROOT:-/data/ubuntu-kde-docker}
 }
 
 # Check if port is available
