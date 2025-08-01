@@ -48,7 +48,7 @@ RUN apt-get update && apt-get install -y \
     nextcloud-desktop \
     fonts-noto-core fonts-noto-ui-core fonts-noto-color-emoji fonts-noto-extra \
     fonts-dejavu fonts-crosextra-carlito fonts-crosextra-caladea fonts-hosny-amiri fonts-kacst qttranslations5-l10n libqt5script5 fonts-freefont-ttf \
-    supervisor novnc websockify x11vnc xvfb \
+    supervisor kasmvncserver xvfb \
     dbus-x11 x11-xserver-utils xfonts-base snapd kmod \
     mesa-utils libgl1-mesa-dri libglx-mesa0 libosmesa6 libglu1-mesa \
     gnome-terminal lxterminal terminator accountsservice policykit-1 \
@@ -139,7 +139,7 @@ ENV LANGUAGE=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
 ENV TTYD_USER=terminal
 ENV TTYD_PASSWORD=terminal
-# Create directories and VNC setup for x11vnc
+# Create directories and VNC setup for KasmVNC
 RUN mkdir -p /var/run/sshd /root/.vnc /tmp/.X11-unix && \
     chmod 1777 /tmp/.X11-unix
 
@@ -148,8 +148,7 @@ RUN mkdir -p /var/run/sshd /root/.vnc /tmp/.X11-unix && \
 COPY setup-flatpak-apps.sh /usr/local/bin/setup-flatpak-apps.sh
 COPY setup-desktop.sh /usr/local/bin/setup-desktop.sh
 COPY setup-xvfb-optimization.sh /usr/local/bin/setup-xvfb-optimization.sh
-COPY setup-x11vnc-optimization.sh /usr/local/bin/setup-x11vnc-optimization.sh
-COPY setup-novnc-enhancement.sh /usr/local/bin/setup-novnc-enhancement.sh
+COPY setup-kasmvnc.sh /usr/local/bin/setup-kasmvnc.sh
 COPY setup-kde-optimization.sh /usr/local/bin/setup-kde-optimization.sh
 COPY setup-system-optimization.sh /usr/local/bin/setup-system-optimization.sh
 COPY setup-network-optimization.sh /usr/local/bin/setup-network-optimization.sh
@@ -198,11 +197,8 @@ RUN apt-get update && apt-get install -y \
 
 # Setup audio bridge
 COPY setup-audio-bridge.sh /usr/local/bin/
-COPY integrate-audio-ui.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/setup-audio-bridge.sh && \
-    chmod +x /usr/local/bin/integrate-audio-ui.sh && \
-    /usr/local/bin/setup-audio-bridge.sh && \
-    /usr/local/bin/integrate-audio-ui.sh
+    /usr/local/bin/setup-audio-bridge.sh
 
 # Validate all scripts are present and executable
 RUN echo "Validating script dependencies..." && \

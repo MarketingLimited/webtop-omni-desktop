@@ -29,7 +29,7 @@ A comprehensive Docker environment featuring Ubuntu with KDE Plasma desktop, spe
 - **Cross-Platform** - ARM64 and AMD64 architecture support
 
 ### 🌐 Remote Access & Infrastructure
-- **Multiple Access Methods** - noVNC, SSH, web terminal
+- **Multiple Access Methods** - KasmVNC, SSH, web terminal
 - **Performance Monitoring** - Resource usage, health checks
 - **CI/CD Ready** - GitHub Actions, automated builds, multi-environment support
 
@@ -82,7 +82,7 @@ docker compose -f docker-compose.prod.yml up -d
 | Service | URL | Description | Status Check |
 |---------|-----|-------------|--------------|
 
-| 🖥️ **VNC Desktop** | `http://localhost:80` | Desktop via noVNC | Auto-validated |
+| 🖥️ **VNC Desktop** | `http://localhost:80` | Desktop via KasmVNC | Auto-validated |
 | 💻 **Terminal** | `http://localhost:7681` | Web terminal (TTYD) | Auto-validated |
 | 🔐 **SSH** | `ssh user@localhost -p 2222` | Direct SSH access | Auto-validated |
 | 🎵 **Audio** | KDE System Settings | Virtual audio devices | Auto-validated |

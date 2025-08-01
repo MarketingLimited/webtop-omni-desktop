@@ -387,20 +387,15 @@ cat > public/audio-embed.js << 'EOF'
 })();
 EOF
 
-# Copy universal audio script to noVNC directories
-echo "Integrating universal audio into noVNC..."
 
-# Make the universal audio script available
-cp /usr/local/bin/universal-audio.js /usr/share/novnc/ 2>/dev/null || echo "Note: Will copy after script creation"
 
 # Make the setup script executable
 chmod +x /opt/audio-bridge/server.js
 
 echo "✅ Audio bridge setup completed!"
 echo "🔊 Audio streaming server will be available on port 8080"
-echo "🌐 Universal audio support integrated into noVNC"
+echo "🌐 Universal audio support enabled"
 echo "⚡ Features available:"
 echo "   - WebSocket audio streaming on port 8080"
-echo "   - Auto-connect overlay for all noVNC pages"
 echo "   - Cross-browser audio playback support"
 echo "   - Automatic fallback connection methods"

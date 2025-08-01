@@ -22,7 +22,7 @@ This WebTop includes a comprehensive audio system with web-based streaming capab
 
 ### Accessing Audio
 
-#### Via noVNC Web Interface
+#### Via KasmVNC Web Interface
 - Open browser to `http://localhost:32768`
 - Audio controls automatically appear in the interface
 - Click "Connect Audio" to start streaming
@@ -39,7 +39,7 @@ This WebTop includes a comprehensive audio system with web-based streaming capab
 ## Technical Details
 
 ### Ports
-- `32768`: Main noVNC interface with audio
+- `32768`: Main KasmVNC interface with audio
 - `8080`: Audio bridge WebSocket server
 - `4713`: PulseAudio TCP server (for SSH audio forwarding)
 

@@ -260,17 +260,17 @@ test_audio_devices() {
 test_vnc_audio() {
     echo "🔍 Testing VNC audio integration..."
     
-    if pgrep -f "x11vnc" > /dev/null; then
-        green "✅ VNC server is running"
+    if pgrep -f "kasmvncserver" > /dev/null; then
+        green "✅ KasmVNC server is running"
         
         # Check if VNC has audio forwarding capability
         if lsof -i :4713 | grep -q vnc; then
-            green "✅ VNC audio forwarding detected"
+            green "✅ KasmVNC audio forwarding detected"
         else
-            yellow "⚠️  VNC audio forwarding not detected"
+            yellow "⚠️  KasmVNC audio forwarding not detected"
         fi
     else
-        red "❌ VNC server not running"
+        red "❌ KasmVNC server not running"
     fi
 }
 

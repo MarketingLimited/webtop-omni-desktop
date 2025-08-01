@@ -233,7 +233,7 @@ adjust_process_priorities() {
         
         # Boost X server and VNC priorities
         pgrep Xvfb | xargs -r renice -10 2>/dev/null || true
-        pgrep x11vnc | xargs -r renice -5 2>/dev/null || true
+        pgrep kasmvncserver | xargs -r renice -5 2>/dev/null || true
         
         # Lower priority for non-essential processes
         pgrep firefox | xargs -r renice +10 2>/dev/null || true
@@ -245,7 +245,7 @@ adjust_process_priorities() {
         
         # Reset to normal priorities
         pgrep Xvfb | xargs -r renice 0 2>/dev/null || true
-        pgrep x11vnc | xargs -r renice 0 2>/dev/null || true
+        pgrep kasmvncserver | xargs -r renice 0 2>/dev/null || true
         pgrep firefox | xargs -r renice 0 2>/dev/null || true
         pgrep chrome | xargs -r renice 0 2>/dev/null || true
     fi
@@ -297,7 +297,7 @@ declare -A PRIORITY_CLASSES=(
 # Define process classifications
 declare -A PROCESS_PRIORITIES=(
     ["Xvfb"]="critical"
-    ["x11vnc"]="high"
+    ["kasmvncserver"]="high"
     ["websockify"]="high"
     ["startplasma-x11"]="normal"
     ["plasmashell"]="normal"

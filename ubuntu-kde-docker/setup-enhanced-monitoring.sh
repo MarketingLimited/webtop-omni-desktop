@@ -65,7 +65,7 @@ check_system() {
 check_services() {
     log_status "Checking services..."
     
-    services=("dbus" "x11vnc" "Xvfb" "plasma")
+    services=("dbus" "kasmvncserver" "Xvfb" "plasma")
     failed_services=()
     
     for service in "${services[@]}"; do
@@ -93,7 +93,7 @@ check_network() {
     
     # Check VNC port
     if ! netstat -tuln | grep -q ":80"; then
-        log_error "noVNC port not listening"
+        log_error "KasmVNC port not listening"
         return 1
     fi
     
@@ -154,7 +154,7 @@ collect_metrics() {
     echo "$TIMESTAMP,load,$LOAD" >> /var/log/container-monitoring/metrics.csv
     
     # Service metrics
-    for service in dbus x11vnc Xvfb plasma; do
+    for service in dbus kasmvncserver Xvfb plasma; do
         if pgrep -f "$service" >/dev/null; then
             PID=$(pgrep -f "$service" | head -1)
             CPU=$(ps -p $PID -o %cpu= | xargs)
@@ -243,7 +243,7 @@ echo ""
 
 # Services status
 echo "🔧 SERVICES STATUS"
-services=("dbus:D-Bus" "x11vnc:VNC Server" "Xvfb:X Server" "plasma:KDE Plasma")
+services=("dbus:D-Bus" "kasmvncserver:VNC Server" "Xvfb:X Server" "plasma:KDE Plasma")
 for service_info in "${services[@]}"; do
     service=${service_info%%:*}
     name=${service_info##*:}
@@ -260,7 +260,7 @@ echo "🌐 NETWORK PORTS"
 netstat -tuln | grep LISTEN | grep -E ":(80|22|7681|4713|5555)" | while read line; do
     port=$(echo $line | awk '{print $4}' | awk -F: '{print $NF}')
     case $port in
-        80) echo "   ✅ HTTP/noVNC (80)" ;;
+        80) echo "   ✅ HTTP/KasmVNC (80)" ;;
         22) echo "   ✅ SSH (22)" ;;
         7681) echo "   ✅ TTYD Terminal (7681)" ;;
         4713) echo "   ✅ PulseAudio (4713)" ;;
@@ -320,7 +320,7 @@ fi
 
 # Restart core services
 restart_service "Xvfb" "Xvfb :1 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset"
-restart_service "x11vnc" "x11vnc -display :1 -nopw -listen localhost -xkb -ncache 10 -ncache_cr -quiet"
+restart_service "kasmvncserver" "kasmvncserver :1"
 
 # Clean temporary files if disk usage is high
 DISK_USAGE=$(df / | tail -1 | awk '{print $5}' | sed 's/%//')

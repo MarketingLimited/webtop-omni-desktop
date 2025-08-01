@@ -6,7 +6,7 @@ services:
     privileged: true
     shm_size: "8gb"
     ports:
-      - "80:80"       # noVNC (behind reverse proxy)
+      - "80:80"       # KasmVNC (behind reverse proxy)
       - "443:443"     # HTTPS (behind reverse proxy)
       - "2222:22"     # SSH
     env_file:

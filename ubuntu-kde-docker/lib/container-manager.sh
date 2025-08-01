@@ -148,7 +148,7 @@ show_access_info() {
     
     case "$config" in
         dev)
-            echo "  🌐 noVNC (Web):        http://localhost:32768"
+            echo "  🌐 KasmVNC (Web):      http://localhost:32768"
             echo "  🔒 SSH:                ssh developer@localhost -p 2222"
             echo "  💻 Web Terminal:       http://localhost:7681"
             echo "  🔊 Audio Port:          4713"
@@ -160,7 +160,7 @@ show_access_info() {
             echo "  📈 Metrics:            http://localhost:9090 (Prometheus)"
             ;;
         *)
-            echo "  🌐 noVNC (Web):        http://localhost:32768"
+            echo "  🌐 KasmVNC (Web):      http://localhost:32768"
             echo "  🔒 SSH:                ssh devuser@localhost -p 2222"
             echo "  💻 Web Terminal:       http://localhost:7681"
             ;;
@@ -207,7 +207,7 @@ access_shell() {
 
 # Open web interfaces
 open_web() {
-    print_status "Opening noVNC in browser..."
+    print_status "Opening KasmVNC in browser..."
     if command -v xdg-open > /dev/null; then
         xdg-open "http://localhost:32768"
     elif command -v open > /dev/null; then

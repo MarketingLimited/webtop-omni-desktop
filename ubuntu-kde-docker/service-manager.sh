@@ -13,7 +13,7 @@ declare -A SERVICE_GROUPS=(
     [core]="Xvfb dbus"
     [audio]="pulseaudio AudioValidation CreateVirtualAudioDevices AudioMonitor AudioBridge"
     [desktop]="KDE"
-    [remote]="X11VNC noVNC sshd ttyd"
+    [remote]="KasmVNC sshd ttyd"
     [monitoring]="ServiceHealth SystemValidation"
     [setup]="SetupDesktop"
 )

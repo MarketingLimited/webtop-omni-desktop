@@ -117,21 +117,21 @@ validate_ttyd() {
 validate_vnc() {
     log_validation "Validating VNC services..."
     
-    # Check VNC server (x11vnc)
-    if ! pgrep -x x11vnc >/dev/null; then
-        add_result "VNC Services" "FAIL" "x11vnc process not running"
+    # Check VNC server (KasmVNC)
+    if ! pgrep -f kasmvncserver >/dev/null; then
+        add_result "VNC Services" "FAIL" "KasmVNC process not running"
         return 1
     fi
     
-    # Check noVNC web interface (port 80)
+    # Check KasmVNC web interface (port 80)
     if ! netstat -ln | grep -q ":80 "; then
-        add_result "VNC Services" "FAIL" "noVNC port 80 not listening"
+        add_result "VNC Services" "FAIL" "KasmVNC port 80 not listening"
         return 1
     fi
     
-    # Test noVNC web interface
+    # Test KasmVNC web interface
     if curl -s --connect-timeout 5 http://localhost:80 >/dev/null 2>&1; then
-        add_result "VNC Services" "PASS" "VNC server and noVNC web interface running"
+        add_result "VNC Services" "PASS" "KasmVNC server and web interface running"
         return 0
     else
         add_result "VNC Services" "PARTIAL" "VNC server running but web interface not responding"
@@ -240,7 +240,7 @@ EOF
 Your Ubuntu KDE Docker container is fully functional:
 
 📱 Access Methods:
-  • noVNC Web Desktop: http://localhost:80
+  • KasmVNC Web Desktop: http://localhost:80
   • Web Terminal: http://localhost:7681
   • SSH: ssh devuser@localhost -p 22
 

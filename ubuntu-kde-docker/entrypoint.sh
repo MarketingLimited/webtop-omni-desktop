@@ -422,24 +422,14 @@ else
     log_warn "⚠️  Xvfb optimization script not found"
 fi
 
-# Setup x11vnc optimization
-log_info "Setting up x11vnc performance optimization..."
-if [ -f "/usr/local/bin/setup-x11vnc-optimization.sh" ]; then
-    chmod +x /usr/local/bin/setup-x11vnc-optimization.sh
-    /usr/local/bin/setup-x11vnc-optimization.sh
-    log_info "✅ x11vnc optimization setup completed"
+# Setup KasmVNC
+log_info "Setting up KasmVNC..."
+if [ -f "/usr/local/bin/setup-kasmvnc.sh" ]; then
+    chmod +x /usr/local/bin/setup-kasmvnc.sh
+    /usr/local/bin/setup-kasmvnc.sh
+    log_info "✅ KasmVNC setup completed"
 else
-    log_warn "⚠️  x11vnc optimization script not found"
-fi
-
-# Setup noVNC enhancement
-log_info "Setting up noVNC client enhancement..."
-if [ -f "/usr/local/bin/setup-novnc-enhancement.sh" ]; then
-    chmod +x /usr/local/bin/setup-novnc-enhancement.sh
-    /usr/local/bin/setup-novnc-enhancement.sh
-    log_info "✅ noVNC enhancement setup completed"
-else
-    log_warn "⚠️  noVNC enhancement script not found"
+    log_warn "⚠️  KasmVNC setup script not found"
 fi
 
 # Setup KDE optimization
@@ -511,20 +501,14 @@ log_info "Starting supervisor daemon..."
 : "${XVFB_DPI:=96}"
 : "${KDE_PERFORMANCE_PROFILE:=performance}"
 : "${KDE_EFFECTS_DISABLED:=true}"
-: "${X11VNC_PERFORMANCE_PROFILE:=balanced}"
-: "${X11VNC_QUALITY:=6}"
-: "${X11VNC_ADAPTIVE:=true}"
-: "${NOVNC_PORT:=80}"
-: "${NOVNC_VNC_PORT:=5901}"
-: "${NOVNC_WEBGL:=true}"
-: "${NOVNC_COMPRESSION:=auto}"
+: "${KASMVNC_PORT:=80}"
+: "${KASMVNC_VNC_PORT:=5901}"
 : "${WEBRTC_PORT:=8443}"
 
 # Log selected profiles for troubleshooting
 log_info "Xvfb profile: ${XVFB_PERFORMANCE_PROFILE}, resolution: ${XVFB_RESOLUTION}, dpi: ${XVFB_DPI}"
 log_info "KDE profile: ${KDE_PERFORMANCE_PROFILE}, effects disabled: ${KDE_EFFECTS_DISABLED}"
-log_info "x11vnc profile: ${X11VNC_PERFORMANCE_PROFILE}, quality: ${X11VNC_QUALITY}, adaptive: ${X11VNC_ADAPTIVE}"
-log_info "noVNC port: ${NOVNC_PORT}, VNC port: ${NOVNC_VNC_PORT}, webgl: ${NOVNC_WEBGL}, compression: ${NOVNC_COMPRESSION}"
+log_info "KasmVNC port: ${KASMVNC_PORT}, VNC port: ${KASMVNC_VNC_PORT}"
 log_info "WebRTC signaling port: ${WEBRTC_PORT}"
 
 exec env \
@@ -538,26 +522,16 @@ exec env \
     XVFB_DPI="${XVFB_DPI}" \
     KDE_PERFORMANCE_PROFILE="${KDE_PERFORMANCE_PROFILE}" \
     KDE_EFFECTS_DISABLED="${KDE_EFFECTS_DISABLED}" \
-    X11VNC_PERFORMANCE_PROFILE="${X11VNC_PERFORMANCE_PROFILE}" \
-    X11VNC_QUALITY="${X11VNC_QUALITY}" \
-    X11VNC_ADAPTIVE="${X11VNC_ADAPTIVE}" \
-    NOVNC_PORT="${NOVNC_PORT}" \
-    NOVNC_VNC_PORT="${NOVNC_VNC_PORT}" \
-    NOVNC_WEBGL="${NOVNC_WEBGL}" \
-    NOVNC_COMPRESSION="${NOVNC_COMPRESSION}" \
+    KASMVNC_PORT="${KASMVNC_PORT}" \
+    KASMVNC_VNC_PORT="${KASMVNC_VNC_PORT}" \
     WEBRTC_PORT="${WEBRTC_PORT}" \
     ENV_XVFB_PERFORMANCE_PROFILE="${XVFB_PERFORMANCE_PROFILE}" \
     ENV_XVFB_RESOLUTION="${XVFB_RESOLUTION}" \
     ENV_XVFB_DPI="${XVFB_DPI}" \
     ENV_KDE_PERFORMANCE_PROFILE="${KDE_PERFORMANCE_PROFILE}" \
     ENV_KDE_EFFECTS_DISABLED="${KDE_EFFECTS_DISABLED}" \
-    ENV_X11VNC_PERFORMANCE_PROFILE="${X11VNC_PERFORMANCE_PROFILE}" \
-    ENV_X11VNC_QUALITY="${X11VNC_QUALITY}" \
-    ENV_X11VNC_ADAPTIVE="${X11VNC_ADAPTIVE}" \
-    ENV_NOVNC_PORT="${NOVNC_PORT}" \
-    ENV_NOVNC_VNC_PORT="${NOVNC_VNC_PORT}" \
-    ENV_NOVNC_WEBGL="${NOVNC_WEBGL}" \
-    ENV_NOVNC_COMPRESSION="${NOVNC_COMPRESSION}" \
+    ENV_KASMVNC_PORT="${KASMVNC_PORT}" \
+    ENV_KASMVNC_VNC_PORT="${KASMVNC_VNC_PORT}" \
     ENV_WEBRTC_PORT="${WEBRTC_PORT}" \
     DEV_USERNAME="${DEV_USERNAME}" DEV_UID="${DEV_UID}" DEV_GID="${DEV_GID}" \
     TTYD_USER="${TTYD_USER}" TTYD_PASSWORD="${TTYD_PASSWORD}" \

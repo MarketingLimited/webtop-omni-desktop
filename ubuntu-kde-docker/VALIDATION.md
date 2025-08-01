@@ -23,7 +23,7 @@ The container runs automatic validation through the `SystemValidation` service i
 
 #### 🖥️ Remote Desktop Access
 
-- **VNC accessibility**: Tests noVNC web interface functionality  
+- **VNC accessibility**: Tests KasmVNC web interface functionality  
 - **Port availability**: Confirms 80 (VNC) is accessible
 - **Desktop integration**: Validates both access methods show KDE desktop
 
@@ -202,7 +202,7 @@ docker exec webtop-kde curl -s http://localhost:7681
 1. **Core Services** → Xvfb, D-Bus (Priority 10-20)
 2. **Audio Setup** → PulseAudio, Virtual devices (Priority 25-30)  
 3. **Desktop Environment** → KDE Plasma (Priority 35)
-4. **Remote Access** → VNC, noVNC, SSH, TTYD (Priority 40-50)
+4. **Remote Access** → VNC, KasmVNC, SSH, TTYD (Priority 40-50)
 5. **Validation** → System validation and health monitoring (Priority 60)
 
 ### Expected Timeline

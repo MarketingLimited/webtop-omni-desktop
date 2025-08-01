@@ -12,7 +12,7 @@ const ServicesGrid = () => {
       url: "http://localhost:14500",
       port: "14500",
       status: "active",
-      features: ["Xpra HTML5 Client", "Graphics Acceleration", "Audio Support"]
+      features: ["KasmVNC Client", "Graphics Acceleration", "Audio Support"]
     },
     {
       title: "Terminal",
