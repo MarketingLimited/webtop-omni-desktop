@@ -317,6 +317,7 @@ else
 else
     log_warn "Wine setup script not found"
 fi
+fi
 
 # Setup container Android solutions
 log_info "Setting up container Android..."
@@ -385,7 +386,11 @@ fi
 log_info "Setting up service health monitoring..."
 if [ -f "/usr/local/bin/service-health.sh" ]; then
     chmod +x /usr/local/bin/service-health.sh
-    echo "✅ Service health monitoring setup completed"
+    /usr/local/bin/service-health.sh wait &
+    log_info "✅ Service health monitoring setup completed"
+else
+    log_warn "⚠️  Service health monitoring script not found"
+fi
 
 # Setup Xvfb optimization
 log_info "Setting up Xvfb display server optimization..."
@@ -476,13 +481,7 @@ if [ -f "/setup-modern-features.sh" ]; then
 else
     log_warn "⚠️  Modern features script not found"
 fi
-    log_info "✅ Network optimization setup completed"
-else
-    log_warn "⚠️  Network optimization script not found"
-fi
-else
-    echo "⚠️  Service health monitoring script not found"
-fi
+
 
 log_info "Starting supervisor daemon..."
 
