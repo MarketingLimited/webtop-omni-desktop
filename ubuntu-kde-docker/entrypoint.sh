@@ -28,7 +28,7 @@ log_warn() {
 }
 
 # Initialize system directories
-mkdir -p /var/run/dbus /run/user/${DEV_UID} /tmp/.ICE-unix /tmp/.X11-unix
+mkdir -p /var/run/dbus "/run/user/${DEV_UID}" /tmp/.ICE-unix /tmp/.X11-unix
 # /tmp/.X11-unix may be mounted read-only by the host. Avoid failing if chmod
 # cannot modify permissions.
 chmod 1777 /tmp/.ICE-unix /tmp/.X11-unix 2>/dev/null || \
@@ -308,7 +308,7 @@ if [ ! -f "/home/${DEV_USERNAME}/.config/fontconfig/fonts.conf" ]; then
 <?xml version="1.0"?>
 <fontconfig></fontconfig>
 EOF
-    chown ${DEV_USERNAME}:${DEV_USERNAME} "/home/${DEV_USERNAME}/.config/fontconfig/fonts.conf"
+    chown "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/.config/fontconfig/fonts.conf"
 fi
 
 # Setup container-optimized Wine
