@@ -67,15 +67,13 @@ set_cpu_affinity() {
     if [ "$CPU_CORES" -ge 4 ]; then
         # Multi-core system optimization
         XVFB_AFFINITY="0,1"
-        X11VNC_AFFINITY="2,3"
+        KASMVNC_AFFINITY="2,3"
         KDE_AFFINITY="0,1,2"
-        NOVNC_AFFINITY="3"
     elif [ "$CPU_CORES" -ge 2 ]; then
         # Dual-core system optimization
         XVFB_AFFINITY="0"
-        X11VNC_AFFINITY="1"
+        KASMVNC_AFFINITY="1"
         KDE_AFFINITY="0,1"
-        NOVNC_AFFINITY="1"
     else
         # Single-core system (no affinity setting)
         echo "⚠️  Single-core system detected, skipping CPU affinity"
@@ -84,9 +82,8 @@ set_cpu_affinity() {
     
     # Set affinity for critical processes (will be applied when processes start)
     export XVFB_CPU_AFFINITY="$XVFB_AFFINITY"
-    export X11VNC_CPU_AFFINITY="$X11VNC_AFFINITY"
+    export KASMVNC_CPU_AFFINITY="$KASMVNC_AFFINITY"
     export KDE_CPU_AFFINITY="$KDE_AFFINITY"
-    export NOVNC_CPU_AFFINITY="$NOVNC_AFFINITY"
     
     echo "🎯 CPU affinity configuration set"
 }
