@@ -300,25 +300,24 @@ else
     if [ -f "/usr/local/bin/setup-wine.sh" ]; then
         if /usr/local/bin/setup-wine.sh; then
             log_info "Wine setup completed successfully"
-        
-        # Setup Google Ads Editor
-        if [ -f "/usr/local/bin/setup-google-ads-editor.sh" ]; then
-            if /usr/local/bin/setup-google-ads-editor.sh; then
-                log_info "Google Ads Editor setup completed successfully"
+
+            # Setup Google Ads Editor
+            if [ -f "/usr/local/bin/setup-google-ads-editor.sh" ]; then
+                if /usr/local/bin/setup-google-ads-editor.sh; then
+                    log_info "Google Ads Editor setup completed successfully"
+                else
+                    log_warn "Google Ads Editor setup failed"
+                fi
             else
-                log_warn "Google Ads Editor setup failed"
+                log_warn "Google Ads Editor setup script not found"
             fi
         else
-            log_warn "Google Ads Editor setup script not found"
+            log_warn "Wine setup failed"
         fi
     else
-        log_warn "Wine setup failed"
+        log_warn "Wine setup script not found"
     fi
-else
-    log_warn "Wine setup script not found"
 fi
-fi
-
 # Setup container Android solutions
 log_info "Setting up container Android..."
 if [ -f "/usr/local/bin/setup-android-container.sh" ]; then
