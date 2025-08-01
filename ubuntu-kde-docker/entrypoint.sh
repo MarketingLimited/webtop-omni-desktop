@@ -28,7 +28,7 @@ log_warn() {
 }
 
 # Initialize system directories
-mkdir -p /var/run/dbus /run/user/${DEV_UID} /tmp/.ICE-unix /tmp/.X11-unix
+mkdir -p /var/run/dbus "/run/user/${DEV_UID}" /tmp/.ICE-unix /tmp/.X11-unix
 # /tmp/.X11-unix may be mounted read-only by the host. Avoid failing if chmod
 # cannot modify permissions.
 chmod 1777 /tmp/.ICE-unix /tmp/.X11-unix 2>/dev/null || \
@@ -308,7 +308,7 @@ if [ ! -f "/home/${DEV_USERNAME}/.config/fontconfig/fonts.conf" ]; then
 <?xml version="1.0"?>
 <fontconfig></fontconfig>
 EOF
-    chown ${DEV_USERNAME}:${DEV_USERNAME} "/home/${DEV_USERNAME}/.config/fontconfig/fonts.conf"
+    chown "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/.config/fontconfig/fonts.conf"
 fi
 
 # Setup container-optimized Wine
@@ -474,9 +474,9 @@ fi
 
 # Setup advanced features (Phase 7)
 log_info "Setting up advanced desktop features..."
-if [ -f "/setup-advanced-features.sh" ]; then
-    chmod +x /setup-advanced-features.sh
-    ./setup-advanced-features.sh 2>&1 | tee -a "/var/log/setup-advanced-features.log"
+if [ -f "/usr/local/bin/setup-advanced-features.sh" ]; then
+    chmod +x /usr/local/bin/setup-advanced-features.sh
+    /usr/local/bin/setup-advanced-features.sh 2>&1 | tee -a "/var/log/setup-advanced-features.log"
     log_info "✅ Advanced features setup completed"
 else
     log_warn "⚠️  Advanced features script not found"
@@ -484,9 +484,9 @@ fi
 
 # Setup marketing optimization (Phase 8)
 log_info "Setting up marketing agency optimizations..."
-if [ -f "/setup-marketing-optimization.sh" ]; then
-    chmod +x /setup-marketing-optimization.sh
-    ./setup-marketing-optimization.sh 2>&1 | tee -a "/var/log/setup-marketing-optimization.log"
+if [ -f "/usr/local/bin/setup-marketing-optimization.sh" ]; then
+    chmod +x /usr/local/bin/setup-marketing-optimization.sh
+    /usr/local/bin/setup-marketing-optimization.sh 2>&1 | tee -a "/var/log/setup-marketing-optimization.log"
     log_info "✅ Marketing optimization setup completed"
 else
     log_warn "⚠️  Marketing optimization script not found"
@@ -494,9 +494,9 @@ fi
 
 # Setup modern features
 log_info "Setting up modern desktop features..."
-if [ -f "/setup-modern-features.sh" ]; then
-    chmod +x /setup-modern-features.sh
-    ./setup-modern-features.sh 2>&1 | tee -a "/var/log/setup-modern-features.log"
+if [ -f "/usr/local/bin/setup-modern-features.sh" ]; then
+    chmod +x /usr/local/bin/setup-modern-features.sh
+    /usr/local/bin/setup-modern-features.sh 2>&1 | tee -a "/var/log/setup-modern-features.log"
     log_info "✅ Modern features setup completed"
 else
     log_warn "⚠️  Modern features script not found"
