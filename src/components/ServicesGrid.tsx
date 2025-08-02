@@ -30,7 +30,7 @@ const ServicesGrid = () => {
       url: "ssh://localhost:2222",
       port: "2222",
       status: "active",
-      features: ["Secure Connection", "Port Forwarding", "File Transfer"]
+      features: ["Secure Connection", "Port Forwarding"]
     }
   ];
 
