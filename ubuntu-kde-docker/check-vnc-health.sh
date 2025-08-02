@@ -3,38 +3,58 @@ set -e
 
 echo "🔧 Checking VNC server health..."
 
-# Check if VNC server process is running
-VNC_PID=$(pgrep -f "kasmvncserver\|vncserver\|tigervncserver" || echo "")
+# Detect running VNC server process
+VNC_SERVERS=("kasmvncserver" "vncserver" "tigervncserver")
+VNC_PID=""
+for server in "${VNC_SERVERS[@]}"; do
+    VNC_PID=$(pgrep -f "$server" || true)
+    if [ -n "$VNC_PID" ]; then
+        echo "✅ VNC server process ($server) running with PID: $VNC_PID"
+        break
+    fi
+done
 
-if [ -n "$VNC_PID" ]; then
-    echo "✅ VNC server process running with PID: $VNC_PID"
-else
+if [ -z "$VNC_PID" ]; then
     echo "❌ VNC server process not running"
     exit 1
 fi
 
-# Check if VNC display is available
-if [ -S "/tmp/.X11-unix/X1" ]; then
-    echo "✅ VNC display :1 socket exists"
+# Determine display socket
+VNC_DISPLAY="${DISPLAY:-:1}"
+DISPLAY_NUM="${VNC_DISPLAY#:}"
+DISPLAY_SOCKET="/tmp/.X11-unix/X${DISPLAY_NUM}"
+
+if [ -S "$DISPLAY_SOCKET" ]; then
+    echo "✅ VNC display ${VNC_DISPLAY} socket exists"
 else
-    echo "⚠️  VNC display :1 socket not found"
+    echo "⚠️  VNC display ${VNC_DISPLAY} socket not found"
 fi
 
-# Check if VNC ports are listening
+# Helper to check if a port is listening using ss or netstat
+check_port() {
+    local port="$1"
+    if command -v ss >/dev/null 2>&1; then
+        ss -ln 2>/dev/null | grep -q ":$port"
+    elif command -v netstat >/dev/null 2>&1; then
+        netstat -ln 2>/dev/null | grep -q ":$port"
+    else
+        return 1
+    fi
+}
+
 VNC_HTTP_PORT="${KASMVNC_PORT:-80}"
 VNC_VNC_PORT="${KASMVNC_VNC_PORT:-5901}"
 
-if netstat -ln | grep -q ":${VNC_HTTP_PORT}"; then
-    echo "✅ VNC HTTP port $VNC_HTTP_PORT is listening"
-else
-    echo "⚠️  VNC HTTP port $VNC_HTTP_PORT not listening"
-fi
-
-if netstat -ln | grep -q ":${VNC_VNC_PORT}"; then
-    echo "✅ VNC port $VNC_VNC_PORT is listening"
-else
-    echo "⚠️  VNC port $VNC_VNC_PORT not listening"
-fi
+for port_info in "$VNC_HTTP_PORT:HTTP" "$VNC_VNC_PORT:VNC"; do
+    port="${port_info%%:*}"
+    name="${port_info##*:}"
+    if check_port "$port"; then
+        echo "✅ VNC ${name} port $port is listening"
+    else
+        echo "⚠️  VNC ${name} port $port not listening"
+    fi
+done
 
 echo "✅ VNC health check completed"
 exit 0
+
