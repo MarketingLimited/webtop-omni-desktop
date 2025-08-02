@@ -3,8 +3,11 @@ set -euo pipefail
 
 DEV_USERNAME="${DEV_USERNAME:-devuser}"
 DEV_HOME="/home/${DEV_USERNAME}"
+APPLICATIONS_DIR="${DEV_HOME}/.local/share/applications"
+DESKTOP_DIR="${DEV_HOME}/Desktop"
+VIDEO_DIR="${DEV_HOME}/Videos"
 
-# Logging function
+# Logging functions
 log_info() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') [VIDEO] $*"
 }
@@ -16,35 +19,40 @@ log_error() {
 log_info "Setting up professional video editing environment..."
 
 # Check if video editing tools are available
-missing_tools=""
+missing_tools=()
 for tool in kdenlive obs; do
     if ! command -v "$tool" >/dev/null 2>&1; then
-        missing_tools="$missing_tools $tool"
+        missing_tools+=("$tool")
     fi
 done
 
-if [ -n "$missing_tools" ]; then
-    log_error "Missing video editing tools:$missing_tools"
+if [ ${#missing_tools[@]} -ne 0 ]; then
+    log_error "Missing video editing tools: ${missing_tools[*]}"
     log_info "Creating placeholder shortcuts anyway"
 fi
 
-# Create video project directories
-mkdir -p \
-    "${DEV_HOME}/Videos/Projects" \
-    "${DEV_HOME}/Videos/Assets" \
-    "${DEV_HOME}/Videos/Templates" \
-    "${DEV_HOME}/Videos/Exports" \
-    "${DEV_HOME}/Videos/Projects/Marketing-Videos" \
-    "${DEV_HOME}/Videos/Projects/Social-Media" \
-    "${DEV_HOME}/Videos/Projects/Product-Demos" \
-    "${DEV_HOME}/Videos/Projects/Tutorials"
+# Create directories
+mkdir -p "$APPLICATIONS_DIR" "$DESKTOP_DIR"
+project_dirs=(
+    "$VIDEO_DIR/Projects"
+    "$VIDEO_DIR/Assets"
+    "$VIDEO_DIR/Templates"
+    "$VIDEO_DIR/Exports"
+    "$VIDEO_DIR/Projects/Marketing-Videos"
+    "$VIDEO_DIR/Projects/Social-Media"
+    "$VIDEO_DIR/Projects/Product-Demos"
+    "$VIDEO_DIR/Projects/Tutorials"
+)
+for dir in "${project_dirs[@]}"; do
+    mkdir -p "$dir"
+done
 
 # Kdenlive configuration
-echo "⚙️ Configuring Kdenlive..."
+log_info "Configuring Kdenlive..."
 mkdir -p "${DEV_HOME}/.config"
-cat > "${DEV_HOME}/.config/kdenliverc" << 'EOF'
+cat > "${DEV_HOME}/.config/kdenliverc" << EOF
 [unmanaged]
-defaultprojectfolder=/home/devuser/Videos/Projects
+defaultprojectfolder=${VIDEO_DIR}/Projects
 
 [timeline]
 trackheight=50
@@ -57,9 +65,7 @@ profile_fps_filter=30
 EOF
 
 # Create desktop shortcuts
-mkdir -p "${DEV_HOME}/.local/share/applications"
-
-cat > "${DEV_HOME}/.local/share/applications/kdenlive.desktop" << 'EOF'
+cat > "$APPLICATIONS_DIR/kdenlive.desktop" << 'EOF'
 [Desktop Entry]
 Name=Kdenlive
 Comment=Professional video editor
@@ -70,7 +76,7 @@ Type=Application
 Categories=AudioVideo;AudioVideoEditing;
 EOF
 
-cat > "${DEV_HOME}/.local/share/applications/obs-studio.desktop" << 'EOF'
+cat > "$APPLICATIONS_DIR/obs-studio.desktop" << 'EOF'
 [Desktop Entry]
 Name=OBS Studio
 Comment=Video recording and streaming
@@ -82,11 +88,12 @@ Categories=AudioVideo;Recorder;
 EOF
 
 # Copy shortcuts to desktop
-cp "${DEV_HOME}/.local/share/applications/kdenlive.desktop" "${DEV_HOME}/Desktop/"
-cp "${DEV_HOME}/.local/share/applications/obs-studio.desktop" "${DEV_HOME}/Desktop/"
-chmod +x "${DEV_HOME}/Desktop/"*.desktop
+cp "$APPLICATIONS_DIR/kdenlive.desktop" "$DESKTOP_DIR/"
+cp "$APPLICATIONS_DIR/obs-studio.desktop" "$DESKTOP_DIR/"
+chmod +x "$DESKTOP_DIR/"*.desktop
 
 # Set ownership
-chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "${DEV_HOME}"
+chown -R "${DEV_USERNAME}:${DEV_USERNAME}" \
+    "$VIDEO_DIR" "$DESKTOP_DIR" "$APPLICATIONS_DIR" "${DEV_HOME}/.config/kdenliverc"
 
-echo "✅ Video editing environment setup complete"
+log_info "Video editing environment setup complete"
