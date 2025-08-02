@@ -15,6 +15,11 @@ echo "🚀 Starting Ubuntu KDE Marketing Agency WebTop..."
 : "${TTYD_PASSWORD:=TerminalPassw0rd!}"
 : "${ENABLE_GOOGLE_ADS_EDITOR:=false}"
 
+# Export variables so they are available to child processes like supervisord
+export DEV_USERNAME DEV_PASSWORD DEV_UID DEV_GID \
+       ADMIN_USERNAME ADMIN_PASSWORD ROOT_PASSWORD \
+       TTYD_USER TTYD_PASSWORD ENABLE_GOOGLE_ADS_EDITOR
+
 # Logging function
 log_info() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') [INFO] $*"
@@ -219,3 +224,6 @@ TCPKeepAlive yes
 UsePrivilegeSeparation sandbox
 PidFile /run/sshd.pid
 EOF
+
+# Launch the main process (e.g., supervisord) passed as arguments
+exec "$@"

@@ -139,6 +139,9 @@ ENV LANGUAGE=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
 ENV TTYD_USER=terminal
 ENV TTYD_PASSWORD=terminal
+ENV DEV_USERNAME=devuser
+ENV DEV_UID=1000
+ENV DEV_GID=1000
 # Create directories and VNC setup for KasmVNC
 RUN mkdir -p /var/run/sshd /root/.vnc /tmp/.X11-unix && \
     chmod 1777 /tmp/.X11-unix
