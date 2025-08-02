@@ -239,14 +239,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends accountsservice
 # Copy PolicyKit configurations to address Ubuntu 24.04 issues
 COPY polkit-localauthority.conf /etc/polkit-1/localauthority.conf.d/50-localauthority.conf
 COPY 50-localauthority.conf /etc/polkit-1/localauthority.conf.d/51-localauthority.conf  
-COPY polkit-dbus.conf /usr/share/dbus-1/system-services/org.freedesktop.PolicyKit1.conf
+COPY polkit-dbus.conf /etc/dbus-1/system.d/org.freedesktop.PolicyKit1.conf
 COPY org.freedesktop.PolicyKit1.service /usr/share/dbus-1/system-services/org.freedesktop.PolicyKit1.service
 COPY devuser-all.rules /etc/polkit-1/rules.d/49-nopasswd_global.rules
 COPY 10-vendor.d-admin.rules /etc/polkit-1/rules.d/10-vendor.d-admin.rules
 
 # Create missing system directories and disable PolicyKit for container environment
 RUN mkdir -p /etc/polkit-1/localauthority.conf.d /etc/polkit-1/rules.d /var/lib/polkit-1 \
-    /var/log/supervisor /run/user/1000 && \
+    /etc/dbus-1/system.d /var/log/supervisor /run/user/1000 && \
     chown -R polkitd:polkitd /var/lib/polkit-1 && \
     chown 1000:1000 /run/user/1000 && \
     chmod 700 /run/user/1000 && \
