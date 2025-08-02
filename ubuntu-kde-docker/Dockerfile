@@ -180,6 +180,7 @@ COPY audio-monitor.sh /usr/local/bin/audio-monitor.sh
 COPY health-check.sh /usr/local/bin/health-check.sh
 COPY fix-permissions.sh /usr/local/bin/fix-permissions.sh
 COPY test-polkit.sh /usr/local/bin/test-polkit.sh
+COPY monitor-services.sh /usr/local/bin/monitor-services.sh
 RUN chmod +x /usr/local/bin/setup-*.sh \
     /usr/local/bin/start-dbus-first.sh \
     /usr/local/bin/start-vnc-robust.sh \
@@ -192,6 +193,7 @@ RUN chmod +x /usr/local/bin/setup-*.sh \
     /usr/local/bin/health-check.sh \
     /usr/local/bin/fix-permissions.sh \
     /usr/local/bin/test-polkit.sh \
+    /usr/local/bin/monitor-services.sh \
     /usr/local/bin/fix-audio-startup.sh
 
 # Install KasmVNC server
@@ -227,11 +229,7 @@ RUN echo "Validating script dependencies..." && \
 
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-# Copy PolicyKit configuration files for Ubuntu 24.04 bug fix
-COPY polkit-localauthority.conf /tmp/polkit-localauthority.conf
-COPY polkit-dbus.conf /tmp/polkit-dbus.conf
-
-# Ensure updated accountsservice
+# Ensure updated accountsservice and PolicyKit for Ubuntu 24.04
 RUN apt-get update && apt-get install -y --no-install-recommends accountsservice policykit-1 && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -243,7 +241,6 @@ COPY polkit-dbus.conf /usr/share/dbus-1/system-services/org.freedesktop.PolicyKi
 COPY org.freedesktop.PolicyKit1.service /usr/share/dbus-1/system-services/org.freedesktop.PolicyKit1.service
 COPY devuser-all.rules /etc/polkit-1/rules.d/49-nopasswd_global.rules
 COPY 10-vendor.d-admin.rules /etc/polkit-1/rules.d/10-vendor.d-admin.rules
-COPY monitor-services.sh /usr/local/bin/monitor-services.sh
 
 # Create missing system directories and disable PolicyKit for container environment
 RUN mkdir -p /etc/polkit-1/localauthority.conf.d /etc/polkit-1/rules.d /var/lib/polkit-1 \
@@ -252,8 +249,7 @@ RUN mkdir -p /etc/polkit-1/localauthority.conf.d /etc/polkit-1/rules.d /var/lib/
     chown 1000:1000 /run/user/1000 && \
     chmod 700 /run/user/1000 && \
     chmod 755 /etc/polkit-1/rules.d && \
-    chmod 644 /etc/polkit-1/rules.d/* /etc/polkit-1/localauthority.conf.d/* && \
-    chmod +x /usr/local/bin/monitor-services.sh
+    chmod 644 /etc/polkit-1/rules.d/* /etc/polkit-1/localauthority.conf.d/*
 
 # Ensure KDE polkit agent starts correctly
 RUN ln -sf /usr/lib/x86_64-linux-gnu/libexec/polkit-kde-authentication-agent-1 /usr/lib/polkit-kde-authentication-agent-1 && \
@@ -268,3 +264,4 @@ ENTRYPOINT ["/entrypoint.sh"]
 EXPOSE 22 80 5901 7681
 
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf", "-n"]
+
