@@ -37,6 +37,11 @@ cat > "/opt/marketing-optimization/performance/graphics-optimization.sh" << 'EOF
 #!/bin/bash
 set -euo pipefail
 
+# Ensure development user context is available when executed independently
+DEV_USERNAME="${DEV_USERNAME:-devuser}"
+DEV_HOME="/home/${DEV_USERNAME}"
+export DEV_USERNAME DEV_HOME
+
 log_info() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') [MARKETING-OPT] $*"
 }
