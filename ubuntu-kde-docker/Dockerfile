@@ -187,6 +187,9 @@ RUN chmod +x /usr/local/bin/setup-*.sh \
     /usr/local/bin/test-polkit.sh \
     /usr/local/bin/fix-audio-startup.sh
 
+# Install KasmVNC server
+RUN /usr/local/bin/setup-kasmvnc.sh
+
 # Initialize audio system during build
 RUN /usr/local/bin/setup-audio.sh && \
     /usr/local/bin/fix-audio-startup.sh

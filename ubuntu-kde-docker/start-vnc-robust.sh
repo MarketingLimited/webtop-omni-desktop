@@ -27,7 +27,6 @@ if [ ! -f /root/.Xauthority ]; then
 fi
 
 echo "INFO: Starting KasmVNC server."
-# 3. Start the VNC server.
-# The original command was `vncserver :1`. We will execute that here.
-# We use exec to replace the shell process with the vncserver process.
-exec /usr/bin/vncserver :1
+# 3. Start the VNC server using the KasmVNC binary.
+# We use exec to replace the shell process with the kasmvncserver process.
+exec /usr/bin/kasmvncserver :1
