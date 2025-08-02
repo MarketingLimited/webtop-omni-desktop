@@ -50,7 +50,7 @@ else
   /usr/bin/dbus-daemon --system --nofork --nosyslog --print-pid=/run/dbus/pid &
   DBUS_PID=$!
 
-  # 4. Wait for the D-Bus socket to be created
+  # 4. Wait for the D-Bus socket to be created and responsive
   echo "INFO: Waiting for D-Bus socket to be created..."
   counter=0
   while [ ! -S /run/dbus/system_bus_socket ] && [ $counter -lt 20 ]; do
@@ -63,7 +63,21 @@ else
     kill "$DBUS_PID"
     exit 1
   fi
-  echo "INFO: D-Bus socket is up."
+  echo "INFO: D-Bus socket is up. Verifying service is responsive..."
+
+  # New: Wait for the D-Bus service to be fully responsive
+  counter=0
+  while ! dbus-send --system --print-reply --dest=org.freedesktop.DBus / org.freedesktop.DBus.GetId > /dev/null 2>&1 && [ $counter -lt 20 ]; do
+      sleep 0.5
+      counter=$((counter+1))
+  done
+
+  if ! dbus-send --system --print-reply --dest=org.freedesktop.DBus / org.freedesktop.DBus.GetId > /dev/null 2>&1; then
+      echo "ERROR: D-Bus service did not become responsive in time. Exiting."
+      kill "$DBUS_PID"
+      exit 1
+  fi
+  echo "INFO: D-Bus service is responsive."
 fi
 
 trap 'kill "$DBUS_PID" 2>/dev/null' EXIT
@@ -81,6 +95,9 @@ if ! pgrep -x accounts-daemon >/dev/null; then
 else
   echo "INFO: accounts-daemon already running."
 fi
+
+# Give accounts-daemon a moment to register with D-Bus
+sleep 1
 
 # 6. Start polkitd if available and not running
 echo "INFO: Starting polkitd."

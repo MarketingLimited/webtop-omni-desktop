@@ -18,8 +18,17 @@ DEV_USERNAME="${DEV_USERNAME:-devuser}"
 DEV_UID="${DEV_UID:-1000}"
 export XDG_RUNTIME_DIR="/run/user/${DEV_UID}"
 
+echo "INFO: xstartup script started for user: $(id -un)"
+echo "INFO: Attempting to launch KDE Plasma session..."
+
 if [ "$(id -un)" = "$DEV_USERNAME" ]; then
-  exec dbus-launch --exit-with-session /usr/bin/startplasma-x11
+  # Redirect stderr to stdout to ensure all errors are logged
+  exec dbus-launch --exit-with-session /usr/bin/startplasma-x11 2>&1
 else
-  exec su - "$DEV_USERNAME" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; dbus-launch --exit-with-session /usr/bin/startplasma-x11"
+  # Also redirect for the su case
+  exec su - "$DEV_USERNAME" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; echo 'INFO: Starting KDE Plasma as user ${DEV_USERNAME}'; dbus-launch --exit-with-session /usr/bin/startplasma-x11 2>&1"
 fi
+
+# This line will only be reached if the exec command fails
+echo "ERROR: The exec command to start the plasma session failed." >&2
+exit 1
