@@ -42,9 +42,20 @@ fi
 echo "✅ D-Bus is ready."
 
 # 2. Find VNC binary
-VNC_BINARY=$(find_vnc_binary)
+VNC_BINARY=$(find_vnc_binary || true)
+
+# If no binary found, try to install KasmVNC on the fly
 if [ -z "$VNC_BINARY" ]; then
-    echo "❌ No VNC server binary found. Installation may have failed."
+    echo "⚠️  No VNC server binary found. Attempting installation..."
+    if /usr/local/bin/setup-kasmvnc.sh >/var/log/kasmvnc-install.log 2>&1; then
+        VNC_BINARY=$(find_vnc_binary || true)
+    else
+        echo "❌ KasmVNC installation failed. Check /var/log/kasmvnc-install.log for details."
+    fi
+fi
+
+if [ -z "$VNC_BINARY" ]; then
+    echo "❌ No VNC server binary found after installation attempt."
     exit 127
 fi
 
