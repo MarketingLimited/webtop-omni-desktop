@@ -3,6 +3,7 @@ set -euo pipefail
 
 DEV_USERNAME="${DEV_USERNAME:-devuser}"
 DEV_HOME="/home/${DEV_USERNAME}"
+export DEV_USERNAME DEV_HOME
 
 # Logging function
 log_info() {
@@ -34,13 +35,18 @@ mkdir -p \
 # Graphics and Design Performance Optimization
 cat > "/opt/marketing-optimization/performance/graphics-optimization.sh" << 'EOF'
 #!/bin/bash
+set -euo pipefail
+
+log_info() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') [MARKETING-OPT] $*"
+}
 
 # GIMP Performance Optimization
 optimize_gimp() {
     log_info "Optimizing GIMP for marketing workflows..."
-    
-    mkdir -p "${DEV_HOME}/.config/GIMP/2.10"
-    
+
+    mkdir -p "${DEV_HOME}/.config/GIMP/2.10" "${DEV_HOME}/.config/GIMP/2.10/templates"
+
     cat > "${DEV_HOME}/.config/GIMP/2.10/gimprc" << 'GIMPEOF'
 # Marketing-optimized GIMP configuration
 (tile-cache-size 2048M)
