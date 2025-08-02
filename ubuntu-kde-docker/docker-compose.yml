@@ -1,4 +1,5 @@
 # Enhanced Docker Compose Configuration for Container Fixes
+version: "3.8"
 
 services:
   webtop:
@@ -29,7 +30,7 @@ services:
     volumes:
       - ${DATA_ROOT}/default/config:/config
       - ${DATA_ROOT}/default/logs:/var/log/supervisor
-      - /tmp/.X11-unix:/tmp/.X11-unix:rw  # Read-write for X11
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro  # Read-only for X11 socket
       - /lib/modules:/lib/modules:ro      # Kernel modules access
       - /dev:/dev:rw                      # Device access for Android
       - ${DATA_ROOT}/default/dbus_session:/run/user/1000
@@ -43,13 +44,8 @@ services:
       - /tmp:exec,size=2g
       - /run:exec,size=1g
       - /run/lock:size=100m
-    cap_add:
-      - SYS_ADMIN
-      - NET_ADMIN
-      - SYS_MODULE        # Kernel module loading
-      - SYS_PTRACE        # Process tracing for debugging
-      - MKNOD            # Device node creation
-      - DAC_OVERRIDE     # File permission override
+    networks:
+      - marketing-net
     security_opt:
       - seccomp:unconfined
       - apparmor:unconfined
@@ -59,3 +55,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+
+networks:
+  marketing-net:
+    driver: bridge
