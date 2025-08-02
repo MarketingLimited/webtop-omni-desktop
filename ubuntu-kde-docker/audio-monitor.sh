@@ -8,6 +8,12 @@ DEV_USERNAME="${DEV_USERNAME:-devuser}"
 DEV_UID="${DEV_UID:-1000}"
 LOG_FILE="/var/log/supervisor/audio-monitor.log"
 
+# Skip monitoring entirely if running in headless mode
+if [ "${HEADLESS_MODE:-false}" = "true" ]; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') [AUDIO] Headless mode - skipping audio monitor" | tee -a "$LOG_FILE"
+    exit 0
+fi
+
 get_dev_uid() {
     id -u "$DEV_USERNAME" 2>/dev/null || echo "$DEV_UID"
 }

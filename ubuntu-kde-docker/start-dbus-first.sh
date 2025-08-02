@@ -4,7 +4,13 @@ set -euo pipefail
 echo "INFO: Robust D-Bus starter script initiated."
 
 # 1. Ensure directory exists with correct permissions
-install -o messagebus -g messagebus -m 755 -d /run/dbus
+# The messagebus user may not exist yet in some minimal images. Create the
+# directory as root first, then adjust ownership if possible to avoid crashes.
+if ! install -o messagebus -g messagebus -m 755 -d /run/dbus 2>/dev/null; then
+  mkdir -p /run/dbus
+  chown messagebus:messagebus /run/dbus 2>/dev/null || true
+  chmod 755 /run/dbus
+fi
 
 # Some base images ship without a machine-id which causes
 # dbus-daemon to exit immediately.  Ensure one exists before

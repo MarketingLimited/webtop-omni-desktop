@@ -24,12 +24,13 @@ log_info "🚀 Starting Ubuntu KDE Marketing Agency WebTop..."
 : "${TTYD_PASSWORD:=TerminalPassw0rd!}"
 : "${ENABLE_GOOGLE_ADS_EDITOR:=false}"
 : "${XSTARTUP_SRC:=/usr/local/share/xstartup}"
+: "${HEADLESS_MODE:=false}"
 
 # Export variables so they are available to child processes like supervisord
 export DEV_USERNAME DEV_PASSWORD DEV_UID DEV_GID \
        ADMIN_USERNAME ADMIN_PASSWORD ROOT_PASSWORD \
        TTYD_USER TTYD_PASSWORD ENABLE_GOOGLE_ADS_EDITOR \
-       XSTARTUP_SRC
+       XSTARTUP_SRC HEADLESS_MODE
 
 # Initialize system directories
 mkdir -p /var/run/dbus /tmp/.ICE-unix /tmp/.X11-unix

@@ -5,6 +5,11 @@ set -e
 
 echo "🚀 Starting robust VNC server..."
 
+# Ensure X11 socket directory exists and is writable
+if ! install -m 1777 -d /tmp/.X11-unix 2>/dev/null; then
+    echo "⚠️  Unable to prepare /tmp/.X11-unix; X11 applications may fail" >&2
+fi
+
 # Define possible VNC binary locations
 VNC_BINARIES=(
     "/usr/bin/kasmvncserver"
@@ -86,7 +91,13 @@ export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export DISPLAY=${DISPLAY:-:1}
 unset SESSION_MANAGER
 unset DBUS_SESSION_BUS_ADDRESS
-exec dbus-launch --exit-with-session /usr/bin/startplasma-x11
+
+if command -v startplasma-x11 >/dev/null 2>&1; then
+  dbus-launch --exit-with-session startplasma-x11 || xterm
+else
+  echo "startplasma-x11 not found, launching xterm" >&2
+  xterm
+fi
 EOF
         chmod 755 /root/.vnc/xstartup
     fi

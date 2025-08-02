@@ -27,6 +27,11 @@ log_validation() {
     fi
 }
 
+if [ "${HEADLESS_MODE:-false}" = "true" ]; then
+    log_validation "Headless mode detected, skipping system validation" "INFO"
+    exit 0
+fi
+
 # Ensure required utilities exist; if they're missing we log the issue and
 # exit successfully. Missing tools shouldn't cause the container to thrash.
 REQUIRED_CMDS=(pgrep supervisorctl curl)
