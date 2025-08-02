@@ -6,8 +6,8 @@ services:
     privileged: true
     shm_size: "8gb"
     ports:
-      - "80:80"       # KasmVNC (behind reverse proxy)
-      - "443:443"     # HTTPS (behind reverse proxy)
+      - "32768:80"    # KasmVNC
+      - "5901:5901"   # VNC
       - "2222:22"     # SSH
       - "7681:7681"   # ttyd terminal
       - "8080:8080"   # Audio Bridge
@@ -16,7 +16,7 @@ services:
     env_file:
       - .env.production
     environment:
-      - ENV_KASMVNC_PORT=6901
+      - ENV_KASMVNC_PORT=80
       - ENV_KASMVNC_VNC_PORT=5901
     volumes:
       - production_config:/config
