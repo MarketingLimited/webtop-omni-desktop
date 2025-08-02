@@ -65,7 +65,7 @@ check_system() {
 check_services() {
     log_status "Checking services..."
     
-    services=("dbus" "kasmvncserver" "Xvfb" "plasma")
+    services=("dbus" "kasmvncserver" "plasma")
     failed_services=()
     
     for service in "${services[@]}"; do
@@ -154,7 +154,7 @@ collect_metrics() {
     echo "$TIMESTAMP,load,$LOAD" >> /var/log/container-monitoring/metrics.csv
     
     # Service metrics
-    for service in dbus kasmvncserver Xvfb plasma; do
+    for service in dbus kasmvncserver plasma; do
         if pgrep -f "$service" >/dev/null; then
             PID=$(pgrep -f "$service" | head -1)
             CPU=$(ps -p $PID -o %cpu= | xargs)
@@ -243,7 +243,7 @@ echo ""
 
 # Services status
 echo "🔧 SERVICES STATUS"
-services=("dbus:D-Bus" "kasmvncserver:VNC Server" "Xvfb:X Server" "plasma:KDE Plasma")
+services=("dbus:D-Bus" "kasmvncserver:VNC Server" "plasma:KDE Plasma")
 for service_info in "${services[@]}"; do
     service=${service_info%%:*}
     name=${service_info##*:}
@@ -319,7 +319,7 @@ if ! /usr/local/bin/check-dbus >/dev/null 2>&1; then
 fi
 
 # Restart core services
-restart_service "Xvfb" "Xvfb :1 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset"
+restart_service ":1 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset"
 restart_service "kasmvncserver" "kasmvncserver :1"
 
 # Clean temporary files if disk usage is high

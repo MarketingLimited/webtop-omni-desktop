@@ -60,9 +60,6 @@ wait_for_service() {
 }
 
 # Service check functions
-check_xvfb() {
-    pgrep -f "Xvfb.*:1" > /dev/null
-}
 
 check_dbus() {
     pgrep -f "dbus.*system" > /dev/null && [ -S /var/run/dbus/system_bus_socket ]
@@ -94,7 +91,6 @@ check_service_dependencies() {
     health_log "🔍 Starting service dependency check..."
     
     # Stage 1: Core services
-    wait_for_service "Xvfb" "check_xvfb" 30
     wait_for_service "D-Bus" "check_dbus" 30
     
     # Stage 2: Desktop environment
@@ -125,7 +121,6 @@ generate_status_report() {
     
     local services=(
         "supervisord:pgrep -f supervisord"
-        "Xvfb:check_xvfb"
         "D-Bus:check_dbus"
         "KDE:check_kde"
         "PulseAudio:check_pulseaudio"
@@ -207,7 +202,6 @@ smart_monitor() {
 generate_service_state_hash() {
     local services=(
         "supervisord:pgrep -f supervisord"
-        "Xvfb:check_xvfb"
         "D-Bus:check_dbus"
         "KDE:check_kde"
         "PulseAudio:check_pulseaudio"

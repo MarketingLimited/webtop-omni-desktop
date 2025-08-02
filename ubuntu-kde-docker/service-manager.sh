@@ -10,9 +10,8 @@ RECOVERY_STATE_FILE="/tmp/service-recovery-state.txt"
 
 # Service groups configuration
 declare -A SERVICE_GROUPS=(
-    [core]="Xvfb dbus"
+    [core]="dbus"
     [audio]="pulseaudio AudioValidation CreateVirtualAudioDevices AudioMonitor AudioBridge"
-    [desktop]="KDE"
     [remote]="KasmVNC sshd ttyd"
     [monitoring]="ServiceHealth SystemValidation"
     [setup]="SetupDesktop"
@@ -21,7 +20,6 @@ declare -A SERVICE_GROUPS=(
 declare -A SERVICE_PRIORITIES=(
     [core]=10
     [audio]=25
-    [desktop]=30
     [remote]=40
     [setup]=50
     [monitoring]=55

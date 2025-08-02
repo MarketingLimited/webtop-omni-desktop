@@ -199,7 +199,7 @@ docker exec webtop-kde curl -s http://localhost:7681
 ## Validation Workflow
 
 ### Container Startup Sequence
-1. **Core Services** → Xvfb, D-Bus (Priority 10-20)
+1. **Core Services** → D-Bus (Priority 10-20)
 2. **Audio Setup** → PulseAudio, Virtual devices (Priority 25-30)  
 3. **Desktop Environment** → KDE Plasma (Priority 35)
 4. **Remote Access** → VNC, KasmVNC, SSH, TTYD (Priority 40-50)

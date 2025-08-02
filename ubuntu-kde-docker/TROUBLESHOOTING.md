@@ -282,7 +282,6 @@ docker exec webtop-kde supervisorctl stop all
 docker exec webtop-kde supervisorctl clear all
 
 # Start services in order
-docker exec webtop-kde supervisorctl start Xvfb dbus
 sleep 5
 docker exec webtop-kde supervisorctl start pulseaudio
 sleep 5
