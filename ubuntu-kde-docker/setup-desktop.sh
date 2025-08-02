@@ -5,6 +5,11 @@ set -euo pipefail
 
 # Icons: 🖥️ 🎨 📁 ✅ ⚠️
 
+if [ "${HEADLESS_MODE:-false}" = "true" ]; then
+    echo "⚠️  Headless mode detected, skipping desktop setup"
+    exit 0
+fi
+
 echo "🖥️  Setting up desktop environment..."
 
 readonly DEV_USERNAME=${DEV_USERNAME:-devuser}
