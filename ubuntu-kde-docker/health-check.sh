@@ -37,7 +37,6 @@ echo ""
 echo "📊 Checking Core Services..."
 ESSENTIAL_SERVICES=(
     "supervisord"
-    "Xvfb"
     "kasmvncserver"
 )
 

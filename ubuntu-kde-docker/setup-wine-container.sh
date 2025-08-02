@@ -68,12 +68,6 @@ export WINEDLLOVERRIDES="mscoree,mshtml=;winemenubuilder.exe=d"
 export DISPLAY=:1
 export WINE_NO_SANDBOX=1
 
-# Start Xvfb if not running
-if ! pgrep -f "Xvfb :1" >/dev/null; then
-    Xvfb :1 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset &
-    sleep 2
-fi
-
 # Launch Wine application
 WINEDEBUG=-all wine "$@"
 EOF

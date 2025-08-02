@@ -412,14 +412,6 @@ else
     log_warn "⚠️  Service health monitoring script not found"
 fi
 
-# Setup Xvfb optimization
-log_info "Setting up Xvfb display server optimization..."
-if [ -f "/usr/local/bin/setup-xvfb-optimization.sh" ]; then
-    chmod +x /usr/local/bin/setup-xvfb-optimization.sh
-    /usr/local/bin/setup-xvfb-optimization.sh
-    log_info "✅ Xvfb optimization setup completed"
-else
-    log_warn "⚠️  Xvfb optimization script not found"
 fi
 
 # Setup KasmVNC
@@ -496,17 +488,11 @@ fi
 log_info "Starting supervisor daemon..."
 
 # Default performance and service configuration
-: "${XVFB_PERFORMANCE_PROFILE:=balanced}"
-: "${XVFB_RESOLUTION:=1920x1080x24}"
-: "${XVFB_DPI:=96}"
 : "${KDE_PERFORMANCE_PROFILE:=performance}"
 : "${KDE_EFFECTS_DISABLED:=true}"
 : "${KASMVNC_PORT:=80}"
 : "${KASMVNC_VNC_PORT:=5901}"
 : "${WEBRTC_PORT:=8443}"
-
-# Log selected profiles for troubleshooting
-log_info "Xvfb profile: ${XVFB_PERFORMANCE_PROFILE}, resolution: ${XVFB_RESOLUTION}, dpi: ${XVFB_DPI}"
 log_info "KDE profile: ${KDE_PERFORMANCE_PROFILE}, effects disabled: ${KDE_EFFECTS_DISABLED}"
 log_info "KasmVNC port: ${KASMVNC_PORT}, VNC port: ${KASMVNC_VNC_PORT}"
 log_info "WebRTC signaling port: ${WEBRTC_PORT}"
@@ -517,17 +503,11 @@ exec env \
     ENV_DEV_GID="${DEV_GID}" \
     ENV_TTYD_USER="${TTYD_USER}" \
     ENV_TTYD_PASSWORD="${TTYD_PASSWORD}" \
-    XVFB_PERFORMANCE_PROFILE="${XVFB_PERFORMANCE_PROFILE}" \
-    XVFB_RESOLUTION="${XVFB_RESOLUTION}" \
-    XVFB_DPI="${XVFB_DPI}" \
     KDE_PERFORMANCE_PROFILE="${KDE_PERFORMANCE_PROFILE}" \
     KDE_EFFECTS_DISABLED="${KDE_EFFECTS_DISABLED}" \
     KASMVNC_PORT="${KASMVNC_PORT}" \
     KASMVNC_VNC_PORT="${KASMVNC_VNC_PORT}" \
     WEBRTC_PORT="${WEBRTC_PORT}" \
-    ENV_XVFB_PERFORMANCE_PROFILE="${XVFB_PERFORMANCE_PROFILE}" \
-    ENV_XVFB_RESOLUTION="${XVFB_RESOLUTION}" \
-    ENV_XVFB_DPI="${XVFB_DPI}" \
     ENV_KDE_PERFORMANCE_PROFILE="${KDE_PERFORMANCE_PROFILE}" \
     ENV_KDE_EFFECTS_DISABLED="${KDE_EFFECTS_DISABLED}" \
     ENV_KASMVNC_PORT="${KASMVNC_PORT}" \

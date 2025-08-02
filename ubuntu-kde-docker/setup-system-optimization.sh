@@ -66,12 +66,10 @@ set_cpu_affinity() {
     # Define CPU affinity based on available cores
     if [ "$CPU_CORES" -ge 4 ]; then
         # Multi-core system optimization
-        XVFB_AFFINITY="0,1"
         KASMVNC_AFFINITY="2,3"
         KDE_AFFINITY="0,1,2"
     elif [ "$CPU_CORES" -ge 2 ]; then
         # Dual-core system optimization
-        XVFB_AFFINITY="0"
         KASMVNC_AFFINITY="1"
         KDE_AFFINITY="0,1"
     else
@@ -81,7 +79,6 @@ set_cpu_affinity() {
     fi
     
     # Set affinity for critical processes (will be applied when processes start)
-    export XVFB_CPU_AFFINITY="$XVFB_AFFINITY"
     export KASMVNC_CPU_AFFINITY="$KASMVNC_AFFINITY"
     export KDE_CPU_AFFINITY="$KDE_AFFINITY"
     
@@ -229,7 +226,6 @@ adjust_process_priorities() {
         echo "⚠️  High system load detected, adjusting priorities..."
         
         # Boost X server and VNC priorities
-        pgrep Xvfb | xargs -r renice -10 2>/dev/null || true
         pgrep kasmvncserver | xargs -r renice -5 2>/dev/null || true
         
         # Lower priority for non-essential processes
@@ -241,7 +237,6 @@ adjust_process_priorities() {
         echo "✅ Normal system load, balanced priorities"
         
         # Reset to normal priorities
-        pgrep Xvfb | xargs -r renice 0 2>/dev/null || true
         pgrep kasmvncserver | xargs -r renice 0 2>/dev/null || true
         pgrep firefox | xargs -r renice 0 2>/dev/null || true
         pgrep chrome | xargs -r renice 0 2>/dev/null || true
@@ -293,7 +288,6 @@ declare -A PRIORITY_CLASSES=(
 
 # Define process classifications
 declare -A PROCESS_PRIORITIES=(
-    ["Xvfb"]="critical"
     ["kasmvncserver"]="high"
     ["websockify"]="high"
     ["startplasma-x11"]="normal"
