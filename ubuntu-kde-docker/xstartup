@@ -1,4 +1,17 @@
 #!/bin/sh
+
+# Disable xmodmap to prevent interfering with keyboard layouts
 export XKL_XMODMAP_DISABLE=1
+
+# Ensure essential binaries are in PATH
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# Default to VNC display :1 if DISPLAY is unset
+export DISPLAY=${DISPLAY:-:1}
+
+# Prevent conflicts with existing desktop sessions
+unset SESSION_MANAGER
+unset DBUS_SESSION_BUS_ADDRESS
+
+# Launch KDE Plasma within a D-Bus session
 exec dbus-launch --exit-with-session /usr/bin/startplasma-x11
