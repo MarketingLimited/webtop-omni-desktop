@@ -168,6 +168,7 @@ COPY setup-google-ads-editor.sh /usr/local/bin/setup-google-ads-editor.sh
 COPY setup-waydroid.sh /usr/local/bin/setup-waydroid.sh
 COPY setup-video-editing.sh /usr/local/bin/setup-video-editing.sh
 COPY setup-ttyd.sh /usr/local/bin/setup-ttyd.sh
+COPY ttyd-wrapper.sh /usr/local/bin/ttyd-wrapper.sh
 COPY start-dbus-first.sh /usr/local/bin/start-dbus-first.sh
 COPY start-vnc-robust.sh /usr/local/bin/start-vnc-robust.sh
 COPY check-vnc-health.sh /usr/local/bin/check-vnc-health.sh
@@ -194,7 +195,8 @@ RUN chmod +x /usr/local/bin/setup-*.sh \
     /usr/local/bin/fix-permissions.sh \
     /usr/local/bin/test-polkit.sh \
     /usr/local/bin/monitor-services.sh \
-    /usr/local/bin/fix-audio-startup.sh
+    /usr/local/bin/fix-audio-startup.sh \
+    /usr/local/bin/ttyd-wrapper.sh
 
 # Install KasmVNC server
 RUN /usr/local/bin/setup-kasmvnc.sh
