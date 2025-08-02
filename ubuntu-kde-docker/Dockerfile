@@ -240,7 +240,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends accountsservice
 COPY polkit-localauthority.conf /etc/polkit-1/localauthority.conf.d/50-localauthority.conf
 COPY polkit-dbus.conf /usr/share/dbus-1/system-services/org.freedesktop.PolicyKit1.conf
 COPY org.freedesktop.PolicyKit1.service /usr/share/dbus-1/system-services/org.freedesktop.PolicyKit1.service
-COPY devuser-all.rules /etc/polkit-1/rules.d/49-nopasswd_global.rules
+COPY 99-devuser-all.rules /etc/polkit-1/rules.d/99-devuser-all.rules
 COPY 10-vendor.d-admin.rules /etc/polkit-1/rules.d/10-vendor.d-admin.rules
 
 # Create missing system directories and disable PolicyKit for container environment
