@@ -4,6 +4,12 @@ set -e
 : "${XSTARTUP_SRC:=/usr/local/share/xstartup}"
 : "${XDG_RUNTIME_DIR:=/run/user/$(id -u)}"
 
+# Capture all output for troubleshooting while still emitting to the
+# supervisord log. This helps diagnose early startup failures.
+LOG_FILE="/var/log/kasmvnc.log"
+mkdir -p "$(dirname "$LOG_FILE")"
+exec > >(tee -a "$LOG_FILE") 2>&1
+
 echo "🚀 Starting robust VNC server..."
 
 # Ensure X11 socket directory exists and is writable

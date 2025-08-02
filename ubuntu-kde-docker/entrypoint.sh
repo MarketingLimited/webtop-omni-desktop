@@ -32,6 +32,20 @@ export DEV_USERNAME DEV_PASSWORD DEV_UID DEV_GID \
        TTYD_USER TTYD_PASSWORD ENABLE_GOOGLE_ADS_EDITOR \
        XSTARTUP_SRC HEADLESS_MODE
 
+# Determine which optional services should autostart. During headless or
+# debug runs we disable components that rely on a full desktop session to
+# avoid rapid supervisor restarts.
+if [ "$HEADLESS_MODE" = "true" ]; then
+    AUTOSTART_AUDIOMONITOR=false
+    AUTOSTART_SETUPDESKTOP=false
+    AUTOSTART_SYSTEMVALIDATION=false
+else
+    AUTOSTART_AUDIOMONITOR=true
+    AUTOSTART_SETUPDESKTOP=true
+    AUTOSTART_SYSTEMVALIDATION=true
+fi
+export AUTOSTART_AUDIOMONITOR AUTOSTART_SETUPDESKTOP AUTOSTART_SYSTEMVALIDATION
+
 # Initialize system directories
 mkdir -p /var/run/dbus /tmp/.ICE-unix /tmp/.X11-unix
 # /tmp/.X11-unix may be mounted read-only by the host. Avoid failing if chmod
@@ -79,6 +93,11 @@ mkdir -p /var/lib/polkit-1/localauthority \
 # Create messagebus user for D-Bus if it doesn't exist
 getent group messagebus >/dev/null || groupadd -r messagebus
 getent passwd messagebus >/dev/null || useradd -r -g messagebus -s /sbin/nologin messagebus
+
+# Ensure /run/dbus exists and is writable by the messagebus user. A missing or
+# root-owned directory can cause the system bus to terminate shortly after
+# startup.
+install -o messagebus -g messagebus -m 755 -d /run/dbus
 
 # Apply required capabilities and permissions for PolicyKit
 if command -v setcap >/dev/null 2>&1; then
