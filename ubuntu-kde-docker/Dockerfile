@@ -163,6 +163,8 @@ COPY setup-advanced-features.sh /usr/local/bin/setup-advanced-features.sh
 COPY setup-marketing-optimization.sh /usr/local/bin/setup-marketing-optimization.sh
 COPY setup-modern-features.sh /usr/local/bin/setup-modern-features.sh
 COPY setup-ttyd.sh /usr/local/bin/setup-ttyd.sh
+COPY start-dbus-first.sh /usr/local/bin/start-dbus-first.sh
+COPY start-vnc-robust.sh /usr/local/bin/start-vnc-robust.sh
 COPY service-health.sh /usr/local/bin/service-health.sh
 COPY test-desktop-audio.sh /usr/local/bin/test-desktop-audio.sh
 COPY audio-validation.sh /usr/local/bin/audio-validation.sh
@@ -172,6 +174,8 @@ COPY health-check.sh /usr/local/bin/health-check.sh
 COPY fix-permissions.sh /usr/local/bin/fix-permissions.sh
 COPY test-polkit.sh /usr/local/bin/test-polkit.sh
 RUN chmod +x /usr/local/bin/setup-*.sh \
+    /usr/local/bin/start-dbus-first.sh \
+    /usr/local/bin/start-vnc-robust.sh \
     /usr/local/bin/service-health.sh \
     /usr/local/bin/test-desktop-audio.sh \
     /usr/local/bin/audio-monitor.sh \
