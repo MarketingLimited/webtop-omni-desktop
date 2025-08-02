@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Multi-container specific operations
 # Part of the modular webtop.sh refactoring
@@ -7,23 +8,24 @@
 orchestrate_start() {
     local container_list="$1"
     local config="$2"
-    
+
     if [ -z "$container_list" ]; then
         print_error "Container list required"
         echo "Usage: $0 orchestrate start <container1,container2,container3> [--dev|--prod]"
         exit 1
     fi
-    
+
     print_status "Starting multiple containers in orchestration mode..."
-    IFS=',' read -ra CONTAINERS <<< "$container_list"
-    
+    local CONTAINERS=()
+    IFS=',' read -r -a CONTAINERS <<< "$container_list"
+
     for container in "${CONTAINERS[@]}"; do
-        container=$(echo "$container" | xargs)  # trim whitespace
+        container="${container//[[:space:]]/}"
         print_status "Starting container: $container"
         CONTAINER_NAME="$container" start_containers "$config"
         sleep 2  # Small delay between starts
     done
-    
+
     print_success "All containers started successfully!"
     echo
     list_containers
@@ -31,48 +33,51 @@ orchestrate_start() {
 
 orchestrate_stop() {
     local container_list="$1"
-    
+
     if [ -z "$container_list" ]; then
         print_error "Container list required"
         echo "Usage: $0 orchestrate stop <container1,container2,container3>"
         exit 1
     fi
-    
+
     print_status "Stopping multiple containers..."
-    IFS=',' read -ra CONTAINERS <<< "$container_list"
-    
+    local CONTAINERS=()
+    IFS=',' read -r -a CONTAINERS <<< "$container_list"
+
     for container in "${CONTAINERS[@]}"; do
-        container=$(echo "$container" | xargs)  # trim whitespace
+        container="${container//[[:space:]]/}"
         print_status "Stopping container: $container"
         remove_container "$container"
     done
-    
+
     print_success "All specified containers stopped!"
 }
 
 # Batch operations
 batch_backup() {
     local container_list="$1"
-    
+
     if [ -z "$container_list" ]; then
         print_error "Container list required"
         echo "Usage: $0 batch backup <container1,container2,container3>"
         exit 1
     fi
-    
+
     print_status "Starting batch backup operation..."
-    IFS=',' read -ra CONTAINERS <<< "$container_list"
-    local backup_timestamp=$(date +%Y%m%d_%H%M%S)
+    local CONTAINERS=()
+    IFS=',' read -r -a CONTAINERS <<< "$container_list"
+    local backup_timestamp
+    backup_timestamp=$(date +%Y%m%d_%H%M%S)
     local batch_backup_dir="$BACKUP_DIR/batch_$backup_timestamp"
-    
+
     mkdir -p "$batch_backup_dir"
-    
+
     for container in "${CONTAINERS[@]}"; do
-        container=$(echo "$container" | xargs)  # trim whitespace
+        container="${container//[[:space:]]/}"
         print_status "Backing up container: $container"
         backup_container "$container"
     done
-    
+
     # Create batch manifest
     cat > "$batch_backup_dir/manifest.json" << EOF
 {
@@ -81,7 +86,7 @@ batch_backup() {
     "containers": [$(printf '"%s",' "${CONTAINERS[@]}" | sed 's/,$//')]
 }
 EOF
-    
+
     print_success "Batch backup completed!"
     echo "  📁 Backup directory: $batch_backup_dir"
     echo "  📦 Containers backed up: ${#CONTAINERS[@]}"
@@ -115,7 +120,8 @@ load_balance_containers() {
     for i in $(seq 1 "$count"); do
         local container_name="${base_name}-${i}"
         if [ -f "$CONTAINER_REGISTRY" ] && jq -e ".\"$container_name\"" "$CONTAINER_REGISTRY" > /dev/null 2>&1; then
-            local http_port=$(jq -r ".\"$container_name\".ports.http" "$CONTAINER_REGISTRY")
+            local http_port
+            http_port=$(jq -r ".\"$container_name\".ports.http" "$CONTAINER_REGISTRY")
             echo "  🌐 $container_name: http://localhost:$http_port"
         fi
     done
@@ -140,22 +146,24 @@ monitor_health() {
         echo
         print_status "Health Monitor - $(date)"
         echo
-        
+
         if [ ! -f "$CONTAINER_REGISTRY" ]; then
             print_warning "No containers registered"
             sleep "$interval"
             continue
         fi
-        
-        local containers=$(jq -r 'keys[]' "$CONTAINER_REGISTRY" 2>/dev/null | grep -E "$container_pattern")
-        
+
+        local containers
+        containers=$(jq -r 'keys[]' "$CONTAINER_REGISTRY" 2>/dev/null | grep -E "$container_pattern")
+
         for container in $containers; do
             local container_id="webtop-$container"
-            local http_port=$(jq -r ".\"$container\".ports.http" "$CONTAINER_REGISTRY")
-            
+            local http_port
+            http_port=$(jq -r ".\"$container\".ports.http" "$CONTAINER_REGISTRY")
+
             echo -n "  📦 $container: "
-            
-            if docker ps --format "table {{.Names}}" | grep -q "^$container_id$"; then
+
+            if docker ps --format '{{.Names}}' | grep -q "^$container_id$"; then
                 # Container is running, check health
                 if curl -s --max-time 5 "http://localhost:$http_port" > /dev/null; then
                     echo -e "${GREEN}HEALTHY${NC} (http://localhost:$http_port)"
@@ -166,7 +174,7 @@ monitor_health() {
                 echo -e "${RED}STOPPED${NC}"
             fi
         done
-        
+
         echo
         echo "Next check in ${interval} seconds..."
         sleep "$interval"
@@ -185,16 +193,17 @@ monitor_resources_detailed() {
     echo
     
     # Get containers matching pattern
-    local containers=$(docker ps --format "table {{.Names}}" | grep "$container_pattern" | tr '\n' ' ')
-    
-    if [ -z "$containers" ]; then
+    local containers=()
+    mapfile -t containers < <(docker ps --format '{{.Names}}' | grep -E "$container_pattern")
+
+    if [ ${#containers[@]} -eq 0 ]; then
         print_warning "No running containers found matching pattern: $container_pattern"
         return 1
     fi
-    
-    echo "Monitoring containers: $containers"
+
+    echo "Monitoring containers: ${containers[*]}"
     echo
-    
+
     # Show detailed stats
-    docker stats --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}\t{{.NetIO}}\t{{.BlockIO}}" $containers
+    docker stats --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}\t{{.NetIO}}\t{{.BlockIO}}" "${containers[@]}"
 }
