@@ -2,6 +2,7 @@
 set -e
 
 : "${XSTARTUP_SRC:=/usr/local/share/xstartup}"
+: "${XDG_RUNTIME_DIR:=/run/user/$(id -u)}"
 
 echo "🚀 Starting robust VNC server..."
 
@@ -66,25 +67,27 @@ if [ -z "$VNC_BINARY" ]; then
     exit 127
 fi
 
+HOME_DIR="${HOME:-/root}"
+XAUTH_FILE="$HOME_DIR/.Xauthority"
 # 3. Ensure .Xauthority file exists
-if [ ! -f /root/.Xauthority ]; then
+if [ ! -f "$XAUTH_FILE" ]; then
     echo "🔧 Creating .Xauthority file..."
-    touch /root/.Xauthority
-    chmod 600 /root/.Xauthority
+    touch "$XAUTH_FILE"
+    chmod 600 "$XAUTH_FILE"
 fi
 
 # 4. Set up X11 environment
 export DISPLAY=:1
-export XAUTHORITY=/root/.Xauthority
+export XAUTHORITY="$XAUTH_FILE"
 
 # 5. Create VNC configuration if needed
-mkdir -p /root/.vnc
-if [ ! -f /root/.vnc/xstartup ]; then
+mkdir -p "$HOME_DIR/.vnc"
+if [ ! -f "$HOME_DIR/.vnc/xstartup" ]; then
     echo "🔧 Creating VNC xstartup script..."
     if [ -f "$XSTARTUP_SRC" ]; then
-        install -m 755 "$XSTARTUP_SRC" /root/.vnc/xstartup
+        install -m 755 "$XSTARTUP_SRC" "$HOME_DIR/.vnc/xstartup"
     else
-        cat > /root/.vnc/xstartup <<'EOF'
+        cat > "$HOME_DIR/.vnc/xstartup" <<'EOF'
 #!/bin/sh
 export XKL_XMODMAP_DISABLE=1
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -99,7 +102,7 @@ else
   xterm
 fi
 EOF
-        chmod 755 /root/.vnc/xstartup
+        chmod 755 "$HOME_DIR/.vnc/xstartup"
     fi
 fi
 
@@ -109,16 +112,16 @@ echo "🚀 Starting KasmVNC server with binary: $VNC_BINARY"
 # Pre-configure VNC authentication if needed
 if [[ "$VNC_BINARY" == *kasmvncserver* ]]; then
     echo "🔧 Configuring KasmVNC authentication..."
-    
+
     # Ensure password file exists
-    if [ ! -f /root/.kasmvnc/passwd ]; then
-        mkdir -p /root/.kasmvnc
-        echo "kasmvnc" | /usr/bin/kasmvncpasswd -f > /root/.kasmvnc/passwd 2>/dev/null || true
+    if [ ! -f "$HOME_DIR/.kasmvnc/passwd" ]; then
+        mkdir -p "$HOME_DIR/.kasmvnc"
+        echo "kasmvnc" | /usr/bin/kasmvncpasswd -f > "$HOME_DIR/.kasmvnc/passwd" 2>/dev/null || true
     fi
-    
+
     # Create user.conf to avoid interactive prompts
-    cat > /root/.kasmvnc/user.conf << 'EOF'
-user=root:$2b$12$1234567890123456789012$1234567890123456789012345678901234567890:ow:root
+    cat > "$HOME_DIR/.kasmvnc/user.conf" <<EOF
+user=$USER:$2b$12$1234567890123456789012$1234567890123456789012345678901234567890:ow:$USER
 EOF
 fi
 

@@ -13,5 +13,13 @@ export DISPLAY=${DISPLAY:-:1}
 unset SESSION_MANAGER
 unset DBUS_SESSION_BUS_ADDRESS
 
-# Launch KDE Plasma within a D-Bus session
-exec dbus-launch --exit-with-session /usr/bin/startplasma-x11
+# Run KDE Plasma inside a D-Bus session
+DEV_USERNAME="${DEV_USERNAME:-devuser}"
+DEV_UID="${DEV_UID:-1000}"
+export XDG_RUNTIME_DIR="/run/user/${DEV_UID}"
+
+if [ "$(id -un)" = "$DEV_USERNAME" ]; then
+  exec dbus-launch --exit-with-session /usr/bin/startplasma-x11
+else
+  exec su - "$DEV_USERNAME" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; dbus-launch --exit-with-session /usr/bin/startplasma-x11"
+fi
