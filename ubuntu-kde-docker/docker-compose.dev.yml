@@ -24,6 +24,9 @@ services:
       - "8090:8090"     # Collaboration Hub
     env_file:
       - .env
+    environment:
+      - ENV_KASMVNC_PORT=6901
+      - ENV_KASMVNC_VNC_PORT=5901
     volumes:
       - ./dev_config:/config
       - ./logs:/var/log/supervisor

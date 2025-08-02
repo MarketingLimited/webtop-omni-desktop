@@ -32,6 +32,8 @@ services:
       - DISPLAY=:1
       - XDG_RUNTIME_DIR=/run/user/1000
       - DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+      - ENV_KASMVNC_PORT=6901
+      - ENV_KASMVNC_VNC_PORT=5901
     volumes:
       - ${DATA_ROOT}/default/config:/config
       - ${DATA_ROOT}/default/logs:/var/log/supervisor
