@@ -1,9 +1,12 @@
+version: "3.9"
+
 services:
   webtop:
     image: ghcr.io/your-org/webtop-kde-marketing:latest
     container_name: webtop-kde-prod
     restart: unless-stopped
     privileged: true
+    init: true
     shm_size: "8gb"
     ports:
       - "32768:80"    # KasmVNC
@@ -30,8 +33,10 @@ services:
       - /run/lock
     cap_add:
       - SYS_ADMIN
+      - NET_ADMIN
     security_opt:
       - seccomp:unconfined
+      - apparmor:unconfined
     deploy:
       resources:
         limits:
@@ -84,6 +89,8 @@ services:
     image: grafana/grafana
     container_name: webtop-grafana
     restart: unless-stopped
+    depends_on:
+      - prometheus
     ports:
       - "3000:3000"
     environment:
