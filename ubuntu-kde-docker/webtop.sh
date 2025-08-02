@@ -177,31 +177,31 @@ main() {
     case "$1" in
         build)
             check_env
-            if [ "$2" = "--background" ] || [ "$3" = "--background" ]; then
-                build_image "$2" "--background"
+            if [ "${2-}" = "--background" ] || [ "${3-}" = "--background" ]; then
+                build_image "${2-}" "--background"
             else
-                build_image "$2"
+                build_image "${2-}"
             fi
             ;;
         build-bg)
             check_env
-            build_image "$2" "bg"
+            build_image "${2-}" "bg"
             ;;
         build-status|progress)
-            check_build_status "$2"
+            check_build_status "${2-}"
             ;;
         build-logs)
-            show_build_logs "$2" "$3"
+            show_build_logs "${2-}" "${3-}"
             ;;
         build-stop)
-            stop_build "$2"
+            stop_build "${2-}"
             ;;
         build-cleanup)
-            cleanup_build_files "$2"
+            cleanup_build_files "${2-}"
             ;;
         up|start)
             check_env
-            start_containers "$2"
+            start_containers "${2-}"
             ;;
         down|stop)
             stop_containers
