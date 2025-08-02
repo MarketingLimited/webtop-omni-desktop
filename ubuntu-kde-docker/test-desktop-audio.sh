@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 # Desktop Audio Integration Test Script
 # Tests audio functionality in KDE Plasma with remote access scenarios
@@ -8,14 +9,13 @@ DEV_USERNAME=${DEV_USERNAME:-devuser}
 DISPLAY=${DISPLAY:-:1}
 
 # Color output functions
-red() { echo -e "\033[31m$1\033[0m"; }
 green() { echo -e "\033[32m$1\033[0m"; }
 yellow() { echo -e "\033[33m$1\033[0m"; }
 blue() { echo -e "\033[34m$1\033[0m"; }
 
 # Test KDE audio integration
 test_kde_audio() {
-    echo "$(blue '🔊 Testing KDE Plasma Audio Integration...')"
+    blue '🔊 Testing KDE Plasma Audio Integration...'
     
     if pgrep -f "startplasma\|plasmashell" > /dev/null; then
         green "✅ KDE Plasma is running"
@@ -41,7 +41,7 @@ test_kde_audio() {
 
 # Test media applications
 test_media_applications() {
-    echo "$(blue '🎵 Testing Media Applications...')"
+    blue '🎵 Testing Media Applications...'
     
     local apps=("firefox" "vlc" "audacity" "aplay" "arecord" "pactl")
     
@@ -63,7 +63,7 @@ test_media_applications() {
 
 # Test audio development tools
 test_audio_dev_tools() {
-    echo "$(blue '🛠️  Testing Audio Development Tools...')"
+    blue '🛠️  Testing Audio Development Tools...'
     
     # Check development tools
     local dev_tools=("python3" "node" "gcc" "make")
@@ -91,7 +91,7 @@ test_audio_dev_tools() {
 
 # Test remote audio forwarding
 test_remote_audio_forwarding() {
-    echo "$(blue '📡 Testing Remote Audio Forwarding...')"
+    blue '📡 Testing Remote Audio Forwarding...'
     
     # Test VNC audio forwarding
     if pgrep -f "kasmvncserver" > /dev/null; then
@@ -123,7 +123,7 @@ test_remote_audio_forwarding() {
 
 # Create demo audio application
 create_demo_audio_app() {
-    echo "$(blue '🎯 Creating Demo Audio Application...')"
+    blue '🎯 Creating Demo Audio Application...'
     
     cat > /tmp/audio_demo.py << 'EOF'
 #!/usr/bin/env python3
@@ -208,7 +208,7 @@ EOF
 
 # Generate integration report
 generate_integration_report() {
-    echo "$(blue '📋 Desktop Audio Integration Report')"
+    blue '📋 Desktop Audio Integration Report'
     printf '=%.0s' {1..50}; echo
     
     # Environment info
@@ -223,7 +223,8 @@ generate_integration_report() {
     if pgrep -f "pulseaudio" > /dev/null; then
         echo "   Status: RUNNING"
         if pactl info > /dev/null 2>&1; then
-            local server_name=$(pactl info 2>/dev/null | grep "Server Name:" | cut -d: -f2 | xargs)
+            local server_name
+            server_name=$(pactl info 2>/dev/null | grep "Server Name:" | cut -d: -f2 | xargs)
             echo "   Server: ${server_name:-Unknown}"
         fi
     else
@@ -234,8 +235,10 @@ generate_integration_report() {
     # Audio devices
     echo "🎵 Audio Devices:"
     if command -v pactl > /dev/null 2>&1; then
-        local sink_count=$(pactl list short sinks 2>/dev/null | wc -l)
-        local source_count=$(pactl list short sources 2>/dev/null | wc -l)
+        local sink_count
+        sink_count=$(pactl list short sinks 2>/dev/null | wc -l)
+        local source_count
+        source_count=$(pactl list short sources 2>/dev/null | wc -l)
         echo "   Output devices: $sink_count"
         echo "   Input devices: $source_count"
     else
@@ -262,7 +265,7 @@ generate_integration_report() {
 
 # Main function
 main() {
-    echo "$(green '🎵 Desktop Audio Integration Testing')"
+    green '🎵 Desktop Audio Integration Testing'
     printf '=%.0s' {1..50}; echo
     
     test_kde_audio
@@ -285,7 +288,7 @@ main() {
     # Run demo if requested
     if [ "$1" = "--run-demo" ]; then
         echo ""
-        echo "$(blue '🚀 Running audio demo application...')"
+        blue '🚀 Running audio demo application...'
         python3 /tmp/audio_demo.py
     fi
 }
