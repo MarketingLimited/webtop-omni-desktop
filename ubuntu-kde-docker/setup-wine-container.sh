@@ -12,7 +12,7 @@ mkdir -p "${DEV_HOME}/.wine/drive_c/windows/system32"
 mkdir -p "${DEV_HOME}/.wine/drive_c/Program Files"
 
 # Set ownership first
-chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "${DEV_HOME}/.wine"
+chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "${DEV_HOME}/.wine" 2>/dev/null || true
 
 # Configure Wine for container environment
 sudo -u "$DEV_USERNAME" bash << 'WINE_CONTAINER_SETUP'
@@ -111,6 +111,6 @@ EOF
 chmod +x "${DEV_HOME}/.local/bin/wine-diagnostics"
 
 # Set final ownership
-chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "${DEV_HOME}"
+chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "${DEV_HOME}" 2>/dev/null || true
 
 echo "✅ Container-optimized Wine setup complete"
