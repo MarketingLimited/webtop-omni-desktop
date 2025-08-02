@@ -22,6 +22,15 @@ log_audio() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') [AUDIO] $1" | tee -a "$LOG_FILE"
 }
 
+# If critical audio utilities are missing we simply log the issue and
+# exit successfully so supervisor doesn't keep restarting us in a loop.
+for cmd in su pactl pgrep; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        log_audio "⚠️  $cmd command not found, skipping audio monitoring"
+        exit 0
+    fi
+done
+
 check_pulseaudio() {
     if pgrep -x pulseaudio >/dev/null; then
         log_audio "✅ PulseAudio daemon is running"

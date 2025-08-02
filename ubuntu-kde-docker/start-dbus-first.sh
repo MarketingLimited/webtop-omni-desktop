@@ -6,6 +6,13 @@ echo "INFO: Robust D-Bus starter script initiated."
 # 1. Ensure directory exists with correct permissions
 install -o messagebus -g messagebus -m 755 -d /run/dbus
 
+# Some base images ship without a machine-id which causes
+# dbus-daemon to exit immediately.  Ensure one exists before
+# attempting to start the service.
+if [ ! -s /etc/machine-id ]; then
+  dbus-uuidgen --ensure=/etc/machine-id >/dev/null 2>&1 || true
+fi
+
 if pgrep -x dbus-daemon >/dev/null; then
   echo "INFO: D-Bus daemon already running."
   if [ -f /run/dbus/pid ]; then
