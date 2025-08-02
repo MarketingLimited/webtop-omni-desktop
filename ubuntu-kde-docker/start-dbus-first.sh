@@ -1,61 +1,74 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 echo "INFO: Robust D-Bus starter script initiated."
 
-# 1. Ensure directories exist and have correct permissions
-mkdir -p /run/dbus
-chown messagebus:messagebus /run/dbus
-chmod 755 /run/dbus
+# 1. Ensure directory exists with correct permissions
+install -o messagebus -g messagebus -m 755 -d /run/dbus
 
-# 2. Clean up stale files from a previous run
-rm -f /run/dbus/system_bus_socket
-rm -f /run/dbus/pid
+if pgrep -x dbus-daemon >/dev/null; then
+  echo "INFO: D-Bus daemon already running."
+  if [ -f /run/dbus/pid ]; then
+    DBUS_PID=$(cat /run/dbus/pid)
+  else
+    DBUS_PID=$(pgrep -x dbus-daemon | head -n 1)
+    echo "$DBUS_PID" > /run/dbus/pid
+  fi
+else
+  # 2. Clean up stale files from a previous run
+  rm -f /run/dbus/system_bus_socket /run/dbus/pid
 
-echo "INFO: Starting system D-Bus daemon."
-# 3. Start the system D-Bus daemon. We will keep it in the foreground for supervisor.
-# The script will wait for it at the end.
-/usr/bin/dbus-daemon --system --nofork --nosyslog &
-DBUS_PID=$!
+  echo "INFO: Starting system D-Bus daemon."
+  # 3. Start the system D-Bus daemon. Keep it in the foreground for supervisor.
+  # Also write its PID so subsequent scripts know it's running.
+  /usr/bin/dbus-daemon --system --nofork --nosyslog --print-pid=/run/dbus/pid &
+  DBUS_PID=$!
 
+  # 4. Wait for the D-Bus socket to be created
+  echo "INFO: Waiting for D-Bus socket to be created..."
+  counter=0
+  while [ ! -S /run/dbus/system_bus_socket ] && [ $counter -lt 20 ]; do
+    sleep 0.5
+    counter=$((counter+1))
+  done
 
-# 4. Wait for the D-Bus socket to be created
-echo "INFO: Waiting for D-Bus socket to be created..."
-counter=0
-while [ ! -S /run/dbus/system_bus_socket ] && [ $counter -lt 20 ]; do
-  sleep 0.5
-  counter=$((counter+1))
-done
-
-if [ ! -S /run/dbus/system_bus_socket ]; then
-  echo "ERROR: D-Bus socket was not created in time. Exiting."
-  kill $DBUS_PID
-  exit 1
+  if [ ! -S /run/dbus/system_bus_socket ]; then
+    echo "ERROR: D-Bus socket was not created in time. Exiting."
+    kill "$DBUS_PID"
+    exit 1
+  fi
+  echo "INFO: D-Bus socket is up."
 fi
-echo "INFO: D-Bus socket is up."
 
-# 5. Start accounts-daemon
+trap 'kill "$DBUS_PID" 2>/dev/null' EXIT
+
+# 5. Start accounts-daemon if available and not running
 echo "INFO: Starting accounts-daemon."
-# Path from startup log
-if [ -x /usr/libexec/accounts-daemon ]; then
-    /usr/libexec/accounts-daemon &
-# Other common path
-elif [ -x /usr/lib/accountsservice/accounts-daemon ]; then
-    /usr/lib/accountsservice/accounts-daemon &
+if ! pgrep -x accounts-daemon >/dev/null; then
+  if [ -x /usr/libexec/accounts-daemon ]; then
+      /usr/libexec/accounts-daemon &
+  elif [ -x /usr/lib/accountsservice/accounts-daemon ]; then
+      /usr/lib/accountsservice/accounts-daemon &
+  else
+      echo "WARNING: accounts-daemon not found."
+  fi
 else
-    echo "WARNING: accounts-daemon not found."
+  echo "INFO: accounts-daemon already running."
 fi
 
-# 6. Start polkitd
+# 6. Start polkitd if available and not running
 echo "INFO: Starting polkitd."
-# Common path for polkitd
-if [ -x /usr/lib/polkit-1/polkitd ]; then
-    /usr/lib/polkit-1/polkitd --no-debug &
+if ! pgrep -x polkitd >/dev/null; then
+  if [ -x /usr/lib/polkit-1/polkitd ]; then
+      /usr/lib/polkit-1/polkitd --no-debug &
+  else
+      echo "WARNING: polkitd not found."
+  fi
 else
-    echo "WARNING: polkitd not found."
+  echo "INFO: polkitd already running."
 fi
 
 echo "INFO: D-Bus and related services startup sequence complete."
 
 # Wait for the main dbus-daemon process. If it dies, this script will exit and supervisor will restart it.
-wait $DBUS_PID
+wait "$DBUS_PID"
