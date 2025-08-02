@@ -3,6 +3,13 @@ set -euo pipefail
 
 DEV_USERNAME="${DEV_USERNAME:-devuser}"
 DEV_HOME="/home/${DEV_USERNAME}"
+DEV_UID="$(id -u "${DEV_USERNAME}")"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Ensure required directories
+mkdir -p "${DEV_HOME}/.local/bin" \
+         "${DEV_HOME}/.local/share/applications" \
+         "${DEV_HOME}/Desktop/Android Apps"
 
 # Logging function
 log_info() {
@@ -19,19 +26,11 @@ log_error() {
 
 log_info "Setting up Android subsystem (Waydroid/Anbox)..."
 
-# Function to setup Anbox as fallback
+# Function to setup Anbox using existing script
 setup_anbox() {
     log_info "Setting up Anbox as Android fallback..."
-    
-    # Install Anbox if available
-    if command -v anbox >/dev/null 2>&1; then
-        log_info "Anbox found, configuring..."
-        
-        # Create Anbox data directory
-        mkdir -p "${DEV_HOME}/.local/share/anbox"
-        
-        # Create Anbox desktop shortcut
-        cat > "${DEV_HOME}/.local/share/applications/anbox.desktop" << 'EOF'
+    if bash "${SCRIPT_DIR}/setup-anbox.sh" >/dev/null 2>&1; then
+        cat > "${DEV_HOME}/.local/share/applications/anbox.desktop" <<'EOT'
 [Desktop Entry]
 Name=Anbox (Android Apps)
 Comment=Android container for running Android apps
@@ -40,8 +39,7 @@ Icon=android
 Terminal=false
 Type=Application
 Categories=System;Emulator;
-EOF
-        
+EOT
         log_info "Anbox setup completed"
         return 0
     else
@@ -53,86 +51,60 @@ EOF
 # Function to setup container-compatible Waydroid
 setup_waydroid_container() {
     log_info "Setting up container-compatible Waydroid..."
-    
-    # Create Waydroid data directory
+
     mkdir -p "${DEV_HOME}/.local/share/waydroid"
-    
-    # Configure Waydroid for container environment
-    cat > "${DEV_HOME}/.local/share/waydroid/waydroid.cfg" << 'EOF'
+
+    cat > "${DEV_HOME}/.local/share/waydroid/waydroid.cfg" <<EOT
 [properties]
-waydroid.host_data_path=/home/devuser/.local/share/waydroid/data
-waydroid.rootfs_path=/home/devuser/.local/share/waydroid/rootfs
+waydroid.host_data_path=${DEV_HOME}/.local/share/waydroid/data
+waydroid.rootfs_path=${DEV_HOME}/.local/share/waydroid/rootfs
 waydroid.overlay_rw=true
 waydroid.mount_overlays=true
 
 [waydroid]
 arch=x86_64
-images_path=/home/devuser/.local/share/waydroid/images
+images_path=${DEV_HOME}/.local/share/waydroid/images
 vendor_type=MAINLINE
 system_type=VANILLA
-xdg_runtime_dir=/run/user/1000
+xdg_runtime_dir=/run/user/${DEV_UID}
 wayland_display=wayland-0
-pulse_server=unix:/run/user/1000/pulse/native
+pulse_server=unix:/run/user/${DEV_UID}/pulse/native
 
 [session]
 user_manager=true
 multi_windows=true
 emu_gl=false
 emu_virgl=false
-EOF
+EOT
 
-    # Try to initialize Waydroid with container-specific settings
     export WAYDROID_LOG=true
-    export XDG_RUNTIME_DIR="/run/user/1000"
+    export XDG_RUNTIME_DIR="/run/user/${DEV_UID}"
     export WAYLAND_DISPLAY="wayland-0"
-    
-    # Initialize without hardware requirements
+
     if su - "${DEV_USERNAME}" -c "waydroid init -s GAPPS -f" 2>/dev/null; then
         log_info "Waydroid initialized successfully"
         return 0
+    elif su - "${DEV_USERNAME}" -c "waydroid init" 2>/dev/null; then
+        log_info "Waydroid basic initialization completed"
+        return 0
     else
-        log_warn "Waydroid initialization failed, trying basic init..."
-        if su - "${DEV_USERNAME}" -c "waydroid init" 2>/dev/null; then
-            log_info "Waydroid basic initialization completed"
-            return 0
-        else
-            log_warn "Waydroid initialization failed completely"
-            return 1
-        fi
+        log_warn "Waydroid initialization failed"
+        return 1
     fi
 }
 
-# Main Android setup logic
-ANDROID_SOLUTION=""
+ANDROID_SOLUTION="none"
 
-# Verify required kernel modules are available
-missing_mods=0
+# Check kernel modules (informational)
 for mod in binder_linux ashmem_linux; do
     if ! lsmod | grep -q "^$mod" 2>/dev/null; then
         log_warn "Kernel module $mod not loaded"
-        missing_mods=1
     fi
 done
 
-if [ "$missing_mods" -eq 1 ]; then
-    log_warn "Android kernel support unavailable; skipping Android setup"
-    ANDROID_SOLUTION="none"
-else
-
-# Check if Waydroid is available
+# Determine available Android solution
 if command -v waydroid >/dev/null 2>&1; then
     log_info "Waydroid found, attempting container setup..."
-    
-    # Check for kernel modules (informational only)
-    missing_modules=0
-    for module in binder_linux ashmem_linux; do
-        if ! lsmod | grep -q "^$module" 2>/dev/null; then
-            log_info "Kernel module $module not loaded (using software fallback)"
-            missing_modules=$((missing_modules + 1))
-        fi
-    done
-    
-    # Try Waydroid setup regardless of kernel modules
     if setup_waydroid_container; then
         ANDROID_SOLUTION="waydroid"
         log_info "Waydroid setup successful"
@@ -143,7 +115,6 @@ if command -v waydroid >/dev/null 2>&1; then
             log_info "Anbox fallback setup successful"
         else
             log_error "Both Waydroid and Anbox setup failed"
-            ANDROID_SOLUTION="none"
         fi
     fi
 else
@@ -153,18 +124,12 @@ else
         log_info "Anbox setup successful"
     else
         log_warn "No Android solution available"
-        ANDROID_SOLUTION="none"
     fi
-fi
 fi
 
 # Create desktop shortcuts based on available solution
-mkdir -p "${DEV_HOME}/.local/share/applications"
-mkdir -p "${DEV_HOME}/Desktop/Android Apps"
-
 if [ "$ANDROID_SOLUTION" = "waydroid" ]; then
-    # Create Waydroid desktop shortcut
-    cat > "${DEV_HOME}/.local/share/applications/waydroid.desktop" << 'EOF'
+    cat > "${DEV_HOME}/.local/share/applications/waydroid.desktop" <<'EOT'
 [Desktop Entry]
 Name=Waydroid (Android Apps)
 Comment=Android container for running Android apps
@@ -173,13 +138,12 @@ Icon=android
 Terminal=false
 Type=Application
 Categories=System;Emulator;
-EOF
-    
-    # Create Android launcher script
-    cat > "${DEV_HOME}/.local/bin/android-launcher" << 'EOF'
+EOT
+
+    cat > "${DEV_HOME}/.local/bin/android-launcher" <<EOT
 #!/bin/bash
 # Android App Launcher for Waydroid
-export XDG_RUNTIME_DIR="/run/user/1000"
+export XDG_RUNTIME_DIR="/run/user/${DEV_UID}"
 export WAYLAND_DISPLAY="wayland-0"
 
 if pgrep -f "waydroid" > /dev/null; then
@@ -189,17 +153,14 @@ else
     sleep 3
     waydroid show-full-ui
 fi
-EOF
+EOT
     chmod +x "${DEV_HOME}/.local/bin/android-launcher"
-    
+
     cp "${DEV_HOME}/.local/share/applications/waydroid.desktop" "${DEV_HOME}/Desktop/Android Apps/"
-    
 elif [ "$ANDROID_SOLUTION" = "anbox" ]; then
     cp "${DEV_HOME}/.local/share/applications/anbox.desktop" "${DEV_HOME}/Desktop/Android Apps/"
-    
 else
-    # Create placeholder for no Android solution
-    cat > "${DEV_HOME}/Desktop/Android Apps/android-unavailable.txt" << 'EOF'
+    cat > "${DEV_HOME}/Desktop/Android Apps/android-unavailable.txt" <<'EOT'
 Android Support Unavailable
 
 Neither Waydroid nor Anbox could be configured properly.
@@ -209,15 +170,13 @@ To enable Android support:
 1. Ensure kernel modules binder_linux and ashmem_linux are available
 2. Install Waydroid or Anbox packages
 3. Run the setup script again
-EOF
+EOT
 fi
 
-# Create Android debugging tools
-mkdir -p "${DEV_HOME}/.local/bin"
-cat > "${DEV_HOME}/.local/bin/android-debug" << 'EOF'
+cat > "${DEV_HOME}/.local/bin/android-debug" <<EOT
 #!/bin/bash
 echo "=== Android Debug Information ==="
-echo "Solution: waydroid"
+echo "Solution: ${ANDROID_SOLUTION}"
 echo "Waydroid Status:"
 waydroid status 2>/dev/null || echo "Waydroid not running"
 echo ""
@@ -226,7 +185,7 @@ lsmod | grep -E "(binder|ashmem)" || echo "No Android kernel modules loaded"
 echo ""
 echo "Processes:"
 pgrep -f "waydroid\|anbox" || echo "No Android processes running"
-EOF
+EOT
 chmod +x "${DEV_HOME}/.local/bin/android-debug"
 
 # Set ownership
