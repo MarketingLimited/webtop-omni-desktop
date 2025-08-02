@@ -7,8 +7,6 @@ echo "🖥️  Optimizing KDE Plasma for remote desktop performance..."
 # Environment variables with defaults
 DEV_USERNAME="${DEV_USERNAME:-devuser}"
 DEV_HOME="/home/${DEV_USERNAME}"
-KDE_PERFORMANCE_PROFILE="${KDE_PERFORMANCE_PROFILE:-performance}"
-KDE_EFFECTS_DISABLED="${KDE_EFFECTS_DISABLED:-true}"
 
 # Ensure user exists
 if ! id "$DEV_USERNAME" >/dev/null 2>&1; then
@@ -321,98 +319,6 @@ inactiveBlend=161,169,177
 inactiveForeground=161,169,177
 EOF
 
-# Create performance monitoring script for KDE applications
-cat > /usr/local/bin/kde-performance-monitor << 'EOF'
-#!/bin/bash
-set -euo pipefail
-
-echo "📊 Starting KDE performance monitoring..."
-
-monitor_kde_performance() {
-    while true; do
-        # Monitor KDE processes
-        PLASMASHELL_CPU=$(ps -C plasmashell -o %cpu --no-headers 2>/dev/null | awk '{sum+=$1} END {print sum}' || echo "0")
-        KWIN_CPU=$(ps -C kwin_x11 -o %cpu --no-headers 2>/dev/null | awk '{sum+=$1} END {print sum}' || echo "0")
-        
-        # Monitor memory usage
-        PLASMASHELL_MEM=$(ps -C plasmashell -o %mem --no-headers 2>/dev/null | awk '{sum+=$1} END {print sum}' || echo "0")
-        KWIN_MEM=$(ps -C kwin_x11 -o %mem --no-headers 2>/dev/null | awk '{sum+=$1} END {print sum}' || echo "0")
-        
-        # Total KDE resource usage
-        TOTAL_KDE_CPU=$(echo "$PLASMASHELL_CPU + $KWIN_CPU" | bc -l 2>/dev/null || echo "0")
-        TOTAL_KDE_MEM=$(echo "$PLASMASHELL_MEM + $KWIN_MEM" | bc -l 2>/dev/null || echo "0")
-        
-        echo "🖥️  KDE Performance: CPU=${TOTAL_KDE_CPU}%, MEM=${TOTAL_KDE_MEM}%"
-        echo "   ├─ Plasmashell: CPU=${PLASMASHELL_CPU}%, MEM=${PLASMASHELL_MEM}%"
-        echo "   └─ KWin: CPU=${KWIN_CPU}%, MEM=${KWIN_MEM}%"
-        
-        # Performance optimization triggers
-        if (( $(echo "$TOTAL_KDE_CPU > 50" | bc -l 2>/dev/null || echo "0") )); then
-            echo "⚠️  High KDE CPU usage detected, consider further optimization"
-        fi
-        
-        if (( $(echo "$TOTAL_KDE_MEM > 20" | bc -l 2>/dev/null || echo "0") )); then
-            echo "⚠️  High KDE memory usage detected"
-        fi
-        
-        sleep 30
-    done
-}
-
-monitor_kde_performance
-EOF
-
-chmod +x /usr/local/bin/kde-performance-monitor
-
-# Create application-specific optimization script
-cat > /usr/local/bin/kde-app-optimizer << 'EOF'
-#!/bin/bash
-set -euo pipefail
-
-echo "🚀 Starting KDE application optimization..."
-
-# Function to optimize specific applications for remote desktop
-optimize_application() {
-    local app_name="$1"
-    local app_pid="$2"
-    
-    case "$app_name" in
-        "firefox"|"chrome"|"chromium")
-            echo "🌐 Optimizing browser: $app_name"
-            # Set lower process priority for browsers to prioritize desktop responsiveness
-            renice +5 "$app_pid" 2>/dev/null || true
-            ;;
-        "gimp"|"inkscape"|"blender")
-            echo "🎨 Optimizing graphics application: $app_name"
-            # Set higher priority for graphics applications
-            renice -5 "$app_pid" 2>/dev/null || true
-            ;;
-        "libreoffice"|"kate"|"kwrite")
-            echo "📝 Optimizing office application: $app_name"
-            # Standard priority for office applications
-            renice 0 "$app_pid" 2>/dev/null || true
-            ;;
-        *)
-            # Default optimization
-            renice +2 "$app_pid" 2>/dev/null || true
-            ;;
-    esac
-}
-
-# Monitor and optimize running applications
-while true; do
-    # Get list of running GUI applications
-    ps aux | grep -E "(firefox|chrome|chromium|gimp|inkscape|blender|libreoffice|kate|kwrite)" | grep -v grep | while read -r user pid cpu mem vsz rss tty stat start time command; do
-        app_name=$(echo "$command" | awk '{print $1}' | xargs basename)
-        optimize_application "$app_name" "$pid"
-    done
-    
-    sleep 60
-done
-EOF
-
-chmod +x /usr/local/bin/kde-app-optimizer
-
 # Create lightweight window decoration configuration
 cat > "${DEV_HOME}/.config/kwinrulesrc" << 'EOF'
 [1]
@@ -494,7 +400,5 @@ chmod +x /usr/local/bin/kde-startup-optimizer
 echo "🔧 KDE Plasma desktop optimization setup complete"
 echo "🎨 Visual effects and animations disabled for better performance"
 echo "🖼️  Lightweight theme and window decorations configured"
-echo "📊 Performance monitoring for KDE components enabled"
-echo "🚀 Application-specific optimizations activated"
 echo "⚡ Font rendering optimized for screen sharing"
 echo "✅ KDE Plasma optimization completed"
