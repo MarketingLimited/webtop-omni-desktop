@@ -4,6 +4,10 @@
 # Part of the modular webtop.sh refactoring
 
 # Template management
+
+# Volumes included in templates (logs are intentionally excluded)
+TEMPLATE_VOLUMES="config home wine projects"
+
 template_save() {
     local container_name="$1"
     local template_name="$2"
@@ -21,12 +25,14 @@ template_save() {
     
     # Create template backup
     mkdir -p "$template_path"
-    local volumes="config home wine projects"  # Don't include logs in templates
-    for vol in $volumes; do
+    for vol in $TEMPLATE_VOLUMES; do
         local volume_name="${container_name}_${vol}"
-        if docker volume ls | grep -q "$volume_name"; then
+        if docker volume inspect "$volume_name" >/dev/null 2>&1; then
             print_status "Saving volume: $volume_name"
-            docker run --rm -v "$volume_name":/source -v "$template_path":/template alpine tar czf "/template/${vol}.tar.gz" -C /source .
+            docker run --rm \
+                -v "$volume_name":/source \
+                -v "$template_path":/template \
+                alpine tar czf "/template/${vol}.tar.gz" -C /source .
         fi
     done
     
@@ -37,12 +43,12 @@ template_save() {
     "source_container": "$container_name",
     "created": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
     "description": "Template created from $container_name",
-    "volumes": ["config", "home", "wine", "projects"]
+    "volumes": ["${TEMPLATE_VOLUMES// /", "}"]
 }
 EOF
-    
+
     print_success "Template saved: $template_name"
-    echo "  📦 Volumes: config, home, wine, projects"
+    echo "  📦 Volumes: ${TEMPLATE_VOLUMES// /, }"
     echo "  📋 Metadata saved"
 }
 
@@ -67,16 +73,18 @@ template_create() {
     print_status "Creating container: $container_name from template: $template_name"
     
     # Create volumes from template
-    local volumes="config home wine projects"
-    for vol in $volumes; do
+    for vol in $TEMPLATE_VOLUMES; do
         local volume_name="${container_name}_${vol}"
         local template_file="$template_path/${vol}.tar.gz"
-        
+
         if [ -f "$template_file" ]; then
             print_status "Creating volume: $volume_name"
             docker volume rm "$volume_name" 2>/dev/null || true
             docker volume create "$volume_name"
-            docker run --rm -v "$volume_name":/target -v "$template_path":/template alpine tar xzf "/template/${vol}.tar.gz" -C /target
+            docker run --rm \
+                -v "$volume_name":/target \
+                -v "$template_path":/template \
+                alpine tar xzf "/template/${vol}.tar.gz" -C /target
         fi
     done
     
@@ -94,27 +102,36 @@ template_create() {
 template_list() {
     print_status "Available Templates:"
     echo
-    
+
     if [ ! -d "$TEMPLATE_DIR" ]; then
         print_warning "No templates directory found"
         return 0
     fi
-    
-    local templates=$(ls -1 "$TEMPLATE_DIR" 2>/dev/null)
+
+    if ! command -v jq >/dev/null 2>&1; then
+        print_error "jq command not found. Please install jq to list templates."
+        return 1
+    fi
+
+    local templates
+    templates=$(find "$TEMPLATE_DIR" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null)
     if [ -z "$templates" ]; then
         print_warning "No templates found"
         return 0
     fi
-    
+
     printf "%-20s %-15s %-20s %-30s\n" "NAME" "SOURCE" "CREATED" "DESCRIPTION"
     printf "%-20s %-15s %-20s %-30s\n" "----" "------" "-------" "-----------"
-    
+
     for template in $templates; do
         local template_file="$TEMPLATE_DIR/$template/template.json"
         if [ -f "$template_file" ]; then
-            local source=$(jq -r '.source_container // "unknown"' "$template_file")
-            local created=$(jq -r '.created // "unknown"' "$template_file" | cut -d'T' -f1)
-            local description=$(jq -r '.description // "No description"' "$template_file" | cut -c1-30)
+            local source
+            local created
+            local description
+            source=$(jq -r '.source_container // "unknown"' "$template_file")
+            created=$(jq -r '.created // "unknown"' "$template_file" | cut -d'T' -f1)
+            description=$(jq -r '.description // "No description"' "$template_file" | cut -c1-30)
             printf "%-20s %-15s %-20s %-30s\n" "$template" "$source" "$created" "$description"
         else
             printf "%-20s %-15s %-20s %-30s\n" "$template" "unknown" "unknown" "No metadata"
