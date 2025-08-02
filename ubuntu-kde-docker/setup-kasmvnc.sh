@@ -62,11 +62,42 @@ apt-get clean
 # Verify installation
 if command -v kasmvncserver >/dev/null 2>&1; then
     echo "✅ KasmVNC server installed successfully"
-    kasmvncserver -version || echo "✅ KasmVNC binary found at: $(which kasmvncserver)"
+    echo "✅ KasmVNC binary found at: $(which kasmvncserver)"
 else
     echo "❌ KasmVNC installation verification failed"
     exit 1
 fi
+
+# Pre-configure KasmVNC to avoid interactive prompts
+echo "🔧 Pre-configuring KasmVNC settings..."
+
+# Create VNC password file for root user
+mkdir -p /root/.kasmvnc
+echo "#!/bin/bash" > /root/.kasmvnc/kasmvncpasswd
+echo "echo 'kasmvnc' | /usr/bin/kasmvncpasswd -f > /root/.kasmvnc/passwd 2>/dev/null || true" >> /root/.kasmvnc/kasmvncpasswd
+chmod +x /root/.kasmvnc/kasmvncpasswd
+/root/.kasmvnc/kasmvncpasswd
+
+# Create default KasmVNC configuration
+cat > /root/.kasmvnc/kasmvnc.yaml << 'EOF'
+desktop:
+  resolution:
+    width: 1920
+    height: 1080
+  allow_resize: true
+security:
+  authentication:
+    require_ssl: false
+    username: "user"
+    password: "password"
+network:
+  interface: "0.0.0.0"
+  websocket_port: 80
+  vnc_port: 5901
+logging:
+  level: "INFO"
+  log_writer_file: "/var/log/kasmvnc.log"
+EOF
 
 # Create VNC configuration directories
 mkdir -p /etc/kasmvnc /root/.vnc /home/devuser/.vnc

@@ -78,10 +78,41 @@ fi
 # 6. Start the VNC server
 echo "🚀 Starting KasmVNC server with binary: $VNC_BINARY"
 
+# Pre-configure VNC authentication if needed
+if [[ "$VNC_BINARY" == *kasmvncserver* ]]; then
+    echo "🔧 Configuring KasmVNC authentication..."
+    
+    # Ensure password file exists
+    if [ ! -f /root/.kasmvnc/passwd ]; then
+        mkdir -p /root/.kasmvnc
+        echo "kasmvnc" | /usr/bin/kasmvncpasswd -f > /root/.kasmvnc/passwd 2>/dev/null || true
+    fi
+    
+    # Create user.conf to avoid interactive prompts
+    cat > /root/.kasmvnc/user.conf << 'EOF'
+user=root:$2b$12$1234567890123456789012$1234567890123456789012345678901234567890:ow:root
+EOF
+fi
+
 # Different startup commands based on VNC server type
 case "$VNC_BINARY" in
     *kasmvncserver*)
-        exec "$VNC_BINARY" :1 -geometry 1920x1080 -depth 24 -SecurityTypes None -interface 0.0.0.0 -httpPort "${KASMVNC_PORT:-80}" -vncPort "${KASMVNC_VNC_PORT:-5901}"
+        exec "$VNC_BINARY" :1 \
+            -geometry 1920x1080 \
+            -depth 24 \
+            -interface 0.0.0.0 \
+            -httpPort "${KASMVNC_PORT:-80}" \
+            -vncPort "${KASMVNC_VNC_PORT:-5901}" \
+            -SecurityTypes None \
+            -select-de manual \
+            -driNode /dev/dri/renderD128 2>/dev/null || \
+        exec "$VNC_BINARY" :1 \
+            -geometry 1920x1080 \
+            -depth 24 \
+            -interface 0.0.0.0 \
+            -httpPort "${KASMVNC_PORT:-80}" \
+            -vncPort "${KASMVNC_VNC_PORT:-5901}" \
+            -SecurityTypes None
         ;;
     *vncserver*|*tigervncserver*)
         exec "$VNC_BINARY" :1 -geometry 1920x1080 -depth 24 -localhost no
