@@ -40,6 +40,11 @@ if ! chmod 1777 /tmp/.ICE-unix /tmp/.X11-unix 2>/dev/null; then
   log_warn "/tmp/.X11-unix permissions could not be modified (read-only mount?)"
 fi
 
+# Ensure machine-id exists for stable D-Bus operation
+if [ ! -s /etc/machine-id ]; then
+  dbus-uuidgen --ensure=/etc/machine-id >/dev/null 2>&1 || true
+fi
+
 # Replace default username in polkit rule if different
 if [ -f /etc/polkit-1/rules.d/99-devuser-all.rules ]; then
     sed -i "s/\"devuser\"/\"${DEV_USERNAME}\"/" /etc/polkit-1/rules.d/99-devuser-all.rules
