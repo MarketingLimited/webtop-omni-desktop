@@ -6,10 +6,12 @@ DEV_HOME="/home/${DEV_USERNAME}"
 
 echo "🔤 Setting up container font configuration..."
 
-# Create font directories
-mkdir -p "${DEV_HOME}/.config/fontconfig"
-mkdir -p "${DEV_HOME}/.local/share/fonts"
-mkdir -p /usr/share/fonts/container-fonts
+# Create required font directories
+install -d \
+    "${DEV_HOME}/.config/fontconfig" \
+    "${DEV_HOME}/.local/share/fonts" \
+    "${DEV_HOME}/.local/bin" \
+    /usr/share/fonts/container-fonts
 
 # Create comprehensive font configuration
 cat > "${DEV_HOME}/.config/fontconfig/fonts.conf" << 'EOF'
@@ -85,29 +87,21 @@ cat > "${DEV_HOME}/.config/fontconfig/fonts.conf" << 'EOF'
 </fontconfig>
 EOF
 
-# Create KDE font configuration
-mkdir -p "${DEV_HOME}/.config"
-cat > "${DEV_HOME}/.config/kdeglobals" << 'EOF'
-[General]
-BrowserApplication=firefox
-ColorScheme=Breeze
-Name=Breeze
-XftAntialias=true
-XftHintStyle=hintslight
-XftSubPixel=rgb
-font=Liberation Sans,10,-1,5,50,0,0,0,0,0
+# Configure KDE font settings without overwriting other desktop tweaks
+kdeglobals="${DEV_HOME}/.config/kdeglobals"
+touch "$kdeglobals"
 
-[KDE]
-ColorScheme=Breeze
-LookAndFeelPackage=org.kde.breeze.desktop
-widgetStyle=Breeze
+# Ensure [General] group exists and update font options
+grep -q '^\[General\]' "$kdeglobals" || printf '[General]\n' >> "$kdeglobals"
+sed -i '/^\[General\]/,/^\[/{/XftAntialias=/d;/XftHintStyle=/d;/XftSubPixel=/d;/font=/d}' "$kdeglobals"
+sed -i "/^\[General\]/a XftAntialias=true\\nXftHintStyle=hintslight\\nXftSubPixel=rgb\\nfont=Liberation Sans,10,-1,5,50,0,0,0,0,0" "$kdeglobals"
 
-[WM]
-activeFont=Liberation Sans,10,-1,5,75,0,0,0,0,0
-EOF
+# Ensure [WM] group exists and set active window font
+grep -q '^\[WM\]' "$kdeglobals" || printf '\n[WM]\n' >> "$kdeglobals"
+sed -i '/^\[WM\]/,/^\[/{/activeFont=/d}' "$kdeglobals"
+sed -i "/^\[WM\]/a activeFont=Liberation Sans,10,-1,5,75,0,0,0,0,0" "$kdeglobals"
 
-# Create Plasma font configuration
-mkdir -p "${DEV_HOME}/.config/plasma-localerc"
+# Create Plasma locale configuration
 cat > "${DEV_HOME}/.config/plasma-localerc" << 'EOF'
 [Formats]
 LANG=en_US.UTF-8
@@ -122,11 +116,8 @@ EOF
 
 # Pre-generate font cache
 echo "🔧 Generating font cache..."
-sudo -u "$DEV_USERNAME" bash -c '
-export HOME=/home/devuser
-fc-cache -fv
-fc-list | head -10
-'
+sudo -u "$DEV_USERNAME" HOME="$DEV_HOME" fc-cache -fv
+sudo -u "$DEV_USERNAME" HOME="$DEV_HOME" fc-list | head -10
 
 # Create font installation script
 cat > "${DEV_HOME}/.local/bin/install-fonts" << 'EOF'
@@ -189,7 +180,6 @@ EOF
 chmod +x "${DEV_HOME}/.local/bin/font-diagnostics"
 
 # Set ownership
-chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "${DEV_HOME}/.config"
-chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "${DEV_HOME}/.local"
+chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "${DEV_HOME}/.config" "${DEV_HOME}/.local"
 
 echo "✅ Font configuration complete"
