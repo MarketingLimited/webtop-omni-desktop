@@ -412,8 +412,6 @@ else
     log_warn "⚠️  Service health monitoring script not found"
 fi
 
-fi
-
 # Setup KasmVNC
 log_info "Setting up KasmVNC..."
 if [ -f "/usr/local/bin/setup-kasmvnc.sh" ]; then
