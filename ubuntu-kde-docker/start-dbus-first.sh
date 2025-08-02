@@ -3,6 +3,19 @@ set -euo pipefail
 
 echo "INFO: Robust D-Bus starter script initiated."
 
+# Ensure basic runtime environment variables are set to avoid mysterious
+# dbus-daemon exits when $HOME or $XDG_RUNTIME_DIR are missing.
+export HOME="${HOME:-/root}"
+
+# Prefer an XDG runtime directory for the non-root dev user when available.
+RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/${DEV_UID:-1000}}"
+if [ ! -d "$RUNTIME_DIR" ]; then
+  mkdir -p "$RUNTIME_DIR"
+  chown "${DEV_UID:-1000}:${DEV_GID:-1000}" "$RUNTIME_DIR" 2>/dev/null || true
+  chmod 700 "$RUNTIME_DIR" 2>/dev/null || true
+fi
+export XDG_RUNTIME_DIR="$RUNTIME_DIR"
+
 # 1. Ensure directory exists with correct permissions
 # The messagebus user may not exist yet in some minimal images. Create the
 # directory as root first, then adjust ownership if possible to avoid crashes.
