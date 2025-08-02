@@ -13,6 +13,7 @@ echo "🚀 Starting Ubuntu KDE Marketing Agency WebTop..."
 : "${ROOT_PASSWORD:=ComplexP@ssw0rd!}"
 : "${TTYD_USER:=terminal}"
 : "${TTYD_PASSWORD:=TerminalPassw0rd!}"
+: "${ENABLE_GOOGLE_ADS_EDITOR:=false}"
 
 # Logging function
 log_info() {
@@ -183,29 +184,6 @@ else
     echo "⚠️  Desktop audio integration script not found"
 fi
 
-# Set up Wine for Windows applications
-log_info "Setting up Wine for Windows applications..."
-if [ -f "/usr/local/bin/setup-wine.sh" ]; then
-    if /usr/local/bin/setup-wine.sh; then
-        log_info "Wine setup completed"
-
-        # Set up Google Ads Editor after Wine is ready with error handling
-        if [ -f "/usr/local/bin/setup-google-ads-editor.sh" ]; then
-            if /usr/local/bin/setup-google-ads-editor.sh; then
-                log_info "Google Ads Editor setup completed"
-            else
-                log_warn "Google Ads Editor setup failed (continuing)"
-            fi
-        else
-            log_warn "Google Ads Editor setup script not found"
-        fi
-    else
-        log_warn "Wine setup failed (continuing)"
-    fi
-else
-    log_warn "Wine setup script not found"
-fi
-
 # Generate SSH host keys if they don't exist
 log_info "Setting up SSH host keys..."
 mkdir -p /etc/ssh /run/sshd
@@ -317,20 +295,19 @@ if [ -f "/usr/local/bin/setup-wine-container.sh" ]; then
     /usr/local/bin/setup-wine-container.sh || log_warn "Wine container setup failed"
 else
     # Fallback to original Wine setup
-    log_info "Setting up Wine and Google Ads Editor..."
+    log_info "Setting up Wine..."
     if [ -f "/usr/local/bin/setup-wine.sh" ]; then
         if /usr/local/bin/setup-wine.sh; then
             log_info "Wine setup completed successfully"
 
-            # Setup Google Ads Editor
-            if [ -f "/usr/local/bin/setup-google-ads-editor.sh" ]; then
+            if [ "${ENABLE_GOOGLE_ADS_EDITOR}" = "true" ] && [ -f "/usr/local/bin/setup-google-ads-editor.sh" ]; then
                 if /usr/local/bin/setup-google-ads-editor.sh; then
                     log_info "Google Ads Editor setup completed successfully"
                 else
                     log_warn "Google Ads Editor setup failed"
                 fi
             else
-                log_warn "Google Ads Editor setup script not found"
+                log_info "Google Ads Editor installation skipped"
             fi
         else
             log_warn "Wine setup failed"
