@@ -3,10 +3,28 @@ set -euo pipefail
 
 echo "🔧 Installing KasmVNC server..."
 
-# The KasmVNC .deb package will install its own dependencies.
-# Pre-installing them manually can cause conflicts.
-# wget is already installed in the base image.
+# Install required dependencies first
 apt-get update
+apt-get install -y \
+    xvfb \
+    xauth \
+    x11-xserver-utils \
+    x11-utils \
+    x11-xkb-utils \
+    xkb-data \
+    fonts-liberation \
+    dbus-x11 \
+    libjpeg-turbo8 \
+    libwebp7 \
+    libssl3 \
+    libpng16-16 \
+    zlib1g \
+    libxrandr2 \
+    libxtst6 \
+    libxfixes3 \
+    libxdamage1 \
+    libfontconfig1 \
+    wget
 
 # Install KasmVNC version 1.3.4 for the current architecture
 ARCH="$(dpkg --print-architecture)"
