@@ -37,14 +37,30 @@ echo ""
 echo "📊 Checking Core Services..."
 ESSENTIAL_SERVICES=(
     "supervisord"
-    "kasmvncserver"
+    "kasmvncserver:vncserver:tigervncserver"
 )
 
 for service in "${ESSENTIAL_SERVICES[@]}"; do
-    if pgrep -f "$service" > /dev/null; then
-        log_success "$service is running"
+    # Handle multiple possible service names for VNC
+    if [[ "$service" == *":"* ]]; then
+        service_found=false
+        IFS=':' read -ra SERVICE_ALTERNATIVES <<< "$service"
+        for alt_service in "${SERVICE_ALTERNATIVES[@]}"; do
+            if pgrep -f "$alt_service" > /dev/null; then
+                log_success "VNC server ($alt_service) is running"
+                service_found=true
+                break
+            fi
+        done
+        if [ "$service_found" = false ]; then
+            log_critical "VNC server is not running"
+        fi
     else
-        log_critical "$service is not running"
+        if pgrep -f "$service" > /dev/null; then
+            log_success "$service is running"
+        else
+            log_critical "$service is not running"
+        fi
     fi
 done
 

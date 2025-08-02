@@ -6,6 +6,11 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y \
     sudo wget curl gnupg2 apt-transport-https software-properties-common \
     ca-certificates lsb-release htop net-tools unzip locales netcat-openbsd \
+    # X11 and VNC essential dependencies
+    xvfb xauth x11-xserver-utils x11-utils x11-xkb-utils xkb-data \
+    fonts-liberation dbus-x11 libjpeg-turbo8 libwebp7 libssl3 libpng16-16 \
+    zlib1g libxrandr2 libxtst6 libxfixes3 libxdamage1 libfontconfig1 \
+    # KDE Desktop Environment
     kde-plasma-desktop dolphin kate okular konsole \
     openbox tint2 xterm \
     libreoffice vlc gimp inkscape plank \
@@ -167,6 +172,8 @@ COPY setup-video-editing.sh /usr/local/bin/setup-video-editing.sh
 COPY setup-ttyd.sh /usr/local/bin/setup-ttyd.sh
 COPY start-dbus-first.sh /usr/local/bin/start-dbus-first.sh
 COPY start-vnc-robust.sh /usr/local/bin/start-vnc-robust.sh
+COPY check-vnc-health.sh /usr/local/bin/check-vnc-health.sh
+COPY enhanced-health-check.sh /usr/local/bin/enhanced-health-check.sh
 COPY service-health.sh /usr/local/bin/service-health.sh
 COPY test-desktop-audio.sh /usr/local/bin/test-desktop-audio.sh
 COPY audio-validation.sh /usr/local/bin/audio-validation.sh
@@ -178,6 +185,8 @@ COPY test-polkit.sh /usr/local/bin/test-polkit.sh
 RUN chmod +x /usr/local/bin/setup-*.sh \
     /usr/local/bin/start-dbus-first.sh \
     /usr/local/bin/start-vnc-robust.sh \
+    /usr/local/bin/check-vnc-health.sh \
+    /usr/local/bin/enhanced-health-check.sh \
     /usr/local/bin/service-health.sh \
     /usr/local/bin/test-desktop-audio.sh \
     /usr/local/bin/audio-monitor.sh \
