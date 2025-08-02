@@ -256,9 +256,9 @@ RUN mkdir -p /etc/polkit-1/localauthority.conf.d /etc/polkit-1/rules.d /var/lib/
 RUN ln -sf /usr/lib/x86_64-linux-gnu/libexec/polkit-kde-authentication-agent-1 /usr/lib/polkit-kde-authentication-agent-1 && \
     sed -i 's@^Exec=.*@Exec=/usr/lib/polkit-kde-authentication-agent-1@' /etc/xdg/autostart/polkit-kde-authentication-agent-1.desktop
 
-COPY xstartup /tmp/xstartup
+COPY xstartup /usr/local/share/xstartup
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh /tmp/xstartup
+RUN chmod +x /entrypoint.sh /usr/local/share/xstartup
 
 ENTRYPOINT ["/entrypoint.sh"]
 
