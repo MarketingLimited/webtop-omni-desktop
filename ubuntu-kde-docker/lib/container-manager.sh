@@ -192,15 +192,20 @@ show_status() {
     done
 }
 
+# Determine active container name
+get_active_container() {
+    if docker ps --format '{{.Names}}' | grep -q '^webtop-kde-dev$'; then
+        echo "webtop-kde-dev"
+    elif docker ps --format '{{.Names}}' | grep -q '^webtop-kde-prod$'; then
+        echo "webtop-kde-prod"
+    else
+        echo "webtop-kde"
+    fi
+}
+
 # Access container shell
 access_shell() {
-    local container_name="webtop-kde"
-    if docker ps --format "table {{.Names}}" | grep -q "webtop-kde-dev"; then
-        container_name="webtop-kde-dev"
-    elif docker ps --format "table {{.Names}}" | grep -q "webtop-kde-prod"; then
-        container_name="webtop-kde-prod"
-    fi
-    
+    local container_name=$(get_active_container)
     print_status "Accessing container shell: $container_name"
     docker exec -it "$container_name" /bin/bash
 }
@@ -220,11 +225,7 @@ open_web() {
 # Development setup
 dev_setup() {
     print_status "Setting up development environment..."
-    local container_name="webtop-kde"
-    if docker ps --format "table {{.Names}}" | grep -q "webtop-kde-dev"; then
-        container_name="webtop-kde-dev"
-    fi
-    
+    local container_name=$(get_active_container)
     docker exec -it "$container_name" /usr/local/bin/setup-development.sh
     print_success "Development environment configured!"
 }
@@ -232,11 +233,7 @@ dev_setup() {
 # Wine setup
 wine_setup() {
     print_status "Setting up Wine for Windows applications..."
-    local container_name="webtop-kde"
-    if docker ps --format "table {{.Names}}" | grep -q "webtop-kde-dev"; then
-        container_name="webtop-kde-dev"
-    fi
-    
+    local container_name=$(get_active_container)
     docker exec -it "$container_name" /usr/local/bin/setup-wine.sh
     print_success "Wine environment configured!"
 }
@@ -244,11 +241,7 @@ wine_setup() {
 # Android setup
 android_setup() {
     print_status "Setting up Android/Waydroid environment..."
-    local container_name="webtop-kde"
-    if docker ps --format "table {{.Names}}" | grep -q "webtop-kde-dev"; then
-        container_name="webtop-kde-dev"
-    fi
-    
+    local container_name=$(get_active_container)
     docker exec -it "$container_name" /usr/local/bin/setup-waydroid.sh
     print_success "Android environment configured!"
 }
@@ -256,11 +249,7 @@ android_setup() {
 # Video editing setup
 video_setup() {
     print_status "Setting up video editing tools..."
-    local container_name="webtop-kde"
-    if docker ps --format "table {{.Names}}" | grep -q "webtop-kde-dev"; then
-        container_name="webtop-kde-dev"
-    fi
-    
+    local container_name=$(get_active_container)
     docker exec -it "$container_name" /usr/local/bin/setup-video-editing.sh
     print_success "Video editing environment configured!"
 }
@@ -274,11 +263,7 @@ monitor_resources() {
 # Health check
 health_check() {
     print_status "Performing health check..."
-    local container_name="webtop-kde"
-    if docker ps --format "table {{.Names}}" | grep -q "webtop-kde-dev"; then
-        container_name="webtop-kde-dev"
-    fi
-    
+    local container_name=$(get_active_container)
     if docker exec "$container_name" /usr/local/bin/health-check.sh; then
         print_success "Health check passed!"
     else
