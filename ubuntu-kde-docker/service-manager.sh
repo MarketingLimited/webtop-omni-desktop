@@ -8,15 +8,16 @@ LOG_FILE="/var/log/service-manager.log"
 METRICS_FILE="/tmp/service-metrics.txt"
 RECOVERY_STATE_FILE="/tmp/service-recovery-state.txt"
 
-# Service groups configuration
+# Service groups configuration (names must match supervisord programs)
 declare -A SERVICE_GROUPS=(
     [core]="dbus"
-    [audio]="pulseaudio AudioValidation CreateVirtualAudioDevices AudioMonitor AudioBridge"
-    [remote]="KasmVNC sshd ttyd"
-    [monitoring]="ServiceHealth SystemValidation"
-    [setup]="SetupDesktop"
+    [audio]="pulseaudio audiovalidation audiomonitor"
+    [remote]="kasmvnc sshd ttyd"
+    [setup]="setupdesktop"
+    [monitoring]="servicehealth systemvalidation"
 )
 
+# Group priorities for ordered operations
 declare -A SERVICE_PRIORITIES=(
     [core]=10
     [audio]=25
@@ -24,6 +25,13 @@ declare -A SERVICE_PRIORITIES=(
     [setup]=50
     [monitoring]=55
 )
+
+# Return service groups sorted by priority
+sorted_groups() {
+    for group in "${!SERVICE_GROUPS[@]}"; do
+        printf "%d:%s\n" "${SERVICE_PRIORITIES[$group]:-999}" "$group"
+    done | sort -n | cut -d: -f2
+}
 
 # Logging function with levels
 log_manager() {
@@ -35,7 +43,8 @@ log_manager() {
 # Get service status with detailed information
 get_service_status() {
     local service="$1"
-    local status_line=$(supervisorctl status "$service" 2>/dev/null || echo "NOT_FOUND")
+    local status_line
+    status_line=$(supervisorctl status "$service" 2>/dev/null || echo "NOT_FOUND")
     
     if [[ "$status_line" == "NOT_FOUND" ]]; then
         echo "NOT_FOUND"
@@ -66,7 +75,8 @@ start_service_group() {
     local failed_services=()
     
     for service in $services; do
-        local status=$(get_service_status "$service")
+        local status
+        status=$(get_service_status "$service")
         
         if [[ "$status" != "RUNNING" ]]; then
             log_manager "INFO" "Starting service: $service (current status: $status)"
@@ -74,7 +84,8 @@ start_service_group() {
             if supervisorctl start "$service" >/dev/null 2>&1; then
                 # Wait for service to stabilize
                 sleep 2
-                local new_status=$(get_service_status "$service")
+                local new_status
+                new_status=$(get_service_status "$service")
                 
                 if [[ "$new_status" == "RUNNING" ]]; then
                     log_manager "INFO" "Successfully started: $service"
@@ -113,10 +124,12 @@ stop_service_group() {
     local services="${SERVICE_GROUPS[$group]}"
     
     # Stop services in reverse order
-    local reversed_services=$(echo $services | tr ' ' '\n' | tac | tr '\n' ' ')
+    local reversed_services
+    reversed_services=$(echo "$services" | tr ' ' '\n' | tac | tr '\n' ' ')
     
     for service in $reversed_services; do
-        local status=$(get_service_status "$service")
+        local status
+        status=$(get_service_status "$service")
         
         if [[ "$status" == "RUNNING" ]]; then
             log_manager "INFO" "Stopping service: $service"
@@ -151,7 +164,8 @@ get_health_score() {
         
         for service in $services; do
             total_services=$((total_services + 1))
-            local status=$(get_service_status "$service")
+            local status
+            status=$(get_service_status "$service")
             
             if [[ "$status" == "RUNNING" ]]; then
                 running_services=$((running_services + 1))
@@ -183,35 +197,35 @@ get_health_score() {
 
 # Generate comprehensive status report
 generate_status_report() {
-    local health_score=$(get_health_score)
+    local health_score
+    health_score=$(get_health_score)
     
     log_manager "INFO" "=== SYSTEM STATUS REPORT ==="
     log_manager "INFO" "Health Score: $health_score/100"
-    
-    for group in core audio desktop remote monitoring setup; do
-        if [[ -n "${SERVICE_GROUPS[$group]:-}" ]]; then
-            local services="${SERVICE_GROUPS[$group]}"
-            local group_status="HEALTHY"
-            local running_count=0
-            local total_count=0
-            
-            log_manager "INFO" "--- $group Group ---"
-            
-            for service in $services; do
-                total_count=$((total_count + 1))
-                local status=$(get_service_status "$service")
-                
-                if [[ "$status" == "RUNNING" ]]; then
-                    running_count=$((running_count + 1))
-                    log_manager "INFO" "  ✅ $service: $status"
-                else
-                    group_status="DEGRADED"
-                    log_manager "WARN" "  ❌ $service: $status"
-                fi
-            done
-            
-            log_manager "INFO" "  Group Status: $group_status ($running_count/$total_count running)"
-        fi
+
+    for group in $(sorted_groups); do
+        local services="${SERVICE_GROUPS[$group]}"
+        local group_status="HEALTHY"
+        local running_count=0
+        local total_count=0
+
+        log_manager "INFO" "--- $group Group ---"
+
+        for service in $services; do
+            total_count=$((total_count + 1))
+            local status
+            status=$(get_service_status "$service")
+
+            if [[ "$status" == "RUNNING" ]]; then
+                running_count=$((running_count + 1))
+                log_manager "INFO" "  ✅ $service: $status"
+            else
+                group_status="DEGRADED"
+                log_manager "WARN" "  ❌ $service: $status"
+            fi
+        done
+
+        log_manager "INFO" "  Group Status: $group_status ($running_count/$total_count running)"
     done
     
     # Update metrics file
@@ -249,12 +263,13 @@ auto_recovery() {
     # Identify failed service groups and restart them
     local groups_restarted=false
     
-    for group in core audio desktop remote; do
+    for group in core audio remote; do
         local services="${SERVICE_GROUPS[$group]}"
         local has_failed=false
         
         for service in $services; do
-            local status=$(get_service_status "$service")
+            local status
+            status=$(get_service_status "$service")
             if [[ "$status" == "FATAL" ]] || [[ "$status" == "BACKOFF" ]]; then
                 has_failed=true
                 break
@@ -281,8 +296,7 @@ main() {
             if [[ -n "${2:-}" ]]; then
                 start_service_group "$2"
             else
-                # Start all groups in priority order
-                for group in core audio desktop remote setup monitoring; do
+                for group in $(sorted_groups); do
                     start_service_group "$group"
                     sleep 2
                 done
@@ -292,8 +306,7 @@ main() {
             if [[ -n "${2:-}" ]]; then
                 stop_service_group "$2"
             else
-                # Stop all groups in reverse priority order
-                for group in monitoring setup remote desktop audio core; do
+                for group in $(sorted_groups | tac); do
                     stop_service_group "$group"
                     sleep 1
                 done
