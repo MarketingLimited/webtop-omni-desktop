@@ -1,9 +1,13 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Ubuntu KDE Marketing Agency Docker Environment Installation Script
 # This script automates the setup and installation process
 
-set -e
+set -euo pipefail
+
+# Determine script directory and operate from it
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+cd "$SCRIPT_DIR"
 
 # Colors for output
 RED='\033[0;31m'
@@ -20,6 +24,8 @@ print_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
 print_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
 print_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
+trap 'print_error "Installation failed on line $LINENO"' ERR
+
 print_header() {
     echo -e "${PURPLE}
 ╔══════════════════════════════════════════════════════════════╗
@@ -31,27 +37,29 @@ print_header() {
 # Check system requirements
 check_system_requirements() {
     print_status "Checking system requirements..."
-    
+
     # Check if running as root
     if [[ $EUID -eq 0 ]]; then
         print_warning "Running as root. This is not recommended for Docker."
     fi
-    
+
     # Check available disk space (require at least 10GB)
-    available_space=$(df . | awk 'NR==2 {print $4}')
-    required_space=$((10 * 1024 * 1024)) # 10GB in KB
-    
+    local available_space
+    available_space=$(df --output=avail -k . | tail -n1)
+    local required_space=$((10 * 1024 * 1024)) # 10GB in KB
+
     if [ "$available_space" -lt "$required_space" ]; then
-        print_error "Insufficient disk space. Required: 10GB, Available: $(($available_space / 1024 / 1024))GB"
+        print_error "Insufficient disk space. Required: 10GB, Available: $((available_space / 1024 / 1024))GB"
         exit 1
     fi
-    
+
     # Check memory (require at least 4GB)
+    local total_memory
     total_memory=$(free -m | awk 'NR==2{print $2}')
     if [ "$total_memory" -lt 4096 ]; then
         print_warning "Low memory detected: ${total_memory}MB. Recommended: 8GB+"
     fi
-    
+
     print_success "System requirements check completed"
 }
 
@@ -97,18 +105,10 @@ check_docker_installation() {
 # Setup permissions
 setup_permissions() {
     print_status "Setting up file permissions..."
-    
+
     # Make all shell scripts executable
-    find . -name "*.sh" -type f -exec chmod +x {} \;
-    
-    # Make specific files executable (in case find missed any)
-    chmod +x webtop.sh 2>/dev/null || true
-    chmod +x install.sh 2>/dev/null || true
-    chmod +x fix-permissions.sh 2>/dev/null || true
-    chmod +x entrypoint.sh 2>/dev/null || true
-    chmod +x health-check.sh 2>/dev/null || true
-    chmod +x setup-*.sh 2>/dev/null || true
-    
+    find . -type f -name "*.sh" -exec chmod +x {} \;
+
     print_success "File permissions configured"
 }
 
