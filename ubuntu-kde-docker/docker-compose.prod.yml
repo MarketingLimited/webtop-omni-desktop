@@ -16,8 +16,8 @@ services:
     env_file:
       - .env.production
     environment:
-      - ENV_KASMVNC_PORT=80
-      - ENV_KASMVNC_VNC_PORT=5901
+      - KASMVNC_PORT=80
+      - KASMVNC_VNC_PORT=5901
     volumes:
       - production_config:/config
       - production_logs:/var/log/supervisor

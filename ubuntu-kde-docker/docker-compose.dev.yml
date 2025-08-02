@@ -18,8 +18,8 @@ services:
     env_file:
       - .env
     environment:
-      - ENV_KASMVNC_PORT=80
-      - ENV_KASMVNC_VNC_PORT=5901
+      - KASMVNC_PORT=80
+      - KASMVNC_VNC_PORT=5901
     volumes:
       - ./dev_config:/config
       - ./logs:/var/log/supervisor
