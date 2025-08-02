@@ -237,8 +237,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends accountsservice
 
 # Create default PolicyKit configuration directories and files for Ubuntu 24.04
 # Copy PolicyKit configurations to address Ubuntu 24.04 issues
-COPY polkit-localauthority.conf /etc/polkit-1/localauthority.conf.d/50-localauthority.conf
-COPY polkit-dbus.conf /usr/share/dbus-1/system-services/org.freedesktop.PolicyKit1.conf
+COPY 50-localauthority.conf /etc/polkit-1/localauthority.conf.d/50-localauthority.conf
+COPY polkit-dbus.conf /etc/dbus-1/system.d/org.freedesktop.PolicyKit1.conf
 COPY org.freedesktop.PolicyKit1.service /usr/share/dbus-1/system-services/org.freedesktop.PolicyKit1.service
 COPY 99-devuser-all.rules /etc/polkit-1/rules.d/99-devuser-all.rules
 COPY 10-vendor.d-admin.rules /etc/polkit-1/rules.d/10-vendor.d-admin.rules
