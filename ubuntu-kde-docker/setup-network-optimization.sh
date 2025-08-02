@@ -5,12 +5,9 @@ set -euo pipefail
 echo "🌐 Implementing network and streaming optimizations..."
 
 # Environment variables with defaults
-NETWORK_PROFILE="${NETWORK_PROFILE:-balanced}"
 QOS_ENABLED="${QOS_ENABLED:-true}"
 ADAPTIVE_STREAMING="${ADAPTIVE_STREAMING:-true}"
 BANDWIDTH_OPTIMIZATION="${BANDWIDTH_OPTIMIZATION:-true}"
-
-echo "🚀 Network Profile: $NETWORK_PROFILE"
 
 # TCP Optimization for Streaming
 optimize_tcp_streaming() {
@@ -200,6 +197,7 @@ assess_connection_quality() {
 adapt_quality() {
     local quality_score="$1"
     local new_quality=$current_quality
+    echo "$quality_score" > /tmp/connection_quality
     
     if [ "$quality_score" -gt 80 ]; then
         # Excellent connection - increase quality
