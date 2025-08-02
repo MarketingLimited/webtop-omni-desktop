@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 echo "🩺 Enhanced Ubuntu KDE Marketing Agency WebTop Health Check"
 
@@ -10,12 +10,12 @@ WARNING_ISSUES=0
 # Function to log issues
 log_critical() {
     echo "❌ CRITICAL: $1"
-    ((CRITICAL_ISSUES++))
+    ((CRITICAL_ISSUES++)) || true
 }
 
 log_warning() {
     echo "⚠️  WARNING: $1"
-    ((WARNING_ISSUES++))
+    ((WARNING_ISSUES++)) || true
 }
 
 log_success() {
@@ -24,6 +24,18 @@ log_success() {
 
 log_info() {
     echo "ℹ️  $1"
+}
+
+# Determine if a network port is listening using ss or netstat
+port_listening() {
+    local port="$1"
+    if command -v ss >/dev/null 2>&1; then
+        ss -tln | grep -q ":$port "
+    elif command -v netstat >/dev/null 2>&1; then
+        netstat -tln 2>/dev/null | grep -q ":$port "
+    else
+        return 1
+    fi
 }
 
 # Check D-Bus status
@@ -155,7 +167,7 @@ OPTIONAL_PORTS=(
 for port_info in "${ESSENTIAL_PORTS[@]}"; do
     port=${port_info%%:*}
     service=${port_info##*:}
-    if netstat -tln 2>/dev/null | grep -q ":$port "; then
+    if port_listening "$port"; then
         log_success "Port $port ($service) is listening"
     else
         log_critical "Port $port ($service) is not listening"
@@ -165,7 +177,7 @@ done
 for port_info in "${OPTIONAL_PORTS[@]}"; do
     port=${port_info%%:*}
     service=${port_info##*:}
-    if netstat -tln 2>/dev/null | grep -q ":$port "; then
+    if port_listening "$port"; then
         log_success "Port $port ($service) is listening"
     else
         log_warning "Port $port ($service) is not listening"
@@ -175,28 +187,28 @@ done
 # Check disk space
 echo ""
 echo "💾 Checking Disk Space..."
-df_output=$(df -h / 2>/dev/null)
-if echo "$df_output" | awk 'NR==2 {if (substr($5,1,length($5)-1) > 90) exit 1}'; then
-    log_success "Disk space OK"
+disk_usage=$(df -P / | awk 'NR==2 {gsub("%","",$5); print $5}')
+if [ "$disk_usage" -gt 90 ]; then
+    log_warning "Disk space usage > 90% ($disk_usage%)"
 else
-    log_warning "Disk space usage > 90%"
+    log_success "Disk space OK ($disk_usage%)"
 fi
 
 # Check memory usage
 echo ""
 echo "🧠 Checking Memory Usage..."
-memory_usage=$(free | awk 'NR==2{printf "%.1f", $3*100/$2}')
-if (( $(echo "$memory_usage > 90.0" | bc -l) )); then
-    log_warning "Memory usage > 90% ($memory_usage%)"
+memory_usage=$(awk '/MemTotal/ {total=$2} /MemAvailable/ {avail=$2} END {printf "%d", (total-avail)*100/total}' /proc/meminfo)
+if [ "$memory_usage" -gt 90 ]; then
+    log_warning "Memory usage > 90% (${memory_usage}%)"
 else
-    log_success "Memory usage OK ($memory_usage%)"
+    log_success "Memory usage OK (${memory_usage}%)"
 fi
 
 # Check supervisor status
 echo ""
 echo "👥 Checking Supervisor Status..."
 if command -v supervisorctl >/dev/null 2>&1; then
-    supervisor_status=$(supervisorctl status 2>/dev/null | grep -v RUNNING | wc -l)
+    supervisor_status=$(supervisorctl status 2>/dev/null | grep -v RUNNING | wc -l || true)
     if [ "$supervisor_status" -gt 0 ]; then
         log_warning "$supervisor_status supervisor programs not running"
         log_info "Running: supervisorctl status"
