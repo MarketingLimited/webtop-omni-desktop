@@ -1,16 +1,28 @@
 #!/bin/bash
+set -euo pipefail
 
 # Service Health Check Script for Marketing Agency WebTop
 # Provides service status monitoring and reporting
 
 # Configuration
-HEALTH_CHECK_INTERVAL=${HEALTH_CHECK_INTERVAL:-300}
-LOG_FILE="/var/log/supervisor/service-health.log"
-STATE_FILE="/tmp/service-health-state.txt"
-LAST_REPORT_FILE="/tmp/last-health-report.txt"
+readonly HEALTH_CHECK_INTERVAL="${HEALTH_CHECK_INTERVAL:-300}"
+readonly LOG_FILE="/var/log/supervisor/service-health.log"
+readonly STATE_FILE="/tmp/service-health-state.txt"
+
+# Services to monitor: "Name:check_command"
+readonly -a SERVICES=(
+    "supervisord:pgrep -f supervisord"
+    "D-Bus:check_dbus"
+    "KDE:check_kde"
+    "PulseAudio:check_pulseaudio"
+    "KasmVNC:check_vnc"
+    "TTYD:check_ttyd"
+    "SSH:check_ssh"
+)
 
 # Utility functions
 health_log() {
+    mkdir -p "$(dirname "$LOG_FILE")"
     echo "$(date '+%Y-%m-%d %H:%M:%S') [SERVICE-HEALTH] $1" | tee -a "$LOG_FILE"
 }
 
@@ -118,18 +130,8 @@ check_service_dependencies() {
 # Service status reporting
 generate_status_report() {
     health_log "📊 Generating service status report..."
-    
-    local services=(
-        "supervisord:pgrep -f supervisord"
-        "D-Bus:check_dbus"
-        "KDE:check_kde"
-        "PulseAudio:check_pulseaudio"
-        "KasmVNC:check_vnc"
-        "TTYD:check_ttyd"
-        "SSH:check_ssh"
-    )
-    
-    for service_info in "${services[@]}"; do
+
+    for service_info in "${SERVICES[@]}"; do
         local service_name="${service_info%%:*}"
         local check_cmd="${service_info##*:}"
         
@@ -141,10 +143,20 @@ generate_status_report() {
     done
 }
 
+# Determine if a port is listening
+port_listening() {
+    local port="$1"
+    if command -v ss >/dev/null 2>&1; then
+        ss -tuln | grep -q ":$port "
+    else
+        netstat -tuln 2>/dev/null | grep -q ":$port "
+    fi
+}
+
 # Port status checking
 check_port_status() {
     health_log "🌐 Checking port status..."
-    
+
     local ports=(
         "80:KasmVNC Web Interface"
         "5901:VNC Server"
@@ -152,12 +164,12 @@ check_port_status() {
         "22:SSH Server"
         "4713:PulseAudio TCP"
     )
-    
+
     for port_info in "${ports[@]}"; do
         local port="${port_info%%:*}"
         local description="${port_info##*:}"
-        
-        if netstat -tuln 2>/dev/null | grep -q ":$port "; then
+
+        if port_listening "$port"; then
             health_log "✅ Port $port ($description): LISTENING"
         else
             health_log "❌ Port $port ($description): NOT LISTENING"
@@ -200,18 +212,8 @@ smart_monitor() {
 
 # Generate hash of current service states
 generate_service_state_hash() {
-    local services=(
-        "supervisord:pgrep -f supervisord"
-        "D-Bus:check_dbus"
-        "KDE:check_kde"
-        "PulseAudio:check_pulseaudio"
-        "KasmVNC:check_vnc"
-        "TTYD:check_ttyd"
-        "SSH:check_ssh"
-    )
-    
     local state_string=""
-    for service_info in "${services[@]}"; do
+    for service_info in "${SERVICES[@]}"; do
         local check_cmd="${service_info##*:}"
         if eval "$check_cmd" > /dev/null 2>&1; then
             state_string="${state_string}1"
