@@ -1,7 +1,16 @@
 #!/bin/bash
 set -euo pipefail
 
-echo "🚀 Starting Ubuntu KDE Marketing Agency WebTop..."
+# Logging functions
+log_info() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') [INFO] $*"
+}
+
+log_warn() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') [WARN] $*" >&2
+}
+
+log_info "🚀 Starting Ubuntu KDE Marketing Agency WebTop..."
 
 # Default credentials and IDs can be overridden via environment variables
 : "${DEV_USERNAME:=devuser}"
@@ -20,25 +29,12 @@ export DEV_USERNAME DEV_PASSWORD DEV_UID DEV_GID \
        ADMIN_USERNAME ADMIN_PASSWORD ROOT_PASSWORD \
        TTYD_USER TTYD_PASSWORD ENABLE_GOOGLE_ADS_EDITOR
 
-# Logging function
-log_info() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') [INFO] $*"
-}
-
-log_error() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') [ERROR] $*" >&2
-}
-
-log_warn() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') [WARN] $*" >&2
-}
-
 # Initialize system directories
-mkdir -p /var/run/dbus "/run/user/${DEV_UID}" /tmp/.ICE-unix /tmp/.X11-unix
+mkdir -p /var/run/dbus /tmp/.ICE-unix /tmp/.X11-unix
 # /tmp/.X11-unix may be mounted read-only by the host. Avoid failing if chmod
 # cannot modify permissions.
 chmod 1777 /tmp/.ICE-unix /tmp/.X11-unix 2>/dev/null || \
-  echo "⚠️  Warning: unable to set permissions on /tmp/.X11-unix"
+  log_warn "Unable to set permissions on /tmp/.X11-unix"
 
 # Replace default username in polkit rule if different
 if [ -f /etc/polkit-1/rules.d/99-devuser-all.rules ]; then
@@ -48,11 +44,12 @@ fi
 # Update root password if provided
 if [ -n "$ROOT_PASSWORD" ]; then
     echo "root:${ROOT_PASSWORD}" | chpasswd
+    log_info "Root password configured from environment variable"
 else
     # Generate a random password for root if not provided
     RANDOM_PASSWORD=$(openssl rand -base64 12)
     echo "root:${RANDOM_PASSWORD}" | chpasswd
-    echo "Root password set to: ${RANDOM_PASSWORD}"
+    log_info "Generated random root password"
 fi
 
 # Create missing system users that D-Bus might reference
@@ -65,7 +62,10 @@ getent group polkitd >/dev/null || groupadd -r polkitd
 getent passwd polkitd >/dev/null || useradd -r -g polkitd -s /sbin/nologin polkitd
 
 # Create basic polkit directories and configuration
-mkdir -p /var/lib/polkit-1/localauthority /etc/polkit-1/localauthority.conf.d /etc/dbus-1/system.d
+mkdir -p /var/lib/polkit-1/localauthority \
+         /etc/polkit-1/localauthority.conf.d \
+         /etc/polkit-1/rules.d \
+         /etc/dbus-1/system.d
 
 # Create messagebus user for D-Bus if it doesn't exist
 getent group messagebus >/dev/null || groupadd -r messagebus
@@ -78,7 +78,6 @@ fi
 chmod 4755 /usr/lib/policykit-1/polkit-agent-helper-1 2>/dev/null || true
 
 # Create missing PolicyKit config files for Ubuntu 24.04 bug fix
-mkdir -p /etc/polkit-1/localauthority.conf.d /etc/polkit-1/rules.d /var/lib/polkit-1/localauthority
 cp -f /tmp/polkit-localauthority.conf /etc/polkit-1/localauthority.conf.d/51-ubuntu-admin.conf 2>/dev/null || true
 cp -f /tmp/polkit-dbus.conf /etc/dbus-1/system.d/org.freedesktop.PolicyKit1.conf 2>/dev/null || true
 
@@ -143,50 +142,43 @@ chown "${DEV_USERNAME}":"${DEV_USERNAME}" "/run/user/${DEV_UID}"
 chmod 700 "/run/user/${DEV_UID}"
 export XDG_RUNTIME_DIR="/run/user/${DEV_UID}"
 
-# Register user with AccountsService
-
-# D-Bus will be managed by supervisor, just ensure directory exists
-echo "🔧 Preparing D-Bus directories..."
-mkdir -p /run/dbus
-echo "✅ D-Bus directories prepared"
-
 # Set up audio system before other services
 log_info "Setting up audio system..."
 if [ -f "/usr/local/bin/setup-audio.sh" ]; then
     /usr/local/bin/setup-audio.sh
-    echo "✅ Audio system setup completed"
+    log_info "Audio system setup completed"
     
     # Apply runtime audio fixes after user creation
     if [ -f "/usr/local/bin/fix-audio-startup.sh" ]; then
         /usr/local/bin/fix-audio-startup.sh
-        echo "✅ Audio startup configuration completed"
+        log_info "Audio startup configuration completed"
     fi
     
     # Schedule audio validation after services start
     if [ -f "/usr/local/bin/audio-validation.sh" ]; then
         chmod +x /usr/local/bin/audio-validation.sh
-        echo "✅ Audio validation scheduled"
+        log_info "Audio validation script prepared"
     fi
 else
-    echo "⚠️  Audio setup script not found"
+    log_warn "Audio setup script not found"
 fi
 
 # Set up TTYD terminal service
 log_info "Setting up TTYD terminal service..."
 if [ -f "/usr/local/bin/setup-ttyd.sh" ]; then
     /usr/local/bin/setup-ttyd.sh
-    echo "✅ TTYD setup completed"
+    log_info "TTYD setup completed"
 else
-    echo "⚠️  TTYD setup script not found"
+    log_warn "TTYD setup script not found"
 fi
 
 # Set up desktop audio integration testing
 log_info "Setting up desktop audio integration..."
 if [ -f "/usr/local/bin/test-desktop-audio.sh" ]; then
     chmod +x /usr/local/bin/test-desktop-audio.sh
-    echo "✅ Desktop audio integration testing setup completed"
+    log_info "Desktop audio integration testing setup completed"
 else
-    echo "⚠️  Desktop audio integration script not found"
+    log_warn "Desktop audio integration script not found"
 fi
 
 # Generate SSH host keys if they don't exist
