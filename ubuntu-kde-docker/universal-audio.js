@@ -14,6 +14,7 @@
             this.websocket = null;
             this.gainNode = null;
             this.isConnected = false;
+            this.isConnecting = false;
             this.autoConnectEnabled = !localStorage.getItem('audio-disabled');
             this.hasUserInteracted = false;
             this.retryCount = 0;
@@ -326,6 +327,9 @@
             // Restore saved volume
             const savedVolume = localStorage.getItem('audio-volume') || '50';
             this.elements.volumeSlider.value = savedVolume;
+
+            // Clean up connection when page is closed
+            window.addEventListener('beforeunload', () => this.disconnectAudio());
         }
 
         setupAutoConnect() {
@@ -343,7 +347,6 @@
 
         async checkAudioBridge() {
             try {
-                // Test multiple potential audio bridge endpoints
                 const endpoints = [
                     '/audio-player.html',
                     `http://${window.location.hostname}:8080`,
@@ -351,17 +354,23 @@
                 ];
 
                 for (const endpoint of endpoints) {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 2000);
                     try {
-                        const response = await fetch(endpoint, { method: 'HEAD', timeout: 2000 });
+                        const response = await fetch(endpoint, {
+                            method: 'HEAD',
+                            signal: controller.signal
+                        });
+                        clearTimeout(timeoutId);
                         if (response.ok) {
                             this.updateStatus('Audio bridge ready', 'ready');
                             return;
                         }
                     } catch (e) {
-                        // Continue to next endpoint
+                        clearTimeout(timeoutId);
                     }
                 }
-                
+
                 this.updateStatus('Audio bridge unavailable', 'error');
             } catch (error) {
                 this.updateStatus('Audio check failed', 'error');
@@ -369,6 +378,8 @@
         }
 
         async connectAudio() {
+            if (this.isConnected || this.isConnecting) return;
+            this.isConnecting = true;
             try {
                 this.updateStatus('Connecting...', 'connecting');
                 this.retryCount = 0;
@@ -393,6 +404,8 @@
                 console.error('Audio connection failed:', error);
                 this.updateStatus('Connection failed', 'error');
                 this.scheduleRetry();
+            } finally {
+                this.isConnecting = false;
             }
         }
 
@@ -461,6 +474,7 @@
                 this.websocket = null;
             }
             this.isConnected = false;
+            this.isConnecting = false;
             this.updateUI();
             this.updateStatus('Audio disconnected', 'disconnected');
         }
@@ -470,22 +484,22 @@
 
             try {
                 const samples = new Int16Array(data);
-                if (samples.length === 0) return;
+                const channelLength = Math.floor(samples.length / 2);
+                if (!channelLength) return;
 
-                const audioBuffer = this.audioContext.createBuffer(2, samples.length / 2, 44100);
+                const audioBuffer = this.audioContext.createBuffer(2, channelLength, 44100);
                 const leftChannel = audioBuffer.getChannelData(0);
                 const rightChannel = audioBuffer.getChannelData(1);
 
-                for (let i = 0; i < samples.length / 2; i++) {
-                    leftChannel[i] = samples[i * 2] / 32768.0;
-                    rightChannel[i] = samples[i * 2 + 1] / 32768.0;
+                for (let i = 0, j = 0; i < channelLength; i++, j += 2) {
+                    leftChannel[i] = samples[j] / 32768;
+                    rightChannel[i] = samples[j + 1] / 32768;
                 }
 
                 const source = this.audioContext.createBufferSource();
                 source.buffer = audioBuffer;
                 source.connect(this.gainNode);
                 source.start();
-                
             } catch (error) {
                 console.warn('Audio processing error:', error);
             }
