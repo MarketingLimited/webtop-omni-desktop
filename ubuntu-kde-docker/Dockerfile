@@ -142,7 +142,7 @@ ENV TTYD_PASSWORD=terminal
 ENV DEV_USERNAME=devuser
 ENV DEV_UID=1000
 ENV DEV_GID=1000
-ENV ENV_KASMVNC_PORT=6901
+ENV ENV_KASMVNC_PORT=80
 ENV ENV_KASMVNC_VNC_PORT=5901
 # Create directories and VNC setup for KasmVNC
 RUN mkdir -p /var/run/sshd /root/.vnc /tmp/.X11-unix && \
