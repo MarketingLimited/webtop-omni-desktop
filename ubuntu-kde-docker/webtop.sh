@@ -139,12 +139,9 @@ initialize_system() {
 
 # Main command handling
 main() {
-    # Initialize system
-    initialize_system
-    
     # Parse arguments to extract --name, --ports, --auth
     parse_args "$@"
-    
+
     # Remove parsed options to get the actual command
     local remaining_args=()
     while [[ $# -gt 0 ]]; do
@@ -161,16 +158,21 @@ main() {
                 ;;
         esac
     done
-    
+
     # Restore remaining arguments
     set -- "${remaining_args[@]}"
-    
-    # Always check Docker first for commands that need it
+
+    # Show help if no command or help flag is provided
     case "$1" in
-        build*|up|start|down|stop|restart|logs|status|shell|monitor*|health|clean|update)
-            check_docker
+        ""|-h|--help|help)
+            show_help
+            return
             ;;
     esac
+
+    # Ensure Docker is available and initialize system resources
+    check_docker
+    initialize_system
     
     case "$1" in
         build)
@@ -225,7 +227,14 @@ main() {
             connect_container "$2"
             ;;
         backup)
-            backup_container "$2"
+            case "$2" in
+                init|full|incremental|restore|list|verify|upload|schedule|auto-full|auto-incremental)
+                    ./scripts/cloud-backup.sh "$2" "$3" "$4" "$5" "$6"
+                    ;;
+                *)
+                    backup_container "$2"
+                    ;;
+            esac
             ;;
         restore)
             restore_container "$2" "$3"
@@ -315,8 +324,10 @@ main() {
             monitor_resources_detailed "$2"
             ;;
         logs)
-            local config=$(get_config "$2")
-            local compose_file=$(get_compose_file "$config")
+            local config
+            config=$(get_config "$2")
+            local compose_file
+            compose_file=$(get_compose_file "$config")
             $DOCKER_COMPOSE_CMD -f "$compose_file" logs -f
             ;;
         status)
@@ -372,16 +383,6 @@ main() {
             ;;
         web-ui)
             python3 scripts/web-interface.py
-            ;;
-        backup)
-            case "$2" in
-                init|full|incremental|restore|list|verify|upload|schedule|auto-full|auto-incremental)
-                    ./scripts/cloud-backup.sh "$2" "$3" "$4" "$5" "$6"
-                    ;;
-                *)
-                    ./scripts/cloud-backup.sh list
-                    ;;
-            esac
             ;;
         config)
             case "$2" in
