@@ -128,14 +128,8 @@ sed -i 's/^%sudo.*/%sudo ALL=(ALL) NOPASSWD:ALL/' /etc/sudoers
 
 # Prepare VNC startup script for dev user
 mkdir -p "/home/${DEV_USERNAME}/.vnc"
-cat <<'XEOF' > "/home/${DEV_USERNAME}/.vnc/xstartup"
-#!/bin/sh
-export XKL_XMODMAP_DISABLE=1
-export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-exec dbus-launch --exit-with-session /usr/bin/startplasma-x11
-XEOF
+install -m 755 /tmp/xstartup "/home/${DEV_USERNAME}/.vnc/xstartup"
 chown -R "${DEV_USERNAME}":"${DEV_USERNAME}" "/home/${DEV_USERNAME}/.vnc"
-chmod +x "/home/${DEV_USERNAME}/.vnc/xstartup"
 
 # XDG runtime directory
 mkdir -p "/run/user/${DEV_UID}"

@@ -74,16 +74,7 @@ export XAUTHORITY=/root/.Xauthority
 mkdir -p /root/.vnc
 if [ ! -f /root/.vnc/xstartup ]; then
     echo "🔧 Creating VNC xstartup script..."
-    cat > /root/.vnc/xstartup << 'EOF'
-#!/bin/sh
-export XKL_XMODMAP_DISABLE=1
-export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-export DISPLAY=:1
-unset SESSION_MANAGER
-unset DBUS_SESSION_BUS_ADDRESS
-exec dbus-launch --exit-with-session /usr/bin/startplasma-x11
-EOF
-    chmod +x /root/.vnc/xstartup
+    install -m 755 /tmp/xstartup /root/.vnc/xstartup
 fi
 
 # 6. Start the VNC server
