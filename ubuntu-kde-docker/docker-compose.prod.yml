@@ -9,17 +9,10 @@ services:
       - "80:80"       # KasmVNC (behind reverse proxy)
       - "443:443"     # HTTPS (behind reverse proxy)
       - "2222:22"     # SSH
+      - "7681:7681"   # ttyd terminal
       - "8080:8080"   # Audio Bridge
       - "4713:4713"   # PulseAudio
-      - "8082:8082"   # Enhanced Clipboard
-      - "8083:8083"   # File Transfer
-      - "8084:8084"   # Monitor API
-      - "8085:8085"   # Recording API
-      - "8086:8086"   # Performance Profiles
-      - "8087:8087"   # Workflow Automation
-      - "8088:8088"   # Cloud Integration
-      - "8089:8089"   # AI Assistant
-      - "8090:8090"   # Collaboration Hub
+      - "5555:5555"   # ADB for Android
     env_file:
       - .env.production
     environment:
