@@ -2,7 +2,7 @@
 # System-wide validation script for Ubuntu KDE Docker container
 # Validates all services and components after startup
 
-set -e
+set -euo pipefail
 
 DEV_USERNAME="${DEV_USERNAME:-devuser}"
 VALIDATION_LOG="/var/log/system-validation.log"
@@ -10,17 +10,20 @@ REPORT_FILE="/tmp/system-validation-report.txt"
 CACHE_FILE="/tmp/validation-cache.txt"
 OPTIMIZED_MODE=false
 
-# Color functions for output
-red() { echo -e "\033[31m$1\033[0m"; }
-green() { echo -e "\033[32m$1\033[0m"; }
-yellow() { echo -e "\033[33m$1\033[0m"; }
+# Determine available socket listing command
+SOCKET_CMD=(ss -ltn)
+if ! command -v ss >/dev/null 2>&1; then
+    SOCKET_CMD=(netstat -ln)
+fi
+
+# Color function for output
 blue() { echo -e "\033[34m$1\033[0m"; }
 
 # Logging function with level support
 log_validation() {
     local level="${2:-INFO}"
     if [ "$OPTIMIZED_MODE" = "false" ] || [ "$level" = "ERROR" ] || [ "$level" = "WARN" ]; then
-        echo "$(date '+%Y-%m-%d %H:%M:%S') [$level] [VALIDATION] $1" | tee -a "$VALIDATION_LOG"
+        printf '%s [%s] [VALIDATION] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$level" "$1" | tee -a "$VALIDATION_LOG" >/dev/null || true
     fi
 }
 
@@ -50,13 +53,19 @@ add_result() {
     local component="$1"
     local status="$2"
     local details="$3"
-    
-    if [ "$status" = "PASS" ]; then
-        echo "✅ $component: PASSED" >> "$REPORT_FILE"
-    else
-        echo "❌ $component: FAILED" >> "$REPORT_FILE"
-    fi
-    
+
+    case "$status" in
+        PASS)
+            echo "✅ $component: PASSED" >> "$REPORT_FILE"
+            ;;
+        PARTIAL)
+            echo "⚠️  $component: PARTIAL" >> "$REPORT_FILE"
+            ;;
+        *)
+            echo "❌ $component: FAILED" >> "$REPORT_FILE"
+            ;;
+    esac
+
     if [ -n "$details" ]; then
         echo "   Details: $details" >> "$REPORT_FILE"
     fi
@@ -74,8 +83,10 @@ validate_audio() {
     fi
     
     # Check for virtual audio devices
-    local sink_count=$(runuser -l "$DEV_USERNAME" -c 'pactl list sinks short 2>/dev/null | wc -l' || echo "0")
-    local source_count=$(runuser -l "$DEV_USERNAME" -c 'pactl list sources short 2>/dev/null | wc -l' || echo "0")
+    local sink_count
+    sink_count=$(runuser -l "$DEV_USERNAME" -c 'pactl list sinks short 2>/dev/null | wc -l' || echo "0")
+    local source_count
+    source_count=$(runuser -l "$DEV_USERNAME" -c 'pactl list sources short 2>/dev/null | wc -l' || echo "0")
     
     if [ "$sink_count" -gt 0 ] && [ "$source_count" -gt 0 ]; then
         add_result "Audio System" "PASS" "PulseAudio running with $sink_count sinks and $source_count sources"
@@ -98,7 +109,7 @@ validate_ttyd() {
     fi
     
     # Check if port 7681 is listening
-    if ! netstat -ln | grep -q ":7681 "; then
+    if ! "${SOCKET_CMD[@]}" | grep -q ":7681 "; then
         add_result "TTYD Web Terminal" "FAIL" "Port 7681 not listening"
         return 1
     fi
@@ -124,7 +135,7 @@ validate_vnc() {
     fi
     
     # Check KasmVNC web interface (port 80)
-    if ! netstat -ln | grep -q ":80 "; then
+    if ! "${SOCKET_CMD[@]}" | grep -q ":80 "; then
         add_result "VNC Services" "FAIL" "KasmVNC port 80 not listening"
         return 1
     fi
@@ -142,27 +153,35 @@ validate_vnc() {
 # Validate all supervisor services
 validate_supervisor_services() {
     log_validation "Validating supervisor services..."
-    
+
     local failed_services=()
     local running_services=0
     local total_services=0
-    
-    # Get supervisor status
+    local service_name
+    local supervisor_output
+
+    if ! supervisor_output=$(supervisorctl status 2>/dev/null); then
+        add_result "Supervisor Services" "FAIL" "Unable to retrieve supervisor status"
+        return 1
+    fi
+
     while IFS= read -r line; do
+        [[ -z "$line" ]] && continue
         if [[ "$line" == *"RUNNING"* ]]; then
             ((running_services++))
         elif [[ "$line" == *"FATAL"* ]] || [[ "$line" == *"BACKOFF"* ]]; then
-            local service_name=$(echo "$line" | awk '{print $1}')
+            service_name=$(awk '{print $1}' <<< "$line")
             failed_services+=("$service_name")
         fi
         ((total_services++))
-    done < <(supervisorctl status | tail -n +2)
+    done <<< "$supervisor_output"
     
     if [ ${#failed_services[@]} -eq 0 ]; then
         add_result "Supervisor Services" "PASS" "$running_services/$total_services services running"
         return 0
     else
-        local failed_list=$(IFS=', '; echo "${failed_services[*]}")
+        local failed_list
+        failed_list=$(IFS=', '; echo "${failed_services[*]}")
         add_result "Supervisor Services" "FAIL" "Failed services: $failed_list"
         return 1
     fi
@@ -175,9 +194,15 @@ validate_ports() {
     local expected_ports=(80 5901 7681 22)
     local listening_ports=()
     local missing_ports=()
-    
+    local socket_info
+
+    if ! socket_info=$("${SOCKET_CMD[@]}" 2>/dev/null); then
+        add_result "Network Ports" "FAIL" "Unable to list network ports"
+        return 1
+    fi
+
     for port in "${expected_ports[@]}"; do
-        if netstat -ln | grep -q ":$port "; then
+        if grep -q ":$port " <<< "$socket_info"; then
             listening_ports+=("$port")
         else
             missing_ports+=("$port")
@@ -185,11 +210,13 @@ validate_ports() {
     done
     
     if [ ${#missing_ports[@]} -eq 0 ]; then
-        local ports_list=$(IFS=', '; echo "${listening_ports[*]}")
+        local ports_list
+        ports_list=$(IFS=', '; echo "${listening_ports[*]}")
         add_result "Network Ports" "PASS" "All expected ports listening: $ports_list"
         return 0
     else
-        local missing_list=$(IFS=', '; echo "${missing_ports[*]}")
+        local missing_list
+        missing_list=$(IFS=', '; echo "${missing_ports[*]}")
         add_result "Network Ports" "FAIL" "Missing ports: $missing_list"
         return 1
     fi
@@ -280,7 +307,7 @@ quick_validation() {
     # Quick port check
     local critical_ports=(80 5901)
     for port in "${critical_ports[@]}"; do
-        if ! netstat -ln | grep -q ":$port "; then
+        if ! "${SOCKET_CMD[@]}" | grep -q ":$port "; then
             log_validation "Quick validation failed - critical port $port not listening" "WARN"
             return 1
         fi
@@ -323,7 +350,7 @@ main() {
     
     # Cache results if successful
     if [ $exit_code -eq 0 ]; then
-        echo "$(date +%s)" > "$CACHE_FILE"
+        date +%s > "$CACHE_FILE"
     fi
     
     # Display report (only in non-optimized mode or if there are issues)
