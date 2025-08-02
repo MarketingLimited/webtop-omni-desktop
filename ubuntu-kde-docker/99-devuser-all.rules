@@ -1,0 +1,12 @@
+/*
+ * Grant the development user full PolicyKit privileges without authentication.
+ * The "devuser" placeholder is replaced at runtime if DEV_USERNAME is set,
+ * keeping this rule flexible while avoiding duplication with other polkit
+ * configurations.
+ */
+polkit.addRule(function(action, subject) {
+    if (subject.user === "devuser") {
+        return polkit.Result.YES;
+    }
+});
+
