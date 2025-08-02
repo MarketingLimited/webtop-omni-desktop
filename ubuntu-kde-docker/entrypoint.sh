@@ -23,18 +23,21 @@ log_info "🚀 Starting Ubuntu KDE Marketing Agency WebTop..."
 : "${TTYD_USER:=terminal}"
 : "${TTYD_PASSWORD:=TerminalPassw0rd!}"
 : "${ENABLE_GOOGLE_ADS_EDITOR:=false}"
+: "${XSTARTUP_SRC:=/usr/local/share/xstartup}"
 
 # Export variables so they are available to child processes like supervisord
 export DEV_USERNAME DEV_PASSWORD DEV_UID DEV_GID \
        ADMIN_USERNAME ADMIN_PASSWORD ROOT_PASSWORD \
-       TTYD_USER TTYD_PASSWORD ENABLE_GOOGLE_ADS_EDITOR
+       TTYD_USER TTYD_PASSWORD ENABLE_GOOGLE_ADS_EDITOR \
+       XSTARTUP_SRC
 
 # Initialize system directories
 mkdir -p /var/run/dbus /tmp/.ICE-unix /tmp/.X11-unix
 # /tmp/.X11-unix may be mounted read-only by the host. Avoid failing if chmod
 # cannot modify permissions.
-chmod 1777 /tmp/.ICE-unix /tmp/.X11-unix 2>/dev/null || \
-  log_warn "Unable to set permissions on /tmp/.X11-unix"
+if ! chmod 1777 /tmp/.ICE-unix /tmp/.X11-unix 2>/dev/null; then
+  log_warn "/tmp/.X11-unix permissions could not be modified (read-only mount?)"
+fi
 
 # Replace default username in polkit rule if different
 if [ -f /etc/polkit-1/rules.d/99-devuser-all.rules ]; then
@@ -123,7 +126,21 @@ sed -i 's/^%sudo.*/%sudo ALL=(ALL) NOPASSWD:ALL/' /etc/sudoers
 
 # Prepare VNC startup script for dev user
 mkdir -p "/home/${DEV_USERNAME}/.vnc"
-install -m 755 /tmp/xstartup "/home/${DEV_USERNAME}/.vnc/xstartup"
+if [ -f "$XSTARTUP_SRC" ]; then
+    install -m 755 "$XSTARTUP_SRC" "/home/${DEV_USERNAME}/.vnc/xstartup"
+else
+    log_warn "VNC xstartup template not found at $XSTARTUP_SRC, creating default"
+    cat > "/home/${DEV_USERNAME}/.vnc/xstartup" <<'EOF'
+#!/bin/sh
+export XKL_XMODMAP_DISABLE=1
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export DISPLAY=${DISPLAY:-:1}
+unset SESSION_MANAGER
+unset DBUS_SESSION_BUS_ADDRESS
+exec dbus-launch --exit-with-session /usr/bin/startplasma-x11
+EOF
+    chmod 755 "/home/${DEV_USERNAME}/.vnc/xstartup"
+fi
 chown -R "${DEV_USERNAME}":"${DEV_USERNAME}" "/home/${DEV_USERNAME}/.vnc"
 
 # XDG runtime directory

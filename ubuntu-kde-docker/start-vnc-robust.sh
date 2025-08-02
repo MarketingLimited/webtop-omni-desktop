@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+: "${XSTARTUP_SRC:=/usr/local/share/xstartup}"
+
 echo "🚀 Starting robust VNC server..."
 
 # Define possible VNC binary locations
@@ -74,7 +76,20 @@ export XAUTHORITY=/root/.Xauthority
 mkdir -p /root/.vnc
 if [ ! -f /root/.vnc/xstartup ]; then
     echo "🔧 Creating VNC xstartup script..."
-    install -m 755 /tmp/xstartup /root/.vnc/xstartup
+    if [ -f "$XSTARTUP_SRC" ]; then
+        install -m 755 "$XSTARTUP_SRC" /root/.vnc/xstartup
+    else
+        cat > /root/.vnc/xstartup <<'EOF'
+#!/bin/sh
+export XKL_XMODMAP_DISABLE=1
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export DISPLAY=${DISPLAY:-:1}
+unset SESSION_MANAGER
+unset DBUS_SESSION_BUS_ADDRESS
+exec dbus-launch --exit-with-session /usr/bin/startplasma-x11
+EOF
+        chmod 755 /root/.vnc/xstartup
+    fi
 fi
 
 # 6. Start the VNC server
