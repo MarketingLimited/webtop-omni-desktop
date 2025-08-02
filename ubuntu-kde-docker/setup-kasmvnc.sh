@@ -1,11 +1,15 @@
 #!/bin/bash
 set -euo pipefail
 
+export DEBIAN_FRONTEND=noninteractive
+DEV_USERNAME="${DEV_USERNAME:-devuser}"
+DEV_HOME="/home/${DEV_USERNAME}"
+
 echo "🔧 Installing KasmVNC server..."
 
 # Install required dependencies first
 apt-get update
-apt-get install -y \
+apt-get install -y --no-install-recommends \
     xvfb \
     xauth \
     x11-xserver-utils \
@@ -30,7 +34,8 @@ apt-get install -y \
 ARCH="$(dpkg --print-architecture)"
 RELEASE="noble"
 VERSION="1.3.4"
-DEB_URL="https://github.com/kasmtech/KasmVNC/releases/download/v${VERSION}/kasmvncserver_${RELEASE}_${VERSION}_${ARCH}.deb"
+BASE_URL="https://github.com/kasmtech/KasmVNC/releases/download/v${VERSION}"
+DEB_URL="${BASE_URL}/kasmvncserver_${RELEASE}_${VERSION}_${ARCH}.deb"
 
 echo "🔧 Downloading KasmVNC for architecture: $ARCH"
 if ! wget -q -O /tmp/kasmvncserver.deb "$DEB_URL"; then
@@ -42,7 +47,7 @@ if ! wget -q -O /tmp/kasmvncserver.deb "$DEB_URL"; then
         *) ALT_ARCH="$ARCH" ;;
     esac
     
-    ALT_URL="https://github.com/kasmtech/KasmVNC/releases/download/v${VERSION}/kasmvncserver_${RELEASE}_${VERSION}_${ALT_ARCH}.deb"
+    ALT_URL="${BASE_URL}/kasmvncserver_${RELEASE}_${VERSION}_${ALT_ARCH}.deb"
     echo "🔧 Trying alternative URL with architecture: $ALT_ARCH"
     if ! wget -q -O /tmp/kasmvncserver.deb "$ALT_URL"; then
         echo "❌ Failed to download KasmVNC package with alternative architecture"
@@ -58,6 +63,7 @@ fi
 
 rm -f /tmp/kasmvncserver.deb
 apt-get clean
+rm -rf /var/lib/apt/lists/*
 
 # Verify installation
 if command -v kasmvncserver >/dev/null 2>&1; then
@@ -73,10 +79,7 @@ echo "🔧 Pre-configuring KasmVNC settings..."
 
 # Create VNC password file for root user
 mkdir -p /root/.kasmvnc
-echo "#!/bin/bash" > /root/.kasmvnc/kasmvncpasswd
-echo "echo 'kasmvnc' | /usr/bin/kasmvncpasswd -f > /root/.kasmvnc/passwd 2>/dev/null || true" >> /root/.kasmvnc/kasmvncpasswd
-chmod +x /root/.kasmvnc/kasmvncpasswd
-/root/.kasmvnc/kasmvncpasswd
+echo 'kasmvnc' | /usr/bin/kasmvncpasswd -f > /root/.kasmvnc/passwd 2>/dev/null || true
 
 # Create default KasmVNC configuration
 cat > /root/.kasmvnc/kasmvnc.yaml << 'EOF'
@@ -100,7 +103,7 @@ logging:
 EOF
 
 # Create VNC configuration directories
-mkdir -p /etc/kasmvnc /root/.vnc /home/devuser/.vnc
-chown -R devuser:devuser /home/devuser/.vnc 2>/dev/null || true
+mkdir -p /etc/kasmvnc /root/.vnc "${DEV_HOME}/.vnc"
+chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "${DEV_HOME}/.vnc" 2>/dev/null || true
 
 echo "✅ KasmVNC installation completed successfully"
