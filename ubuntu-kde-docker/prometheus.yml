@@ -2,51 +2,33 @@ global:
   scrape_interval: 15s
   evaluation_interval: 15s
 
-rule_files:
-  # - "first_rules.yml"
-  # - "second_rules.yml"
+# No rule files are configured by default
+rule_files: []
 
 scrape_configs:
-  # Docker daemon metrics
-  - job_name: 'docker'
-    static_configs:
-      - targets: ['host.docker.internal:9323']
-    metrics_path: /metrics
-
-  # Node exporter for host metrics
-  - job_name: 'node'
-    static_configs:
-      - targets: ['node-exporter:9100']
-
-  # cAdvisor for container metrics
-  - job_name: 'cadvisor'
-    static_configs:
-      - targets: ['cadvisor:8080']
-
-  # Nginx metrics (if available)
-  - job_name: 'nginx'
-    static_configs:
-      - targets: ['nginx:9113']
-    metrics_path: /metrics
-
-  # Webtop application metrics (custom endpoint if implemented)
+  # Webtop metrics (enable /metrics on port 80 to use)
   - job_name: 'webtop'
     static_configs:
-      - targets: ['webtop:8080']
+      - targets: ['webtop:80']
     metrics_path: /metrics
     scrape_interval: 30s
 
-  # Self-monitoring
+  # Monitor Prometheus itself
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
+
+  # Grafana metrics (requires GF_METRICS_ENABLED=true)
+  - job_name: 'grafana'
+    static_configs:
+      - targets: ['grafana:3000']
+    metrics_path: /metrics
 
 # Alerting configuration (optional)
 alerting:
   alertmanagers:
     - static_configs:
-        - targets:
-          # - "alertmanager:9093"
+        - targets: []
 
 # Remote write configuration (optional, for external monitoring)
 # remote_write:
