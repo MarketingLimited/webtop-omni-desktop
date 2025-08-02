@@ -3,13 +3,15 @@
 # Audio Bridge Setup Script
 # Sets up web-based audio streaming from PulseAudio to browser
 
-set -e
+set -euo pipefail
 
 echo "Setting up PulseAudio Web Audio Bridge..."
 
-# Install Node.js and npm for the audio bridge
-curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
-apt-get install -y nodejs
+# Ensure Node.js is available (installed via Dockerfile)
+if ! command -v node >/dev/null; then
+    echo "Node.js is required but not installed" >&2
+    exit 1
+fi
 
 # Create audio bridge directory
 mkdir -p /opt/audio-bridge
@@ -30,7 +32,7 @@ cat > package.json << 'EOF'
 EOF
 
 # Install dependencies
-npm install
+npm install --omit=dev --no-audit --no-fund
 
 # Create the audio bridge server
 cat > server.js << 'EOF'
@@ -109,25 +111,15 @@ wss.on('connection', (ws) => {
     };
     
     startRecording();
-    
-    parecord.stdout.on('data', (data) => {
-        if (ws.readyState === WebSocket.OPEN) {
-            ws.send(data);
-        }
-    });
-    
-    parecord.stderr.on('data', (data) => {
-        console.error('PulseAudio error:', data.toString());
-    });
-    
+
     ws.on('close', () => {
         console.log('Client disconnected');
-        parecord.kill();
+        if (parecord) parecord.kill();
     });
-    
+
     ws.on('error', (error) => {
         console.error('WebSocket error:', error);
-        parecord.kill();
+        if (parecord) parecord.kill();
     });
 });
 
@@ -338,63 +330,23 @@ cat > public/audio-player.html << 'EOF'
 </html>
 EOF
 
-# Copy the universal audio script to the audio bridge public directory
-echo "Creating universal audio integration files..."
-cp /usr/local/bin/universal-audio.js public/ 2>/dev/null || echo "Note: Universal audio script will be created"
-
-# Create audio bridge iframe for integration
-cat > public/audio-embed.js << 'EOF'
-(function() {
-    // Create audio control iframe
-    const audioFrame = document.createElement('iframe');
-    audioFrame.src = '/audio-player.html';
-    audioFrame.style.position = 'fixed';
-    audioFrame.style.bottom = '10px';
-    audioFrame.style.right = '10px';
-    audioFrame.style.width = '400px';
-    audioFrame.style.height = '150px';
-    audioFrame.style.border = '1px solid #ccc';
-    audioFrame.style.borderRadius = '5px';
-    audioFrame.style.backgroundColor = 'white';
-    audioFrame.style.zIndex = '9999';
-    audioFrame.style.display = 'none';
-    
-    // Create toggle button
-    const toggleBtn = document.createElement('button');
-    toggleBtn.innerHTML = '🔊 Audio';
-    toggleBtn.style.position = 'fixed';
-    toggleBtn.style.bottom = '10px';
-    toggleBtn.style.right = '10px';
-    toggleBtn.style.padding = '10px 15px';
-    toggleBtn.style.backgroundColor = '#4299e1';
-    toggleBtn.style.color = 'white';
-    toggleBtn.style.border = 'none';
-    toggleBtn.style.borderRadius = '5px';
-    toggleBtn.style.cursor = 'pointer';
-    toggleBtn.style.zIndex = '10000';
-    toggleBtn.style.fontSize = '14px';
-    
-    let audioVisible = false;
-    
-    toggleBtn.addEventListener('click', () => {
-        audioVisible = !audioVisible;
-        audioFrame.style.display = audioVisible ? 'block' : 'none';
-        toggleBtn.style.right = audioVisible ? '420px' : '10px';
-    });
-    
-    document.body.appendChild(audioFrame);
-    document.body.appendChild(toggleBtn);
-})();
-EOF
-
-
-
 # Make the setup script executable
 chmod +x /opt/audio-bridge/server.js
 
+# Create supervisor configuration for the audio bridge
+mkdir -p /etc/supervisor/conf.d
+cat >/etc/supervisor/conf.d/audiobridge.conf <<'EOF'
+[program:audiobridge]
+command=/usr/bin/node /opt/audio-bridge/server.js
+directory=/opt/audio-bridge
+autostart=true
+autorestart=true
+stdout_logfile=/var/log/supervisor/audio-bridge.log
+stderr_logfile=/var/log/supervisor/audio-bridge.log
+EOF
+
 echo "✅ Audio bridge setup completed!"
 echo "🔊 Audio streaming server will be available on port 8080"
-echo "🌐 Universal audio support enabled"
 echo "⚡ Features available:"
 echo "   - WebSocket audio streaming on port 8080"
 echo "   - Cross-browser audio playback support"
