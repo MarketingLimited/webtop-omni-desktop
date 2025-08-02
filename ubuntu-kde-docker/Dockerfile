@@ -164,9 +164,6 @@ COPY setup-wine.sh /usr/local/bin/setup-wine.sh
 COPY setup-google-ads-editor.sh /usr/local/bin/setup-google-ads-editor.sh
 COPY setup-waydroid.sh /usr/local/bin/setup-waydroid.sh
 COPY setup-video-editing.sh /usr/local/bin/setup-video-editing.sh
-COPY setup-advanced-features.sh /usr/local/bin/setup-advanced-features.sh
-COPY setup-marketing-optimization.sh /usr/local/bin/setup-marketing-optimization.sh
-COPY setup-modern-features.sh /usr/local/bin/setup-modern-features.sh
 COPY setup-ttyd.sh /usr/local/bin/setup-ttyd.sh
 COPY start-dbus-first.sh /usr/local/bin/start-dbus-first.sh
 COPY start-vnc-robust.sh /usr/local/bin/start-vnc-robust.sh
