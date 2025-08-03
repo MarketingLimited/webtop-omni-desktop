@@ -21,6 +21,18 @@ mkdir -p "$PULSE_RUNTIME_PATH"
 chown -R "${DEV_UID}:${DEV_UID}" "$XDG_RUNTIME_DIR"
 chmod 700 "$XDG_RUNTIME_DIR"
 
+# Create a minimal configuration if one doesn't exist yet
+DEFAULT_PA="/home/${DEV_USERNAME}/.config/pulse/default.pa"
+if [ ! -f "$DEFAULT_PA" ]; then
+  echo "ℹ️ default.pa not found; generating minimal configuration"
+  mkdir -p "/home/${DEV_USERNAME}/.config/pulse"
+  cat <<EOF > "$DEFAULT_PA"
+load-module module-native-protocol-unix auth-anonymous=1 socket=${PULSE_RUNTIME_PATH}/native
+load-module module-native-protocol-tcp auth-anonymous=1 port=4713 listen=0.0.0.0
+EOF
+  chown -R "${DEV_UID}:${DEV_UID}" "/home/${DEV_USERNAME}/.config"
+fi
+
 # Warn if audio devices are missing
 if [ ! -d /dev/snd ]; then
   echo "⚠️ /dev/snd not found; audio devices may be unavailable. Did you run the container with --device /dev/snd?"
