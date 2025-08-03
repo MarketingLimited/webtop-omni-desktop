@@ -41,11 +41,20 @@ echo "✅ D-Bus is ready."
 
 HOME_DIR="${HOME:-/root}"
 XAUTH_FILE="$HOME_DIR/.Xauthority"
-# 2. Ensure .Xauthority file exists
+# 2. Ensure .Xauthority file exists. If the home directory is not writable
+# fall back to using a temporary directory so the VNC server can still start
+# instead of exiting immediately.
 if [ ! -f "$XAUTH_FILE" ]; then
     echo "🔧 Creating .Xauthority file..."
-    touch "$XAUTH_FILE"
-    chmod 600 "$XAUTH_FILE"
+    if ! touch "$XAUTH_FILE" 2>/dev/null; then
+        echo "⚠️ Cannot write to $HOME_DIR, falling back to /tmp"
+        HOME_DIR="/tmp/kasmvnc"
+        mkdir -p "$HOME_DIR"
+        XAUTH_FILE="$HOME_DIR/.Xauthority"
+        touch "$XAUTH_FILE" || { echo "❌ Failed to create fallback .Xauthority"; exit 1; }
+    fi
+    chmod 600 "$XAUTH_FILE" 2>/dev/null || true
+    export HOME="$HOME_DIR"
 fi
 
 # 3. Set up X11 environment
