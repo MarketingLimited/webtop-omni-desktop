@@ -47,8 +47,6 @@ EOF
 if [ "$IS_RUNTIME" = true ]; then
     mkdir -p "/home/${DEV_USERNAME}/.config/pulse"
     cat <<EOF > "/home/${DEV_USERNAME}/.config/pulse/default.pa"
-#!/usr/bin/pulseaudio -nF
-
 # Core protocols with anonymous authentication
 load-module module-native-protocol-unix auth-anonymous=1 socket=/run/user/${DEV_UID}/pulse/native
 load-module module-native-protocol-tcp auth-anonymous=1 port=4713 listen=0.0.0.0
