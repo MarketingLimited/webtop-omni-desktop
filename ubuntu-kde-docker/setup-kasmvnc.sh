@@ -28,6 +28,7 @@ apt-get install -y --no-install-recommends \
     libxfixes3 \
     libxdamage1 \
     libfontconfig1 \
+    libcap2-bin \
     wget
 
 # Install KasmVNC version 1.3.4 for the current architecture
@@ -59,6 +60,12 @@ echo "🔧 Installing KasmVNC package..."
 if ! apt-get install -y /tmp/kasmvncserver.deb; then
     echo "❌ Failed to install KasmVNC package"
     exit 1
+fi
+
+# Allow the non-root VNC server to bind to privileged ports like 80
+if command -v setcap >/dev/null 2>&1; then
+    echo "🔧 Granting KasmVNC privileged port access"
+    setcap 'cap_net_bind_service=+ep' /usr/bin/kasmvncserver || true
 fi
 
 rm -f /tmp/kasmvncserver.deb
