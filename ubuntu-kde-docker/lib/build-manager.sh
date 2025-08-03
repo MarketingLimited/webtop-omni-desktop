@@ -65,16 +65,16 @@ build_image_background() {
 
     # Start background build process
     nohup bash -c "
-        echo 'Build process started' >> '$log_file'
+        echo \"Build process started\" >> '$log_file'
         $DOCKER_COMPOSE_CMD -f '$compose_file' build >> '$log_file' 2>&1
         build_exit_code=\$?
-        echo '========================================' >> '$log_file'
-        echo 'Build completed at: \$(date)' >> '$log_file'
+        echo \"========================================\" >> '$log_file'
+        echo \"Build completed at: \$(date)\" >> '$log_file'
         if [ \$build_exit_code -eq 0 ]; then
-            echo 'Status: SUCCESS' >> '$log_file'
+            echo \"Status: SUCCESS\" >> '$log_file'
         else
-            echo 'Status: FAILED' >> '$log_file'
-            echo 'Exit code: \$build_exit_code' >> '$log_file'
+            echo \"Status: FAILED\" >> '$log_file'
+            echo \"Exit code: \$build_exit_code\" >> '$log_file'
         fi
         rm -f '$pid_file'
     " > /dev/null 2>&1 &
