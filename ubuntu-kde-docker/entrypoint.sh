@@ -174,6 +174,13 @@ chown "${DEV_USERNAME}":"${DEV_USERNAME}" "/run/user/${DEV_UID}"
 chmod 700 "/run/user/${DEV_UID}"
 export XDG_RUNTIME_DIR="/run/user/${DEV_UID}"
 
+# Ensure the dev user's home and runtime directories are writable. This is
+# necessary when bind-mounting a host directory that may be owned by root,
+# which would otherwise prevent KasmVNC from creating files like .Xauthority.
+if [ -x "/usr/local/bin/fix-permissions.sh" ]; then
+    /usr/local/bin/fix-permissions.sh
+fi
+
 # Set up audio system before other services
 log_info "Setting up audio system..."
 if [ -f "/usr/local/bin/setup-audio.sh" ]; then
