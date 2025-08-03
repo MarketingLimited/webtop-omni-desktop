@@ -169,7 +169,7 @@ COPY setup-waydroid.sh /usr/local/bin/setup-waydroid.sh
 COPY setup-video-editing.sh /usr/local/bin/setup-video-editing.sh
 COPY setup-ttyd.sh /usr/local/bin/setup-ttyd.sh
 COPY ttyd-wrapper.sh /usr/local/bin/ttyd-wrapper.sh
-COPY start-dbus-first.sh /usr/local/bin/start-dbus-first.sh
+COPY ./start-dbus-first.sh /usr/local/bin/start-dbus-first.sh
 COPY start-vnc-robust.sh /usr/local/bin/start-vnc-robust.sh
 COPY check-vnc-health.sh /usr/local/bin/check-vnc-health.sh
 COPY enhanced-health-check.sh /usr/local/bin/enhanced-health-check.sh
