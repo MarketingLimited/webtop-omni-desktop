@@ -39,4 +39,5 @@ wait_for_dbus() {
 }
 
 # Main execution
-wait_for_dbus
+# Allow passing through optional arguments such as a custom timeout.
+wait_for_dbus "$@"

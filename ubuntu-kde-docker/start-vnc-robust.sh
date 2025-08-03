@@ -70,19 +70,30 @@ fi
 # 5. Start the VNC server
 echo "🚀 Starting KasmVNC server with binary: $VNC_BINARY"
 
-exec "$VNC_BINARY" :1 \
-    -geometry 1920x1080 \
-    -depth 24 \
-    -interface 0.0.0.0 \
-    -httpPort "${KASMVNC_PORT:-80}" \
-    -vncPort "${KASMVNC_VNC_PORT:-5901}" \
-    -SecurityTypes None \
-    -select-de manual \
-    -driNode /dev/dri/renderD128 2>/dev/null || \
-exec "$VNC_BINARY" :1 \
-    -geometry 1920x1080 \
-    -depth 24 \
-    -interface 0.0.0.0 \
-    -httpPort "${KASMVNC_PORT:-80}" \
-    -vncPort "${KASMVNC_VNC_PORT:-5901}" \
-    -SecurityTypes None
+# Attempt to enable GPU acceleration when a DRI device is available.
+# The previous implementation used `exec ... || exec ...`, but once an
+# `exec` command succeeds the shell is replaced and no fallback occurs
+# if the spawned process exits immediately. This resulted in KasmVNC
+# failing to start and Supervisor reporting exit status 1. We now test
+# for the DRI node explicitly and choose the appropriate command.
+if [ -e /dev/dri/renderD128 ]; then
+    echo "🔧 DRI device found, starting with GPU acceleration"
+    exec "$VNC_BINARY" :1 \
+        -geometry 1920x1080 \
+        -depth 24 \
+        -interface 0.0.0.0 \
+        -httpPort "${KASMVNC_PORT:-80}" \
+        -vncPort "${KASMVNC_VNC_PORT:-5901}" \
+        -SecurityTypes None \
+        -select-de manual \
+        -driNode /dev/dri/renderD128
+else
+    echo "⚠️ DRI device not found, starting without GPU acceleration"
+    exec "$VNC_BINARY" :1 \
+        -geometry 1920x1080 \
+        -depth 24 \
+        -interface 0.0.0.0 \
+        -httpPort "${KASMVNC_PORT:-80}" \
+        -vncPort "${KASMVNC_VNC_PORT:-5901}" \
+        -SecurityTypes None
+fi
