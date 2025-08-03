@@ -2,12 +2,22 @@
 # Audio System Validation Script for Marketing Agency WebTop
 # Validates and repairs audio configuration after container startup
 
-set -e
+set -euo pipefail
 
 DEV_USERNAME="${DEV_USERNAME:-devuser}"
 DEV_UID="${DEV_UID:-1000}"
 
 echo "🔊 Validating audio system configuration..."
+
+# Ensure required commands are present. If any are missing we
+# skip validation rather than failing the supervisor job with a
+# 127 exit code which indicates "command not found".
+for cmd in pactl su; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        echo "⚠️  Required command '$cmd' not found; skipping audio validation." >&2
+        exit 0
+    fi
+done
 
 # Color output functions
 red() { echo -e "\033[31m$*\033[0m"; }
