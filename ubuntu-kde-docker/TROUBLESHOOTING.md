@@ -225,10 +225,6 @@ docker exec webtop-kde /usr/local/bin/system-validation.sh
 
 # Service health report
 docker exec webtop-kde /usr/local/bin/service-health.sh status
-## New: Detailed logs when services fail
-The health script now records the last 20 lines of each failing service's log
-file. Check `/var/log/supervisor/service-health.log` for these details after
-running the command above.
 
 # Resource usage report
 docker exec webtop-kde /usr/local/bin/monitor-services.sh

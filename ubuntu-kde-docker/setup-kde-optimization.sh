@@ -143,7 +143,6 @@ Color=30,30,30
 EOF
 
 # Optimize font rendering for screen sharing
-sudo -u "$DEV_USERNAME" mkdir -p "${DEV_HOME}/.config/fontconfig"
 cat > "${DEV_HOME}/.config/fontconfig/fonts.conf" << 'EOF'
 <?xml version="1.0"?>
 <!DOCTYPE fontconfig SYSTEM "fonts.dtd">

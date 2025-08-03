@@ -14,33 +14,12 @@ health_log() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') [SERVICE-HEALTH] $1" | tee -a "$LOG_FILE"
 }
 
-# Output supervisor status and recent log lines for a service
-log_service_details() {
-    local display_name="$1"
-    local svc="$(echo "$display_name" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9')"
-
-    health_log "🔎 Inspecting $display_name (service: $svc)"
-    local status_output="$(supervisorctl status "$svc" 2>&1 || true)"
-    health_log "$status_output"
-
-    local log_file="/var/log/supervisor/${svc}.log"
-    if [ -f "$log_file" ]; then
-        health_log "--- Last 20 lines of $log_file ---"
-        tail -n 20 "$log_file" | while read -r line; do
-            health_log "$line"
-        done
-        health_log "--- End of log ---"
-    else
-        health_log "Log file $log_file not found"
-    fi
-}
-
 wait_for_service() {
     local service_name="$1"
     local check_command="$2"
     local timeout="${3:-60}"
     local counter=0
-
+    
     health_log "⏳ Waiting for $service_name to be ready..."
     
     while ! eval "$check_command" && [ $counter -lt $timeout ]; do
@@ -54,7 +33,6 @@ wait_for_service() {
         return 0
     else
         health_log "❌ $service_name failed to start within ${timeout}s"
-        log_service_details "$service_name"
         return 1
     fi
 }

@@ -28,7 +28,7 @@ log_warn() {
 }
 
 # Initialize system directories
-mkdir -p /var/run/dbus "/run/user/${DEV_UID}" /tmp/.ICE-unix /tmp/.X11-unix
+mkdir -p /var/run/dbus /run/user/${DEV_UID} /tmp/.ICE-unix /tmp/.X11-unix
 # /tmp/.X11-unix may be mounted read-only by the host. Avoid failing if chmod
 # cannot modify permissions.
 chmod 1777 /tmp/.ICE-unix /tmp/.X11-unix 2>/dev/null || \
@@ -186,24 +186,18 @@ fi
 # Set up Wine for Windows applications
 log_info "Setting up Wine for Windows applications..."
 if [ -f "/usr/local/bin/setup-wine.sh" ]; then
-    if /usr/local/bin/setup-wine.sh; then
-        log_info "Wine setup completed"
-
-        # Set up Google Ads Editor after Wine is ready with error handling
-        if [ -f "/usr/local/bin/setup-google-ads-editor.sh" ]; then
-            if /usr/local/bin/setup-google-ads-editor.sh; then
-                log_info "Google Ads Editor setup completed"
-            else
-                log_warn "Google Ads Editor setup failed (continuing)"
-            fi
-        else
-            log_warn "Google Ads Editor setup script not found"
-        fi
+    /usr/local/bin/setup-wine.sh
+    echo "✅ Wine setup completed"
+    
+    # Set up Google Ads Editor after Wine is ready
+    if [ -f "/usr/local/bin/setup-google-ads-editor.sh" ]; then
+        /usr/local/bin/setup-google-ads-editor.sh
+        echo "✅ Google Ads Editor setup completed"
     else
-        log_warn "Wine setup failed (continuing)"
+        echo "⚠️  Google Ads Editor setup script not found"
     fi
 else
-    log_warn "Wine setup script not found"
+    echo "⚠️  Wine setup script not found"
 fi
 
 # Generate SSH host keys if they don't exist
@@ -290,25 +284,10 @@ if [ -f "/usr/local/bin/setup-container-dbus.sh" ]; then
     /usr/local/bin/setup-container-dbus.sh || log_warn "D-Bus setup failed"
 fi
 
-# Ensure D-Bus services are running so applications can connect
-if [ -f "/usr/local/bin/start-dbus" ]; then
-    /usr/local/bin/start-dbus || log_warn "Failed to start D-Bus services"
-fi
-
 # Setup font configuration early
 log_info "Setting up font configuration..."
 if [ -f "/usr/local/bin/setup-font-config.sh" ]; then
     /usr/local/bin/setup-font-config.sh || log_warn "Font config setup failed"
-fi
-
-# Guarantee fontconfig exists to avoid KDE errors
-if [ ! -f "/home/${DEV_USERNAME}/.config/fontconfig/fonts.conf" ]; then
-    mkdir -p "/home/${DEV_USERNAME}/.config/fontconfig"
-    cat > "/home/${DEV_USERNAME}/.config/fontconfig/fonts.conf" <<'EOF'
-<?xml version="1.0"?>
-<fontconfig></fontconfig>
-EOF
-    chown "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/.config/fontconfig/fonts.conf"
 fi
 
 # Setup container-optimized Wine
@@ -321,24 +300,24 @@ else
     if [ -f "/usr/local/bin/setup-wine.sh" ]; then
         if /usr/local/bin/setup-wine.sh; then
             log_info "Wine setup completed successfully"
-
-            # Setup Google Ads Editor
-            if [ -f "/usr/local/bin/setup-google-ads-editor.sh" ]; then
-                if /usr/local/bin/setup-google-ads-editor.sh; then
-                    log_info "Google Ads Editor setup completed successfully"
-                else
-                    log_warn "Google Ads Editor setup failed"
-                fi
+        
+        # Setup Google Ads Editor
+        if [ -f "/usr/local/bin/setup-google-ads-editor.sh" ]; then
+            if /usr/local/bin/setup-google-ads-editor.sh; then
+                log_info "Google Ads Editor setup completed successfully"
             else
-                log_warn "Google Ads Editor setup script not found"
+                log_warn "Google Ads Editor setup failed"
             fi
         else
-            log_warn "Wine setup failed"
+            log_warn "Google Ads Editor setup script not found"
         fi
     else
-        log_warn "Wine setup script not found"
+        log_warn "Wine setup failed"
     fi
+else
+    log_warn "Wine setup script not found"
 fi
+
 # Setup container Android solutions
 log_info "Setting up container Android..."
 if [ -f "/usr/local/bin/setup-android-container.sh" ]; then
@@ -406,11 +385,7 @@ fi
 log_info "Setting up service health monitoring..."
 if [ -f "/usr/local/bin/service-health.sh" ]; then
     chmod +x /usr/local/bin/service-health.sh
-    /usr/local/bin/service-health.sh wait &
-    log_info "✅ Service health monitoring setup completed"
-else
-    log_warn "⚠️  Service health monitoring script not found"
-fi
+    echo "✅ Service health monitoring setup completed"
 
 # Setup Xvfb optimization
 log_info "Setting up Xvfb display server optimization..."
@@ -474,9 +449,9 @@ fi
 
 # Setup advanced features (Phase 7)
 log_info "Setting up advanced desktop features..."
-if [ -f "/usr/local/bin/setup-advanced-features.sh" ]; then
-    chmod +x /usr/local/bin/setup-advanced-features.sh
-    /usr/local/bin/setup-advanced-features.sh 2>&1 | tee -a "/var/log/setup-advanced-features.log"
+if [ -f "/setup-advanced-features.sh" ]; then
+    chmod +x /setup-advanced-features.sh
+    ./setup-advanced-features.sh 2>&1 | tee -a "/var/log/setup-advanced-features.log"
     log_info "✅ Advanced features setup completed"
 else
     log_warn "⚠️  Advanced features script not found"
@@ -484,9 +459,9 @@ fi
 
 # Setup marketing optimization (Phase 8)
 log_info "Setting up marketing agency optimizations..."
-if [ -f "/usr/local/bin/setup-marketing-optimization.sh" ]; then
-    chmod +x /usr/local/bin/setup-marketing-optimization.sh
-    /usr/local/bin/setup-marketing-optimization.sh 2>&1 | tee -a "/var/log/setup-marketing-optimization.log"
+if [ -f "/setup-marketing-optimization.sh" ]; then
+    chmod +x /setup-marketing-optimization.sh
+    ./setup-marketing-optimization.sh 2>&1 | tee -a "/var/log/setup-marketing-optimization.log"
     log_info "✅ Marketing optimization setup completed"
 else
     log_warn "⚠️  Marketing optimization script not found"
@@ -494,71 +469,28 @@ fi
 
 # Setup modern features
 log_info "Setting up modern desktop features..."
-if [ -f "/usr/local/bin/setup-modern-features.sh" ]; then
-    chmod +x /usr/local/bin/setup-modern-features.sh
-    /usr/local/bin/setup-modern-features.sh 2>&1 | tee -a "/var/log/setup-modern-features.log"
+if [ -f "/setup-modern-features.sh" ]; then
+    chmod +x /setup-modern-features.sh
+    ./setup-modern-features.sh 2>&1 | tee -a "/var/log/setup-modern-features.log"
     log_info "✅ Modern features setup completed"
 else
     log_warn "⚠️  Modern features script not found"
 fi
-
+    log_info "✅ Network optimization setup completed"
+else
+    log_warn "⚠️  Network optimization script not found"
+fi
+else
+    echo "⚠️  Service health monitoring script not found"
+fi
 
 log_info "Starting supervisor daemon..."
-
-# Default performance and service configuration
-: "${XVFB_PERFORMANCE_PROFILE:=balanced}"
-: "${XVFB_RESOLUTION:=1920x1080x24}"
-: "${XVFB_DPI:=96}"
-: "${KDE_PERFORMANCE_PROFILE:=performance}"
-: "${KDE_EFFECTS_DISABLED:=true}"
-: "${X11VNC_PERFORMANCE_PROFILE:=balanced}"
-: "${X11VNC_QUALITY:=6}"
-: "${X11VNC_ADAPTIVE:=true}"
-: "${NOVNC_PORT:=80}"
-: "${NOVNC_VNC_PORT:=5901}"
-: "${NOVNC_WEBGL:=true}"
-: "${NOVNC_COMPRESSION:=auto}"
-: "${WEBRTC_PORT:=8443}"
-
-# Log selected profiles for troubleshooting
-log_info "Xvfb profile: ${XVFB_PERFORMANCE_PROFILE}, resolution: ${XVFB_RESOLUTION}, dpi: ${XVFB_DPI}"
-log_info "KDE profile: ${KDE_PERFORMANCE_PROFILE}, effects disabled: ${KDE_EFFECTS_DISABLED}"
-log_info "x11vnc profile: ${X11VNC_PERFORMANCE_PROFILE}, quality: ${X11VNC_QUALITY}, adaptive: ${X11VNC_ADAPTIVE}"
-log_info "noVNC port: ${NOVNC_PORT}, VNC port: ${NOVNC_VNC_PORT}, webgl: ${NOVNC_WEBGL}, compression: ${NOVNC_COMPRESSION}"
-log_info "WebRTC signaling port: ${WEBRTC_PORT}"
 
 exec env \
     ENV_DEV_USERNAME="${DEV_USERNAME}" \
     ENV_DEV_UID="${DEV_UID}" \
-    ENV_DEV_GID="${DEV_GID}" \
     ENV_TTYD_USER="${TTYD_USER}" \
     ENV_TTYD_PASSWORD="${TTYD_PASSWORD}" \
-    XVFB_PERFORMANCE_PROFILE="${XVFB_PERFORMANCE_PROFILE}" \
-    XVFB_RESOLUTION="${XVFB_RESOLUTION}" \
-    XVFB_DPI="${XVFB_DPI}" \
-    KDE_PERFORMANCE_PROFILE="${KDE_PERFORMANCE_PROFILE}" \
-    KDE_EFFECTS_DISABLED="${KDE_EFFECTS_DISABLED}" \
-    X11VNC_PERFORMANCE_PROFILE="${X11VNC_PERFORMANCE_PROFILE}" \
-    X11VNC_QUALITY="${X11VNC_QUALITY}" \
-    X11VNC_ADAPTIVE="${X11VNC_ADAPTIVE}" \
-    NOVNC_PORT="${NOVNC_PORT}" \
-    NOVNC_VNC_PORT="${NOVNC_VNC_PORT}" \
-    NOVNC_WEBGL="${NOVNC_WEBGL}" \
-    NOVNC_COMPRESSION="${NOVNC_COMPRESSION}" \
-    WEBRTC_PORT="${WEBRTC_PORT}" \
-    ENV_XVFB_PERFORMANCE_PROFILE="${XVFB_PERFORMANCE_PROFILE}" \
-    ENV_XVFB_RESOLUTION="${XVFB_RESOLUTION}" \
-    ENV_XVFB_DPI="${XVFB_DPI}" \
-    ENV_KDE_PERFORMANCE_PROFILE="${KDE_PERFORMANCE_PROFILE}" \
-    ENV_KDE_EFFECTS_DISABLED="${KDE_EFFECTS_DISABLED}" \
-    ENV_X11VNC_PERFORMANCE_PROFILE="${X11VNC_PERFORMANCE_PROFILE}" \
-    ENV_X11VNC_QUALITY="${X11VNC_QUALITY}" \
-    ENV_X11VNC_ADAPTIVE="${X11VNC_ADAPTIVE}" \
-    ENV_NOVNC_PORT="${NOVNC_PORT}" \
-    ENV_NOVNC_VNC_PORT="${NOVNC_VNC_PORT}" \
-    ENV_NOVNC_WEBGL="${NOVNC_WEBGL}" \
-    ENV_NOVNC_COMPRESSION="${NOVNC_COMPRESSION}" \
-    ENV_WEBRTC_PORT="${WEBRTC_PORT}" \
-    DEV_USERNAME="${DEV_USERNAME}" DEV_UID="${DEV_UID}" DEV_GID="${DEV_GID}" \
+    DEV_USERNAME="${DEV_USERNAME}" DEV_UID="${DEV_UID}" \
     TTYD_USER="${TTYD_USER}" TTYD_PASSWORD="${TTYD_PASSWORD}" \
     /usr/bin/supervisord -c /etc/supervisor/supervisord.conf -n

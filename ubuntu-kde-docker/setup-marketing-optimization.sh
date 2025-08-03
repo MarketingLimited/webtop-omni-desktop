@@ -22,7 +22,6 @@ mkdir -p \
     "/opt/marketing-optimization/automation" \
     "/opt/marketing-optimization/performance" \
     "/opt/marketing-optimization/workflows" \
-    "/opt/marketing-optimization/dashboard" \
     "${DEV_HOME}/Marketing-Projects" \
     "${DEV_HOME}/Marketing-Projects/Social-Media" \
     "${DEV_HOME}/Marketing-Projects/Design-Assets" \

@@ -34,8 +34,8 @@ test_kde_audio() {
             yellow "⚠️  KDE System Settings not found"
         fi
     else
-        yellow "⚠️  KDE Plasma is not running"
-        return 0
+        red "❌ KDE Plasma is not running"
+        return 1
     fi
 }
 
@@ -103,7 +103,7 @@ test_remote_audio_forwarding() {
             yellow "⚠️  VNC port 5901 not listening"
         fi
     else
-        yellow "⚠️  VNC server not running"
+        red "❌ VNC server not running"
     fi
     
     
@@ -117,7 +117,7 @@ test_remote_audio_forwarding() {
             yellow "⚠️  PulseAudio not responding"
         fi
     else
-        yellow "⚠️  PulseAudio daemon not running"
+        red "❌ PulseAudio daemon not running"
     fi
 }
 
@@ -209,7 +209,7 @@ EOF
 # Generate integration report
 generate_integration_report() {
     echo "$(blue '📋 Desktop Audio Integration Report')"
-    printf '=%.0s' {1..50}; echo
+    echo "=" * 50
     
     # Environment info
     echo "🖥️  Environment:"
@@ -257,13 +257,13 @@ generate_integration_report() {
     echo "   VNC (port 5901): $(netstat -tuln 2>/dev/null | grep -q ":5901 " && echo "LISTENING" || echo "NOT LISTENING")"
     echo "   noVNC (port 80): $(netstat -tuln 2>/dev/null | grep -q ":80 " && echo "LISTENING" || echo "NOT LISTENING")"
     
-    printf '=%.0s' {1..50}; echo
+    echo "=" * 50
 }
 
 # Main function
 main() {
     echo "$(green '🎵 Desktop Audio Integration Testing')"
-    printf '=%.0s' {1..50}; echo
+    echo "=" * 50
     
     test_kde_audio
     echo ""

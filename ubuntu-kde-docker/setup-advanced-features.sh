@@ -262,10 +262,7 @@ if __name__ == '__main__':
 PYEOF
 
 # Make scripts executable
-
-if [ -f /opt/advanced-features/multimonitor/monitor-manager.sh ]; then
-    chmod +x /opt/advanced-features/multimonitor/monitor-manager.sh
-fi
+chmod +x /opt/advanced-features/multimonitor/monitor-manager.sh
 
 # Setup virtual monitors
 setup_virtual_monitors
@@ -581,18 +578,10 @@ if (document.readyState === 'loading') {
 EOF
 
 # Make Python scripts executable
-if [ -f /opt/advanced-features/clipboard/enhanced-clipboard.py ]; then
-    chmod +x /opt/advanced-features/clipboard/enhanced-clipboard.py
-fi
-if [ -f /opt/advanced-features/file-transfer/file-transfer-server.py ]; then
-    chmod +x /opt/advanced-features/file-transfer/file-transfer-server.py
-fi
-if [ -f /opt/advanced-features/multimonitor/monitor-api.py ]; then
-    chmod +x /opt/advanced-features/multimonitor/monitor-api.py
-fi
-if [ -f /opt/advanced-features/recording/recording-api.py ]; then
-    chmod +x /opt/advanced-features/recording/recording-api.py
-fi
+chmod +x /opt/advanced-features/clipboard/enhanced-clipboard.py
+chmod +x /opt/advanced-features/file-transfer/file-transfer-server.py
+chmod +x /opt/advanced-features/multimonitor/monitor-api.py
+chmod +x /opt/advanced-features/recording/recording-api.py
 
 # Set ownership
 chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/opt/advanced-features"
