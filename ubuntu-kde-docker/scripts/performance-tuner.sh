@@ -97,6 +97,15 @@ network_optimization:
 graphics_optimization:
   enabled: true
   settings:
+    xvfb_options:
+      screen_size: "1920x1080x24"
+      dpi: 96
+      ac: true
+      extension_options:
+        - "GLX"
+        - "RANDR"
+        - "RENDER"
+    vnc_optimization:
       quality: 6
       compression: 2
       jpeg_quality: 8

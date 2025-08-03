@@ -1,24 +1,22 @@
 #!/bin/bash
 set -euo pipefail
 
-readonly DEV_USERNAME="${DEV_USERNAME:-devuser}"
-readonly DEV_HOME="/home/${DEV_USERNAME}"
+DEV_USERNAME="${DEV_USERNAME:-devuser}"
+DEV_HOME="/home/${DEV_USERNAME}"
 
 echo "🤖 Setting up container-compatible Android solutions..."
 
-# Prepare required directories with proper ownership
-install -d -m 755 -o "$DEV_USERNAME" -g "$DEV_USERNAME" \
-    /data/android \
-    "$DEV_HOME/.android" \
-    "$DEV_HOME/.local/bin" \
-    "$DEV_HOME/Desktop/Android Tools"
+# Create Android data directory
+mkdir -p /data/android
+mkdir -p "${DEV_HOME}/.android"
+chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "${DEV_HOME}/.android"
 
 # Install Android x86 emulator (QEMU-based)
 echo "📦 Installing Android x86 emulator..."
 
 # Download Android x86 ISO (lightweight version)
-readonly ANDROID_ISO_URL="https://osdn.net/projects/android-x86/downloads/71931/android-x86_64-9.0-r2.iso"
-readonly ANDROID_ISO="/data/android/android-x86.iso"
+ANDROID_ISO_URL="https://osdn.net/projects/android-x86/downloads/71931/android-x86_64-9.0-r2.iso"
+ANDROID_ISO="/data/android/android-x86.iso"
 
 if [ ! -f "$ANDROID_ISO" ]; then
     echo "⬇️ Downloading Android x86 ISO..."
@@ -28,9 +26,8 @@ if [ ! -f "$ANDROID_ISO" ]; then
     }
 fi
 
-EMULATOR_SCRIPT="${DEV_HOME}/.local/bin/android-emulator"
-install -m 755 -o "$DEV_USERNAME" -g "$DEV_USERNAME" /dev/null "$EMULATOR_SCRIPT"
-cat <<'EOF' > "$EMULATOR_SCRIPT"
+# Create Android emulator script
+cat > "${DEV_HOME}/.local/bin/android-emulator" << 'EOF'
 #!/bin/bash
 set -e
 
@@ -73,32 +70,22 @@ echo "Android emulator started with PID: $QEMU_PID"
 echo "ADB connection: adb connect localhost:5555"
 EOF
 
+chmod +x "${DEV_HOME}/.local/bin/android-emulator"
+
 # Create web-based Android alternative
-WEB_SCRIPT="${DEV_HOME}/.local/bin/android-web"
-install -m 755 -o "$DEV_USERNAME" -g "$DEV_USERNAME" /dev/null "$WEB_SCRIPT"
-cat <<'EOF' > "$WEB_SCRIPT"
+cat > "${DEV_HOME}/.local/bin/android-web" << 'EOF'
 #!/bin/bash
 echo "🌐 Opening web-based Android emulator..."
-if command -v xdg-open >/dev/null 2>&1; then
-    xdg-open "https://appetize.io/demo" >/dev/null 2>&1 &
-else
-    firefox "https://appetize.io/demo" &
-fi
+firefox "https://appetize.io/demo" &
 echo "Alternative: https://www.genymotion.com/device-online/"
 EOF
 
-# Create ADB setup script
-ADB_SCRIPT="${DEV_HOME}/.local/bin/setup-adb"
-install -m 755 -o "$DEV_USERNAME" -g "$DEV_USERNAME" /dev/null "$ADB_SCRIPT"
-cat <<'EOF' > "$ADB_SCRIPT"
-#!/bin/bash
-set -e
-echo "🔧 Setting up ADB..."
+chmod +x "${DEV_HOME}/.local/bin/android-web"
 
-if ! command -v adb >/dev/null 2>&1; then
-    echo "❌ ADB is not installed"
-    exit 1
-fi
+# Create ADB setup script
+cat > "${DEV_HOME}/.local/bin/setup-adb" << 'EOF'
+#!/bin/bash
+echo "🔧 Setting up ADB..."
 
 # Start ADB server
 adb start-server
@@ -108,12 +95,7 @@ echo "📱 Checking for Android devices..."
 adb devices
 
 # Connect to local emulator if running
-if command -v ss >/dev/null 2>&1; then
-    LISTEN_CMD="ss -tuln"
-else
-    LISTEN_CMD="netstat -tuln"
-fi
-if $LISTEN_CMD | grep -q :5555; then
+if netstat -tuln | grep -q :5555; then
     echo "🔌 Connecting to local Android emulator..."
     adb connect localhost:5555
 fi
@@ -121,57 +103,56 @@ fi
 echo "✅ ADB setup complete"
 EOF
 
-# Create Android desktop shortcuts
-ANDROID_TOOLS_DIR="${DEV_HOME}/Desktop/Android Tools"
+chmod +x "${DEV_HOME}/.local/bin/setup-adb"
 
-install -m 755 -o "$DEV_USERNAME" -g "$DEV_USERNAME" /dev/null "$ANDROID_TOOLS_DIR/Android Emulator.desktop"
-cat <<EOF > "$ANDROID_TOOLS_DIR/Android Emulator.desktop"
+# Create Android desktop shortcuts
+mkdir -p "${DEV_HOME}/Desktop/Android Tools"
+
+cat > "${DEV_HOME}/Desktop/Android Tools/Android Emulator.desktop" << 'EOF'
 [Desktop Entry]
 Version=1.0
 Type=Application
 Name=Android Emulator
 Comment=Android x86 QEMU emulator
-Exec=${DEV_HOME}/.local/bin/android-emulator
+Exec=/home/devuser/.local/bin/android-emulator
 Icon=phone
 Categories=Development;
 Terminal=true
 EOF
 
-install -m 755 -o "$DEV_USERNAME" -g "$DEV_USERNAME" /dev/null "$ANDROID_TOOLS_DIR/Web Android.desktop"
-cat <<EOF > "$ANDROID_TOOLS_DIR/Web Android.desktop"
+cat > "${DEV_HOME}/Desktop/Android Tools/Web Android.desktop" << 'EOF'
 [Desktop Entry]
 Version=1.0
 Type=Application
 Name=Web Android
 Comment=Web-based Android emulator
-Exec=${DEV_HOME}/.local/bin/android-web
+Exec=/home/devuser/.local/bin/android-web
 Icon=web-browser
 Categories=Development;
 Terminal=false
 EOF
 
-install -m 755 -o "$DEV_USERNAME" -g "$DEV_USERNAME" /dev/null "$ANDROID_TOOLS_DIR/ADB Setup.desktop"
-cat <<EOF > "$ANDROID_TOOLS_DIR/ADB Setup.desktop"
+cat > "${DEV_HOME}/Desktop/Android Tools/ADB Setup.desktop" << 'EOF'
 [Desktop Entry]
 Version=1.0
 Type=Application
 Name=ADB Setup
 Comment=Android Debug Bridge setup
-Exec=${DEV_HOME}/.local/bin/setup-adb
+Exec=/home/devuser/.local/bin/setup-adb
 Icon=utilities-terminal
 Categories=Development;
 Terminal=true
 EOF
 
+chmod +x "${DEV_HOME}/Desktop/Android Tools/"*.desktop
+
 # Create Android diagnostics
-DIAG_SCRIPT="${DEV_HOME}/.local/bin/android-diagnostics"
-install -m 755 -o "$DEV_USERNAME" -g "$DEV_USERNAME" /dev/null "$DIAG_SCRIPT"
-cat <<'EOF' > "$DIAG_SCRIPT"
+cat > "${DEV_HOME}/.local/bin/android-diagnostics" << 'EOF'
 #!/bin/bash
 echo "=== Android Container Diagnostics ==="
 echo ""
 echo "=== QEMU Availability ==="
-command -v qemu-system-x86_64 >/dev/null && echo "✅ QEMU installed" || echo "❌ QEMU not found"
+which qemu-system-x86_64 >/dev/null && echo "✅ QEMU installed" || echo "❌ QEMU not found"
 echo ""
 echo "=== KVM Support ==="
 if [ -c /dev/kvm ]; then
@@ -188,12 +169,14 @@ echo "=== Android Emulator Processes ==="
 pgrep -f qemu-system || echo "No Android emulator running"
 echo ""
 echo "=== Network Ports ==="
-if command -v ss >/dev/null 2>&1; then
-    ss -tuln | grep -E ":(5555|5037)" || echo "No Android ports listening"
-else
-    netstat -tuln | grep -E ":(5555|5037)" || echo "No Android ports listening"
-fi
+netstat -tuln | grep -E ":(5555|5037)" || echo "No Android ports listening"
 EOF
+
+chmod +x "${DEV_HOME}/.local/bin/android-diagnostics"
+
+# Set ownership
+chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "${DEV_HOME}"
+chown -R "${DEV_USERNAME}:${DEV_USERNAME}" /data/android
 
 echo "✅ Container Android setup complete"
 echo "📱 Available Android solutions:"

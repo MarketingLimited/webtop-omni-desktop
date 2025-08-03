@@ -25,7 +25,7 @@
 - **Cross-Platform**: Seamless file sharing and workflow integration
 
 ### **Remote Access & Collaboration**
-- **Browser-Based Access**: KasmVNC web interface
+- **Browser-Based Access**: noVNC and Xpra web interfaces
 - **Audio Support**: Full audio streaming with virtual devices
 - **SSH Access**: Secure terminal access for advanced users
 - **Resource Monitoring**: Real-time performance dashboards
@@ -326,7 +326,7 @@ pactl list short sinks
 #### Network Access Problems
 ```bash
 # Check if ports are available
-netstat -tlnp | grep -E ':(32768|2222|7681)'
+netstat -tlnp | grep -E ':(32768|14500|2222|7681)'
 
 # Verify firewall settings
 sudo ufw status

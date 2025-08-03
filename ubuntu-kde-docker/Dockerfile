@@ -3,22 +3,18 @@ FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install all required packages and lightweight fallback WM
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install -y \
     sudo wget curl gnupg2 apt-transport-https software-properties-common \
     ca-certificates lsb-release htop net-tools unzip locales netcat-openbsd \
-    # X11 and VNC essential dependencies
-    xvfb xauth x11-xserver-utils x11-utils x11-xkb-utils xkb-data \
-    fonts-liberation dbus-x11 libjpeg-turbo8 libwebp7 libssl3 libpng16-16 \
-    zlib1g libxrandr2 libxtst6 libxfixes3 libxdamage1 libfontconfig1 \
-    # KDE Desktop Environment
     kde-plasma-desktop dolphin kate okular konsole \
     openbox tint2 xterm \
-    libreoffice gimp inkscape plank \
+    libreoffice vlc gimp inkscape plank \
     flatpak gnome-software-plugin-flatpak \
     flameshot kdeconnect timeshift syncthing syncthing-gtk \
     krita blender darktable obs-studio calibre \
     git neofetch btop gnome-tweaks stacer \
     # Development Tools - Complete Stack (VS Code will be installed later)
+    nodejs npm yarn \
     python3 python3-pip python3-venv python3-dev jupyter-notebook \
     php php-cli php-fpm composer \
     ruby ruby-dev bundler golang-go \
@@ -52,13 +48,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     nextcloud-desktop \
     fonts-noto-core fonts-noto-ui-core fonts-noto-color-emoji fonts-noto-extra \
     fonts-dejavu fonts-crosextra-carlito fonts-crosextra-caladea fonts-hosny-amiri fonts-kacst qttranslations5-l10n libqt5script5 fonts-freefont-ttf \
-    supervisor \
-    xfonts-base snapd kmod \
+    supervisor novnc websockify x11vnc xvfb \
+    dbus-x11 x11-xserver-utils xfonts-base snapd kmod \
     mesa-utils libgl1-mesa-dri libglx-mesa0 libosmesa6 libglu1-mesa \
-    gnome-terminal lxterminal terminator \
+    gnome-terminal lxterminal terminator accountsservice policykit-1 \
     openssh-server ttyd libcap2-bin polkit-kde-agent-1 \
     alsa-utils alsa-oss pulseaudio pulseaudio-utils pavucontrol paprefs \
-    sox gstreamer1.0-tools gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
+    sox ffmpeg gstreamer1.0-tools gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Add repositories for Chrome, Opera, Brave, VS Code
@@ -70,39 +66,37 @@ RUN wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor 
     && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/opera.gpg] https://deb.opera.com/opera-stable/ stable non-free" > /etc/apt/sources.list.d/opera.list \
     && apt-get update
 
-# Install Node.js 22 from NodeSource and enable Yarn via Corepack
+# Install Node.js 22 from NodeSource
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y --no-install-recommends nodejs \
-    && corepack enable \
-    && corepack prepare yarn@stable --activate \
+    && apt-get install -y nodejs \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install dbeaver
 RUN wget -O /usr/share/keyrings/dbeaver.gpg.key https://dbeaver.io/debs/dbeaver.gpg.key \
     && echo "deb [signed-by=/usr/share/keyrings/dbeaver.gpg.key] https://dbeaver.io/debs/dbeaver-ce /" > /etc/apt/sources.list.d/dbeaver.list \
-    && apt-get update && apt-get install -y --no-install-recommends dbeaver-ce && apt-get clean && rm -rf /var/lib/apt/lists/*
+    && apt-get update && apt-get install -y dbeaver-ce && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install wire-desktop
 RUN wget -qO- https://wire-app.wire.com/linux/releases.key | gpg --dearmor > /usr/share/keyrings/wire-desktop.gpg \
     && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/wire-desktop.gpg] https://wire-app.wire.com/linux/debian stable main" > /etc/apt/sources.list.d/wire-desktop.list \
-    && apt-get update && apt-get install -y --no-install-recommends wire-desktop && apt-get clean && rm -rf /var/lib/apt/lists/*
+    && apt-get update && apt-get install -y wire-desktop && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install element-desktop
 RUN wget -O /usr/share/keyrings/element-io-archive-keyring.gpg https://packages.element.io/debian/element-io-archive-keyring.gpg \
     && echo "deb [signed-by=/usr/share/keyrings/element-io-archive-keyring.gpg] https://packages.element.io/debian/ default main" > /etc/apt/sources.list.d/element-io.list \
-    && apt-get update && apt-get install -y --no-install-recommends element-desktop && apt-get clean && rm -rf /var/lib/apt/lists/*
+    && apt-get update && apt-get install -y element-desktop && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install signal-desktop
 RUN wget -O- https://updates.signal.org/desktop/apt/keys.asc | gpg --dearmor > /usr/share/keyrings/signal-desktop-keyring.gpg \
     && echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/signal-desktop-keyring.gpg] https://updates.signal.org/desktop/apt xenial main' > /etc/apt/sources.list.d/signal-xenial.list \
-    && apt-get update && apt-get install -y --no-install-recommends signal-desktop && apt-get clean && rm -rf /var/lib/apt/lists/*
+    && apt-get update && apt-get install -y signal-desktop && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install browsers and editors
 RUN mkdir -p /etc/apt/keyrings \
     && wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor | tee /etc/apt/keyrings/google-chrome.gpg > /dev/null \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
     && apt-get update \
-    && apt-get install -y --no-install-recommends \
+    && apt-get install -y \
         google-chrome-stable brave-browser opera-stable code \
     && rm /etc/apt/sources.list.d/opera.list \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -116,21 +110,24 @@ RUN for f in google-chrome.desktop brave-browser.desktop opera.desktop code.desk
 
 # Install Waydroid repository and package
 RUN curl -fsSL https://repo.waydro.id | bash \
-    && apt-get install -y --no-install-recommends waydroid && apt-get clean && rm -rf /var/lib/apt/lists/*
+    && apt-get install -y waydroid && apt-get clean && rm -rf /var/lib/apt/lists/*
 # Clone WinApps for Linux
 RUN git clone --depth 1 https://github.com/Fmstrat/winapps.git /opt/winapps
 
 # Install additional packages that may need separate handling
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install -y \
     handbrake \
     && apt-get clean && rm -rf /var/lib/apt/lists/* || true
 
+# Install winetricks for runtime Wine configuration
+RUN apt-get update && apt-get install -y winetricks \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Setup Flathub remote
 RUN flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 
 # Install WordPress and other web development tools
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install -y \
     wordpress \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 # Locales
@@ -142,12 +139,7 @@ ENV LANGUAGE=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
 ENV TTYD_USER=terminal
 ENV TTYD_PASSWORD=terminal
-ENV DEV_USERNAME=devuser
-ENV DEV_UID=1000
-ENV DEV_GID=1000
-ENV KASMVNC_PORT=80
-ENV KASMVNC_VNC_PORT=5901
-# Create directories and VNC setup for KasmVNC
+# Create directories and VNC setup for x11vnc
 RUN mkdir -p /var/run/sshd /root/.vnc /tmp/.X11-unix && \
     chmod 1777 /tmp/.X11-unix
 
@@ -155,7 +147,9 @@ RUN mkdir -p /var/run/sshd /root/.vnc /tmp/.X11-unix && \
 # Desktop and Flatpak setup scripts
 COPY setup-flatpak-apps.sh /usr/local/bin/setup-flatpak-apps.sh
 COPY setup-desktop.sh /usr/local/bin/setup-desktop.sh
-COPY setup-kasmvnc.sh /usr/local/bin/setup-kasmvnc.sh
+COPY setup-xvfb-optimization.sh /usr/local/bin/setup-xvfb-optimization.sh
+COPY setup-x11vnc-optimization.sh /usr/local/bin/setup-x11vnc-optimization.sh
+COPY setup-novnc-enhancement.sh /usr/local/bin/setup-novnc-enhancement.sh
 COPY setup-kde-optimization.sh /usr/local/bin/setup-kde-optimization.sh
 COPY setup-system-optimization.sh /usr/local/bin/setup-system-optimization.sh
 COPY setup-network-optimization.sh /usr/local/bin/setup-network-optimization.sh
@@ -167,43 +161,27 @@ COPY setup-wine.sh /usr/local/bin/setup-wine.sh
 COPY setup-google-ads-editor.sh /usr/local/bin/setup-google-ads-editor.sh
 COPY setup-waydroid.sh /usr/local/bin/setup-waydroid.sh
 COPY setup-video-editing.sh /usr/local/bin/setup-video-editing.sh
+COPY setup-advanced-features.sh /usr/local/bin/setup-advanced-features.sh
+COPY setup-marketing-optimization.sh /usr/local/bin/setup-marketing-optimization.sh
+COPY setup-modern-features.sh /usr/local/bin/setup-modern-features.sh
 COPY setup-ttyd.sh /usr/local/bin/setup-ttyd.sh
-COPY ttyd-wrapper.sh /usr/local/bin/ttyd-wrapper.sh
-COPY ./start-dbus-first.sh /usr/local/bin/start-dbus-first.sh
-COPY wait-for-dbus.sh /usr/local/bin/wait-for-dbus.sh
-COPY start-vnc-robust.sh /usr/local/bin/start-vnc-robust.sh
-COPY check-vnc-health.sh /usr/local/bin/check-vnc-health.sh
-COPY enhanced-health-check.sh /usr/local/bin/enhanced-health-check.sh
 COPY service-health.sh /usr/local/bin/service-health.sh
 COPY test-desktop-audio.sh /usr/local/bin/test-desktop-audio.sh
 COPY audio-validation.sh /usr/local/bin/audio-validation.sh
 COPY system-validation.sh /usr/local/bin/system-validation.sh
 COPY audio-monitor.sh /usr/local/bin/audio-monitor.sh
-COPY start-pulseaudio.sh /usr/local/bin/start-pulseaudio.sh
 COPY health-check.sh /usr/local/bin/health-check.sh
 COPY fix-permissions.sh /usr/local/bin/fix-permissions.sh
 COPY test-polkit.sh /usr/local/bin/test-polkit.sh
-COPY monitor-services.sh /usr/local/bin/monitor-services.sh
 RUN chmod +x /usr/local/bin/setup-*.sh \
-    /usr/local/bin/start-dbus-first.sh \
-    /usr/local/bin/wait-for-dbus.sh \
-    /usr/local/bin/start-vnc-robust.sh \
-    /usr/local/bin/check-vnc-health.sh \
-    /usr/local/bin/enhanced-health-check.sh \
     /usr/local/bin/service-health.sh \
     /usr/local/bin/test-desktop-audio.sh \
     /usr/local/bin/audio-monitor.sh \
     /usr/local/bin/audio-validation.sh \
-    /usr/local/bin/start-pulseaudio.sh \
     /usr/local/bin/health-check.sh \
     /usr/local/bin/fix-permissions.sh \
     /usr/local/bin/test-polkit.sh \
-    /usr/local/bin/monitor-services.sh \
-    /usr/local/bin/fix-audio-startup.sh \
-    /usr/local/bin/ttyd-wrapper.sh
-
-# Install KasmVNC server
-RUN /usr/local/bin/setup-kasmvnc.sh
+    /usr/local/bin/fix-audio-startup.sh
 
 # Initialize audio system during build
 RUN /usr/local/bin/setup-audio.sh && \
@@ -213,17 +191,18 @@ RUN /usr/local/bin/setup-audio.sh && \
 RUN /usr/local/bin/setup-ttyd.sh
 
 # Install additional dependencies for enhanced features
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3-websockets python3-psutil python3-requests \
-    python3-schedule rclone imagemagick python3-aiohttp \
-    && npm install -g ws express socket.io \
-    && npm cache clean --force \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y \
+    python3-pip python3-websockets python3-psutil python3-requests \
+    python3-schedule rclone imagemagick ffmpeg python3-aiohttp \
+    && npm install -g ws express socket.io
 
 # Setup audio bridge
 COPY setup-audio-bridge.sh /usr/local/bin/
+COPY integrate-audio-ui.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/setup-audio-bridge.sh && \
-    /usr/local/bin/setup-audio-bridge.sh
+    chmod +x /usr/local/bin/integrate-audio-ui.sh && \
+    /usr/local/bin/setup-audio-bridge.sh && \
+    /usr/local/bin/integrate-audio-ui.sh
 
 # Validate all scripts are present and executable
 RUN echo "Validating script dependencies..." && \
@@ -235,17 +214,23 @@ RUN echo "Validating script dependencies..." && \
 
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-# Ensure updated accountsservice and PolicyKit for Ubuntu 24.04
-RUN apt-get update && apt-get install -y --no-install-recommends accountsservice policykit-1 && \
+# Copy PolicyKit configuration files for Ubuntu 24.04 bug fix
+COPY polkit-localauthority.conf /tmp/polkit-localauthority.conf
+COPY polkit-dbus.conf /tmp/polkit-dbus.conf
+
+# Ensure updated accountsservice
+RUN apt-get update && apt-get install -y accountsservice policykit-1 && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Create default PolicyKit configuration directories and files for Ubuntu 24.04
 # Copy PolicyKit configurations to address Ubuntu 24.04 issues
-COPY 50-localauthority.conf /etc/polkit-1/localauthority.conf.d/50-localauthority.conf
-COPY polkit-dbus.conf /etc/dbus-1/system.d/org.freedesktop.PolicyKit1.conf
+COPY polkit-localauthority.conf /etc/polkit-1/localauthority.conf.d/50-localauthority.conf
+COPY 50-localauthority.conf /etc/polkit-1/localauthority.conf.d/51-localauthority.conf  
+COPY polkit-dbus.conf /usr/share/dbus-1/system-services/org.freedesktop.PolicyKit1.conf
 COPY org.freedesktop.PolicyKit1.service /usr/share/dbus-1/system-services/org.freedesktop.PolicyKit1.service
-COPY 99-devuser-all.rules /etc/polkit-1/rules.d/99-devuser-all.rules
+COPY devuser-all.rules /etc/polkit-1/rules.d/49-nopasswd_global.rules
 COPY 10-vendor.d-admin.rules /etc/polkit-1/rules.d/10-vendor.d-admin.rules
+COPY monitor-services.sh /usr/local/bin/monitor-services.sh
 
 # Create missing system directories and disable PolicyKit for container environment
 RUN mkdir -p /etc/polkit-1/localauthority.conf.d /etc/polkit-1/rules.d /var/lib/polkit-1 \
@@ -254,19 +239,19 @@ RUN mkdir -p /etc/polkit-1/localauthority.conf.d /etc/polkit-1/rules.d /var/lib/
     chown 1000:1000 /run/user/1000 && \
     chmod 700 /run/user/1000 && \
     chmod 755 /etc/polkit-1/rules.d && \
-    chmod 644 /etc/polkit-1/rules.d/* /etc/polkit-1/localauthority.conf.d/*
+    chmod 644 /etc/polkit-1/rules.d/* /etc/polkit-1/localauthority.conf.d/* && \
+    chmod +x /usr/local/bin/monitor-services.sh
 
 # Ensure KDE polkit agent starts correctly
 RUN ln -sf /usr/lib/x86_64-linux-gnu/libexec/polkit-kde-authentication-agent-1 /usr/lib/polkit-kde-authentication-agent-1 && \
     sed -i 's@^Exec=.*@Exec=/usr/lib/polkit-kde-authentication-agent-1@' /etc/xdg/autostart/polkit-kde-authentication-agent-1.desktop
 
-COPY xstartup /usr/local/share/xstartup
+COPY xstartup /tmp/xstartup
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh /usr/local/share/xstartup
+RUN chmod +x /entrypoint.sh /tmp/xstartup
 
 ENTRYPOINT ["/entrypoint.sh"]
 
 EXPOSE 22 80 5901 7681
 
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf", "-n"]
-

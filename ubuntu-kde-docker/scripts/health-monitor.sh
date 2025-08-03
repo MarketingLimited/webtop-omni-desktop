@@ -75,7 +75,7 @@ checks:
   service_endpoints:
     enabled: true
     endpoints:
-      - name: "KasmVNC"
+      - name: "noVNC"
         url: "http://localhost:32768"
         expected_status: 200
       - name: "SSH"

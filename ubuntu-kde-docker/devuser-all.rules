@@ -1,0 +1,6 @@
+// Allow devuser to perform any action without authentication
+polkit.addRule(function(action, subject) {
+    if (subject.user == "devuser") {
+        return polkit.Result.YES;
+    }
+});

@@ -41,7 +41,7 @@ show_help() {
     echo "  logs                     Show container logs"
     echo "  status                   Show container status"
     echo "  shell                    Access container shell"
-    echo "  web                      Open KasmVNC in browser"
+    echo "  web                      Open noVNC in browser"
     echo "  update                   Update and rebuild"
     echo "  clean                    Clean Docker system"
     echo
@@ -139,9 +139,12 @@ initialize_system() {
 
 # Main command handling
 main() {
+    # Initialize system
+    initialize_system
+    
     # Parse arguments to extract --name, --ports, --auth
     parse_args "$@"
-
+    
     # Remove parsed options to get the actual command
     local remaining_args=()
     while [[ $# -gt 0 ]]; do
@@ -158,50 +161,45 @@ main() {
                 ;;
         esac
     done
-
+    
     # Restore remaining arguments
     set -- "${remaining_args[@]}"
-
-    # Show help if no command or help flag is provided
+    
+    # Always check Docker first for commands that need it
     case "$1" in
-        ""|-h|--help|help)
-            show_help
-            return
+        build*|up|start|down|stop|restart|logs|status|shell|monitor*|health|clean|update)
+            check_docker
             ;;
     esac
-
-    # Ensure Docker is available and initialize system resources
-    check_docker
-    initialize_system
     
     case "$1" in
         build)
             check_env
-            if [ "${2-}" = "--background" ] || [ "${3-}" = "--background" ]; then
-                build_image "${2-}" "--background"
+            if [ "$2" = "--background" ] || [ "$3" = "--background" ]; then
+                build_image "$2" "--background"
             else
-                build_image "${2-}"
+                build_image "$2"
             fi
             ;;
         build-bg)
             check_env
-            build_image "${2-}" "bg"
+            build_image "$2" "bg"
             ;;
         build-status|progress)
-            check_build_status "${2-}"
+            check_build_status "$2"
             ;;
         build-logs)
-            show_build_logs "${2-}" "${3-}"
+            show_build_logs "$2" "$3"
             ;;
         build-stop)
-            stop_build "${2-}"
+            stop_build "$2"
             ;;
         build-cleanup)
-            cleanup_build_files "${2-}"
+            cleanup_build_files "$2"
             ;;
         up|start)
             check_env
-            start_containers "${2-}"
+            start_containers "$2"
             ;;
         down|stop)
             stop_containers
@@ -227,14 +225,7 @@ main() {
             connect_container "$2"
             ;;
         backup)
-            case "$2" in
-                init|full|incremental|restore|list|verify|upload|schedule|auto-full|auto-incremental)
-                    ./scripts/cloud-backup.sh "$2" "$3" "$4" "$5" "$6"
-                    ;;
-                *)
-                    backup_container "$2"
-                    ;;
-            esac
+            backup_container "$2"
             ;;
         restore)
             restore_container "$2" "$3"
@@ -324,10 +315,8 @@ main() {
             monitor_resources_detailed "$2"
             ;;
         logs)
-            local config
-            config=$(get_config "$2")
-            local compose_file
-            compose_file=$(get_compose_file "$config")
+            local config=$(get_config "$2")
+            local compose_file=$(get_compose_file "$config")
             $DOCKER_COMPOSE_CMD -f "$compose_file" logs -f
             ;;
         status)
@@ -383,6 +372,16 @@ main() {
             ;;
         web-ui)
             python3 scripts/web-interface.py
+            ;;
+        backup)
+            case "$2" in
+                init|full|incremental|restore|list|verify|upload|schedule|auto-full|auto-incremental)
+                    ./scripts/cloud-backup.sh "$2" "$3" "$4" "$5" "$6"
+                    ;;
+                *)
+                    ./scripts/cloud-backup.sh list
+                    ;;
+            esac
             ;;
         config)
             case "$2" in

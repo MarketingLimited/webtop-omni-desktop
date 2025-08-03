@@ -38,18 +38,18 @@ docker exec webtop-kde /usr/local/bin/test-desktop-audio.sh
 
 
 #### VNC shows black screen
-**Cause**: KasmVNC not capturing desktop or resolution issues
+**Cause**: X11VNC not capturing desktop or resolution issues
 
 **Solution**:
 ```bash
 # Check VNC status
-docker exec webtop-kde supervisorctl status KasmVNC
+docker exec webtop-kde supervisorctl status X11VNC
 
 # Check display resolution
 docker exec webtop-kde xrandr
 
 # Restart VNC services
-docker exec webtop-kde supervisorctl restart KasmVNC
+docker exec webtop-kde supervisorctl restart X11VNC noVNC
 ```
 
 ### 💻 Terminal and SSH Issues
@@ -282,12 +282,13 @@ docker exec webtop-kde supervisorctl stop all
 docker exec webtop-kde supervisorctl clear all
 
 # Start services in order
+docker exec webtop-kde supervisorctl start Xvfb dbus
 sleep 5
 docker exec webtop-kde supervisorctl start pulseaudio
 sleep 5
 docker exec webtop-kde supervisorctl start KDE
 sleep 10
-docker exec webtop-kde supervisorctl start KasmVNC sshd ttyd
+docker exec webtop-kde supervisorctl start X11VNC noVNC sshd ttyd
 sleep 5
 docker exec webtop-kde supervisorctl start SystemValidation
 ```

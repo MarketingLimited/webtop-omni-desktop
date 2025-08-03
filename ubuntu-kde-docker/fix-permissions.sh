@@ -4,8 +4,6 @@ set -euo pipefail
 DEV_USERNAME="${DEV_USERNAME:-devuser}"
 DEV_UID="${DEV_UID:-1000}"
 DEV_GID="${DEV_GID:-1000}"
-DEV_HOME="/home/${DEV_USERNAME}"
-readonly DEV_USERNAME DEV_UID DEV_GID DEV_HOME
 
 echo "🔧 Fixing file permissions and ownership..."
 
@@ -16,35 +14,27 @@ if ! id "$DEV_USERNAME" >/dev/null 2>&1; then
 fi
 
 # Fix home directory ownership
-chown -R "${DEV_UID}:${DEV_GID}" "$DEV_HOME" 2>/dev/null || true
+chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}" 2>/dev/null || true
 
 # Fix desktop and application directories
-dirs=(Desktop Documents Downloads Pictures Videos Music Public Templates .local .config .vnc)
-for dir in "${dirs[@]}"; do
-    path="${DEV_HOME}/${dir}"
-    if [ -d "$path" ]; then
-        chown -R "${DEV_UID}:${DEV_GID}" "$path"
-        chmod -R u+rwX "$path"
+for dir in Desktop .local .config .vnc; do
+    if [ -d "/home/${DEV_USERNAME}/$dir" ]; then
+        chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/$dir"
+        chmod -R u+rwX "/home/${DEV_USERNAME}/$dir"
     fi
 done
 
 # Fix desktop files permissions
-desktop_dir="${DEV_HOME}/Desktop"
-if [ -d "$desktop_dir" ]; then
-    find "$desktop_dir" -type f -name "*.desktop" -exec chmod +x {} + 2>/dev/null || true
-fi
+find "/home/${DEV_USERNAME}/Desktop" -name "*.desktop" -exec chmod +x {} \; 2>/dev/null || true
 
 # Fix XDG runtime directory
-xdg_dir="/run/user/${DEV_UID}"
-if [ -d "$xdg_dir" ]; then
-    chown "${DEV_UID}:${DEV_GID}" "$xdg_dir"
-    chmod 700 "$xdg_dir"
+if [ -d "/run/user/${DEV_UID}" ]; then
+    chown "${DEV_USERNAME}:${DEV_USERNAME}" "/run/user/${DEV_UID}"
+    chmod 700 "/run/user/${DEV_UID}"
 fi
 
 # Fix supervisor log directory permissions
-log_dir="/var/log/supervisor"
-mkdir -p "$log_dir"
-chmod 755 "$log_dir"
+mkdir -p /var/log/supervisor
+chmod 755 /var/log/supervisor
 
 echo "✅ Permissions fixed successfully"
-

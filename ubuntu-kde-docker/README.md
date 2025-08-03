@@ -29,7 +29,7 @@ A comprehensive Docker environment featuring Ubuntu with KDE Plasma desktop, spe
 - **Cross-Platform** - ARM64 and AMD64 architecture support
 
 ### 🌐 Remote Access & Infrastructure
-- **Multiple Access Methods** - KasmVNC, SSH, web terminal
+- **Multiple Access Methods** - noVNC, SSH, web terminal
 - **Performance Monitoring** - Resource usage, health checks
 - **CI/CD Ready** - GitHub Actions, automated builds, multi-environment support
 
@@ -77,26 +77,12 @@ docker compose -f docker-compose.prod.yml up -d
 ./webtop.sh up
 ```
 
-### Optional: Install KasmVNC Manually
-
-If you prefer to install KasmVNC yourself instead of using the provided setup
-script, download the package that matches your distribution from the
-[KasmVNC releases](https://github.com/kasmtech/KasmVNC/releases) page and run:
-
-```bash
-wget https://github.com/kasmtech/KasmVNC/releases/download/v1.3.4/kasmvncserver_noble_1.3.4_$(dpkg --print-architecture).deb
-sudo apt-get install ./kasmvncserver_noble_1.3.4_*.deb
-sudo adduser "$USER" ssl-cert
-vncserver
-tail -f ~/.vnc/*.log
-```
-
 ### 3. Access Services
 
 | Service | URL | Description | Status Check |
 |---------|-----|-------------|--------------|
 
-| 🖥️ **VNC Desktop** | `http://localhost:80` | Desktop via KasmVNC | Auto-validated |
+| 🖥️ **VNC Desktop** | `http://localhost:80` | Desktop via noVNC | Auto-validated |
 | 💻 **Terminal** | `http://localhost:7681` | Web terminal (TTYD) | Auto-validated |
 | 🔐 **SSH** | `ssh user@localhost -p 2222` | Direct SSH access | Auto-validated |
 | 🎵 **Audio** | KDE System Settings | Virtual audio devices | Auto-validated |

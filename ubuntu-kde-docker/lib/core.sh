@@ -3,35 +3,34 @@
 # Core utilities and setup functions
 # Part of the modular webtop.sh refactoring
 
-# Colors for output (used by sourced scripts)
-# shellcheck disable=SC2034
-readonly RED='\033[0;31m'
-readonly GREEN='\033[0;32m'
-readonly YELLOW='\033[0;33m'
-readonly BLUE='\033[0;34m'
-readonly PURPLE='\033[0;35m'
-readonly CYAN='\033[0;36m'
-readonly NC='\033[0m' # No Color
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
 
 # Print colored output functions
 print_status() {
-    printf '%b\n' "${BLUE}[INFO]${NC} $1"
+    echo -e "${BLUE}[INFO]${NC} $1"
 }
 
 print_success() {
-    printf '%b\n' "${GREEN}[SUCCESS]${NC} $1"
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
 }
 
 print_warning() {
-    printf '%b\n' "${YELLOW}[WARNING]${NC} $1"
+    echo -e "${YELLOW}[WARNING]${NC} $1"
 }
 
 print_error() {
-    printf '%b\n' "${RED}[ERROR]${NC} $1"
+    echo -e "${RED}[ERROR]${NC} $1"
 }
 
 print_header() {
-    printf '%b\n' "${PURPLE}
+    echo -e "${PURPLE}
 ╔══════════════════════════════════════════════════════════════╗
 ║                    WEBTOP KDE MARKETING SUITE               ║
 ║           Enhanced for Development & Content Creation        ║
@@ -79,8 +78,6 @@ check_env() {
 
 # Load environment variables with defaults
 load_env() {
-    check_env
-    # shellcheck source=/dev/null
     source .env
     
     # Set default base ports if not defined
@@ -95,24 +92,24 @@ load_env() {
 # Check if port is available
 is_port_available() {
     local port=$1
-    ! ss -tuln | grep -q ":${port} "
+    ! ss -tuln | grep -q ":$port "
 }
 
 # Find next available port starting from base
 find_available_port() {
     local base_port=$1
     local current_port=$base_port
-
-    while ! is_port_available "$current_port"; do
+    
+    while ! is_port_available $current_port; do
         ((current_port++))
         # Prevent infinite loop
-        if [ "$current_port" -gt $((base_port + 1000)) ]; then
+        if [ $current_port -gt $((base_port + 1000)) ]; then
             print_error "Could not find available port starting from $base_port"
             exit 1
         fi
     done
-
-    echo "$current_port"
+    
+    echo $current_port
 }
 
 # Ensure JQ is installed for container registry management
@@ -159,32 +156,22 @@ parse_args() {
     while [[ $# -gt 0 ]]; do
         case $1 in
             --name=*)
-                # shellcheck disable=SC2034
                 CONTAINER_NAME="${1#*=}"
                 shift
                 ;;
             --name)
-                # shellcheck disable=SC2034
                 CONTAINER_NAME="$2"
                 shift 2
                 ;;
             --ports=*)
-                # shellcheck disable=SC2034
                 CONTAINER_PORTS="${1#*=}"
                 shift
                 ;;
             --ports)
-                # shellcheck disable=SC2034
                 CONTAINER_PORTS="$2"
                 shift 2
                 ;;
-            --auth=*)
-                # shellcheck disable=SC2034
-                ENABLE_AUTH="${1#*=}"
-                shift
-                ;;
             --auth)
-                # shellcheck disable=SC2034
                 ENABLE_AUTH="true"
                 shift
                 ;;

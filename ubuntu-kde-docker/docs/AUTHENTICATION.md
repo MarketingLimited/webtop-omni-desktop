@@ -138,7 +138,7 @@ cut -d: -f1 auth/.htpasswd
 The nginx configuration automatically enables authentication when the `.htpasswd` file exists:
 
 ```nginx
-# Main location for KasmVNC with optional authentication
+# Main location for noVNC with optional authentication
 location / {
     # Enable HTTP Basic Authentication if auth file exists
     auth_basic "VNC Access";

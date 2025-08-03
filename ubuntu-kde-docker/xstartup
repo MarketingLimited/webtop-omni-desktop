@@ -1,34 +1,4 @@
 #!/bin/sh
-
-# Disable xmodmap to prevent interfering with keyboard layouts
 export XKL_XMODMAP_DISABLE=1
-
-# Ensure essential binaries are in PATH
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-
-# Default to VNC display :1 if DISPLAY is unset
-export DISPLAY=${DISPLAY:-:1}
-
-# Prevent conflicts with existing desktop sessions
-unset SESSION_MANAGER
-unset DBUS_SESSION_BUS_ADDRESS
-
-# Run KDE Plasma inside a D-Bus session
-DEV_USERNAME="${DEV_USERNAME:-devuser}"
-DEV_UID="${DEV_UID:-1000}"
-export XDG_RUNTIME_DIR="/run/user/${DEV_UID}"
-
-echo "INFO: xstartup script started for user: $(id -un)"
-echo "INFO: Attempting to launch KDE Plasma session..."
-
-if [ "$(id -un)" = "$DEV_USERNAME" ]; then
-  # Redirect stderr to stdout to ensure all errors are logged
-  exec dbus-launch --exit-with-session /usr/bin/startplasma-x11 2>&1
-else
-  # Also redirect for the su case
-  exec su - "$DEV_USERNAME" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; echo 'INFO: Starting KDE Plasma as user ${DEV_USERNAME}'; dbus-launch --exit-with-session /usr/bin/startplasma-x11 2>&1"
-fi
-
-# This line will only be reached if the exec command fails
-echo "ERROR: The exec command to start the plasma session failed." >&2
-exit 1
+exec dbus-launch --exit-with-session /usr/bin/startplasma-x11
