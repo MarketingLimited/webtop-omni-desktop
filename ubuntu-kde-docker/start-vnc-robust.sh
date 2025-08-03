@@ -13,9 +13,8 @@ echo "🚀 Starting KasmVNC server..."
 VNC_BINARY="/usr/bin/kasmvncserver"
 
 if [ ! -x "$VNC_BINARY" ]; then
-    echo "❌ KasmVNC binary not found at $VNC_BINARY!"
-    echo "Please ensure the Docker image was built correctly and the KasmVNC .deb package was installed."
-    exit 127
+    echo "❌ KasmVNC binary not found at $VNC_BINARY! Skipping start."
+    exit 0
 fi
 
 # 1. Wait for the D-Bus socket to be created

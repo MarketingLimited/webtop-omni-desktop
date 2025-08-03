@@ -178,6 +178,7 @@ COPY test-desktop-audio.sh /usr/local/bin/test-desktop-audio.sh
 COPY audio-validation.sh /usr/local/bin/audio-validation.sh
 COPY system-validation.sh /usr/local/bin/system-validation.sh
 COPY audio-monitor.sh /usr/local/bin/audio-monitor.sh
+COPY start-pulseaudio.sh /usr/local/bin/start-pulseaudio.sh
 COPY health-check.sh /usr/local/bin/health-check.sh
 COPY fix-permissions.sh /usr/local/bin/fix-permissions.sh
 COPY test-polkit.sh /usr/local/bin/test-polkit.sh
@@ -191,6 +192,7 @@ RUN chmod +x /usr/local/bin/setup-*.sh \
     /usr/local/bin/test-desktop-audio.sh \
     /usr/local/bin/audio-monitor.sh \
     /usr/local/bin/audio-validation.sh \
+    /usr/local/bin/start-pulseaudio.sh \
     /usr/local/bin/health-check.sh \
     /usr/local/bin/fix-permissions.sh \
     /usr/local/bin/test-polkit.sh \
