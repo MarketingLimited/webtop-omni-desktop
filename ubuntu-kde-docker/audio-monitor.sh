@@ -116,7 +116,7 @@ generate_audio_status() {
     fi
     
     # Check KDE integration
-    check_kde_audio
+    check_kde_audio || true
     
     # Check if test script is available
     if [ -f "/usr/local/bin/test-desktop-audio.sh" ]; then

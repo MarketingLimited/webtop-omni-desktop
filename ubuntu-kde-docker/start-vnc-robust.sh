@@ -3,7 +3,7 @@ set -e
 
 # Capture all output for troubleshooting while still emitting to the
 # supervisord log. This helps diagnose early startup failures.
-LOG_FILE="/var/log/kasmvnc.log"
+LOG_FILE="$HOME/kasmvnc.log"
 mkdir -p "$(dirname "$LOG_FILE")"
 exec > >(tee -a "$LOG_FILE") 2>&1
 
