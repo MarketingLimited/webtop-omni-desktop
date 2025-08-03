@@ -9,6 +9,7 @@ echo "🔊 Setting up audio system..."
 # Determine if user exists to handle build vs runtime
 if id "$DEV_USERNAME" >/dev/null 2>&1; then
     IS_RUNTIME=true
+    DEV_UID="$(id -u "$DEV_USERNAME")"
     echo "🔧 Runtime mode: applying user configuration"
 else
     IS_RUNTIME=false

@@ -2,7 +2,11 @@
 set -euo pipefail
 
 DEV_USERNAME="${DEV_USERNAME:-devuser}"
-DEV_UID="${DEV_UID:-1000}"
+if id "$DEV_USERNAME" >/dev/null 2>&1; then
+  DEV_UID="$(id -u "$DEV_USERNAME")"
+else
+  DEV_UID="${DEV_UID:-1000}"
+fi
 
 if ! command -v pulseaudio >/dev/null 2>&1; then
   echo "⚠️ pulseaudio not found; skipping startup"
