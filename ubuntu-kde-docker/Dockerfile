@@ -98,7 +98,6 @@ RUN mkdir -p /etc/apt/keyrings \
     && apt-get update \
     && apt-get install -y \
         google-chrome-stable brave-browser opera-stable code \
-    && rm /etc/apt/sources.list.d/opera.list \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Allow running Chromium-based browsers as root
@@ -147,12 +146,6 @@ RUN mkdir -p /var/run/sshd /root/.vnc /tmp/.X11-unix && \
 # Desktop and Flatpak setup scripts
 COPY setup-flatpak-apps.sh /usr/local/bin/setup-flatpak-apps.sh
 COPY setup-desktop.sh /usr/local/bin/setup-desktop.sh
-COPY setup-xvfb-optimization.sh /usr/local/bin/setup-xvfb-optimization.sh
-COPY setup-x11vnc-optimization.sh /usr/local/bin/setup-x11vnc-optimization.sh
-COPY setup-novnc-enhancement.sh /usr/local/bin/setup-novnc-enhancement.sh
-COPY setup-kde-optimization.sh /usr/local/bin/setup-kde-optimization.sh
-COPY setup-system-optimization.sh /usr/local/bin/setup-system-optimization.sh
-COPY setup-network-optimization.sh /usr/local/bin/setup-network-optimization.sh
 COPY setup-audio.sh /usr/local/bin/setup-audio.sh
 COPY fix-audio-startup.sh /usr/local/bin/fix-audio-startup.sh
 COPY setup-marketing-shortcuts.sh /usr/local/bin/setup-marketing-shortcuts.sh
@@ -161,9 +154,6 @@ COPY setup-wine.sh /usr/local/bin/setup-wine.sh
 COPY setup-google-ads-editor.sh /usr/local/bin/setup-google-ads-editor.sh
 COPY setup-waydroid.sh /usr/local/bin/setup-waydroid.sh
 COPY setup-video-editing.sh /usr/local/bin/setup-video-editing.sh
-COPY setup-advanced-features.sh /usr/local/bin/setup-advanced-features.sh
-COPY setup-marketing-optimization.sh /usr/local/bin/setup-marketing-optimization.sh
-COPY setup-modern-features.sh /usr/local/bin/setup-modern-features.sh
 COPY setup-ttyd.sh /usr/local/bin/setup-ttyd.sh
 COPY service-health.sh /usr/local/bin/service-health.sh
 COPY test-desktop-audio.sh /usr/local/bin/test-desktop-audio.sh
@@ -189,12 +179,6 @@ RUN /usr/local/bin/setup-audio.sh && \
 
 # Run TTYD setup to create wrapper script
 RUN /usr/local/bin/setup-ttyd.sh
-
-# Install additional dependencies for enhanced features
-RUN apt-get update && apt-get install -y \
-    python3-pip python3-websockets python3-psutil python3-requests \
-    python3-schedule rclone imagemagick ffmpeg python3-aiohttp \
-    && npm install -g ws express socket.io
 
 # Setup audio bridge
 COPY setup-audio-bridge.sh /usr/local/bin/

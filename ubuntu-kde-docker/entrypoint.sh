@@ -278,28 +278,11 @@ fi
 chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}"
 chown -R "${ADMIN_USERNAME}:${ADMIN_USERNAME}" "/home/${ADMIN_USERNAME}"
 
-# Setup container-optimized D-Bus first
-log_info "Setting up container D-Bus..."
-if [ -f "/usr/local/bin/setup-container-dbus.sh" ]; then
-    /usr/local/bin/setup-container-dbus.sh || log_warn "D-Bus setup failed"
-fi
-
-# Setup font configuration early
-log_info "Setting up font configuration..."
-if [ -f "/usr/local/bin/setup-font-config.sh" ]; then
-    /usr/local/bin/setup-font-config.sh || log_warn "Font config setup failed"
-fi
-
-# Setup container-optimized Wine
-log_info "Setting up container Wine..."
-if [ -f "/usr/local/bin/setup-wine-container.sh" ]; then
-    /usr/local/bin/setup-wine-container.sh || log_warn "Wine container setup failed"
-else
-    # Fallback to original Wine setup
-    log_info "Setting up Wine and Google Ads Editor..."
-    if [ -f "/usr/local/bin/setup-wine.sh" ]; then
-        if /usr/local/bin/setup-wine.sh; then
-            log_info "Wine setup completed successfully"
+# Setup Wine and Windows applications (runtime only)
+log_info "Setting up Wine and Google Ads Editor..."
+if [ -f "/usr/local/bin/setup-wine.sh" ]; then
+    if /usr/local/bin/setup-wine.sh; then
+        log_info "Wine setup completed successfully"
         
         # Setup Google Ads Editor
         if [ -f "/usr/local/bin/setup-google-ads-editor.sh" ]; then
@@ -318,22 +301,16 @@ else
     log_warn "Wine setup script not found"
 fi
 
-# Setup container Android solutions
-log_info "Setting up container Android..."
-if [ -f "/usr/local/bin/setup-android-container.sh" ]; then
-    /usr/local/bin/setup-android-container.sh || log_warn "Android container setup failed"
-else
-    # Fallback to original Android setup
-    log_info "Setting up Android subsystem..."
-    if [ -f "/usr/local/bin/setup-waydroid.sh" ]; then
-        if /usr/local/bin/setup-waydroid.sh; then
-            log_info "Android subsystem setup completed"
-        else
-            log_warn "Android subsystem setup failed"
-        fi
+# Setup Android subsystem (Waydroid/Anbox)
+log_info "Setting up Android subsystem..."
+if [ -f "/usr/local/bin/setup-waydroid.sh" ]; then
+    if /usr/local/bin/setup-waydroid.sh; then
+        log_info "Android subsystem setup completed"
     else
-        log_warn "Android subsystem setup script not found"
+        log_warn "Android subsystem setup failed"
     fi
+else
+    log_warn "Android subsystem setup script not found"
 fi
 
 # Ensure binder/ashmem are available for Waydroid (optional, may fail in containers)
@@ -375,111 +352,11 @@ chmod +x /usr/local/bin/monitor-services.sh
 # Start the enhanced monitor
 /usr/local/bin/monitor-services.sh &
 
-# Setup enhanced monitoring
-log_info "Setting up enhanced monitoring..."
-if [ -f "/usr/local/bin/setup-enhanced-monitoring.sh" ]; then
-    /usr/local/bin/setup-enhanced-monitoring.sh || log_warn "Enhanced monitoring setup failed"
-fi
-
 # Set up service health monitoring
 log_info "Setting up service health monitoring..."
 if [ -f "/usr/local/bin/service-health.sh" ]; then
     chmod +x /usr/local/bin/service-health.sh
     echo "✅ Service health monitoring setup completed"
-
-# Setup Xvfb optimization
-log_info "Setting up Xvfb display server optimization..."
-if [ -f "/usr/local/bin/setup-xvfb-optimization.sh" ]; then
-    chmod +x /usr/local/bin/setup-xvfb-optimization.sh
-    /usr/local/bin/setup-xvfb-optimization.sh
-    log_info "✅ Xvfb optimization setup completed"
-else
-    log_warn "⚠️  Xvfb optimization script not found"
-fi
-
-# Setup x11vnc optimization
-log_info "Setting up x11vnc performance optimization..."
-if [ -f "/usr/local/bin/setup-x11vnc-optimization.sh" ]; then
-    chmod +x /usr/local/bin/setup-x11vnc-optimization.sh
-    /usr/local/bin/setup-x11vnc-optimization.sh
-    log_info "✅ x11vnc optimization setup completed"
-else
-    log_warn "⚠️  x11vnc optimization script not found"
-fi
-
-# Setup noVNC enhancement
-log_info "Setting up noVNC client enhancement..."
-if [ -f "/usr/local/bin/setup-novnc-enhancement.sh" ]; then
-    chmod +x /usr/local/bin/setup-novnc-enhancement.sh
-    /usr/local/bin/setup-novnc-enhancement.sh
-    log_info "✅ noVNC enhancement setup completed"
-else
-    log_warn "⚠️  noVNC enhancement script not found"
-fi
-
-# Setup KDE optimization
-log_info "Setting up KDE Plasma desktop optimization..."
-if [ -f "/usr/local/bin/setup-kde-optimization.sh" ]; then
-    chmod +x /usr/local/bin/setup-kde-optimization.sh
-    /usr/local/bin/setup-kde-optimization.sh
-    log_info "✅ KDE optimization setup completed"
-else
-    log_warn "⚠️  KDE optimization script not found"
-fi
-
-# Setup system-level optimization
-log_info "Setting up system-level performance optimization..."
-if [ -f "/usr/local/bin/setup-system-optimization.sh" ]; then
-    chmod +x /usr/local/bin/setup-system-optimization.sh
-    /usr/local/bin/setup-system-optimization.sh
-    log_info "✅ System optimization setup completed"
-else
-    log_warn "⚠️  System optimization script not found"
-fi
-
-# Setup network and streaming optimization
-log_info "Setting up network and streaming optimization..."
-if [ -f "/usr/local/bin/setup-network-optimization.sh" ]; then
-    chmod +x /usr/local/bin/setup-network-optimization.sh
-    /usr/local/bin/setup-network-optimization.sh
-    log_info "✅ Network optimization setup completed"
-else
-    log_warn "⚠️  Network optimization script not found"
-fi
-
-# Setup advanced features (Phase 7)
-log_info "Setting up advanced desktop features..."
-if [ -f "/setup-advanced-features.sh" ]; then
-    chmod +x /setup-advanced-features.sh
-    ./setup-advanced-features.sh 2>&1 | tee -a "/var/log/setup-advanced-features.log"
-    log_info "✅ Advanced features setup completed"
-else
-    log_warn "⚠️  Advanced features script not found"
-fi
-
-# Setup marketing optimization (Phase 8)
-log_info "Setting up marketing agency optimizations..."
-if [ -f "/setup-marketing-optimization.sh" ]; then
-    chmod +x /setup-marketing-optimization.sh
-    ./setup-marketing-optimization.sh 2>&1 | tee -a "/var/log/setup-marketing-optimization.log"
-    log_info "✅ Marketing optimization setup completed"
-else
-    log_warn "⚠️  Marketing optimization script not found"
-fi
-
-# Setup modern features
-log_info "Setting up modern desktop features..."
-if [ -f "/setup-modern-features.sh" ]; then
-    chmod +x /setup-modern-features.sh
-    ./setup-modern-features.sh 2>&1 | tee -a "/var/log/setup-modern-features.log"
-    log_info "✅ Modern features setup completed"
-else
-    log_warn "⚠️  Modern features script not found"
-fi
-    log_info "✅ Network optimization setup completed"
-else
-    log_warn "⚠️  Network optimization script not found"
-fi
 else
     echo "⚠️  Service health monitoring script not found"
 fi
