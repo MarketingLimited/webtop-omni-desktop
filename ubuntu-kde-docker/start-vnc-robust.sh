@@ -3,8 +3,15 @@ set -e
 
 # Capture all output for troubleshooting while still emitting to the
 # supervisord log. This helps diagnose early startup failures.
-LOG_FILE="$HOME/kasmvnc.log"
-mkdir -p "$(dirname "$LOG_FILE")"
+# If the user's home directory is not writable (e.g. due to leftover
+# root-owned files), fall back to using /tmp so the script does not
+# terminate before starting the VNC server.
+LOG_DIR="${HOME:-/tmp}"
+if ! mkdir -p "$LOG_DIR" 2>/dev/null; then
+    LOG_DIR="/tmp"
+    mkdir -p "$LOG_DIR"
+fi
+LOG_FILE="$LOG_DIR/kasmvnc.log"
 exec > >(tee -a "$LOG_FILE") 2>&1
 
 echo "🚀 Starting KasmVNC server..."
