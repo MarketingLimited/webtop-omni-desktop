@@ -11,7 +11,6 @@ echo "🔧 Fixing audio system startup configuration..."
 
 # Check if we're running during build (user doesn't exist yet) or runtime
 if id "$DEV_USERNAME" >/dev/null 2>&1; then
-    DEV_UID="$(id -u "$DEV_USERNAME")"
     IS_RUNTIME=true
     echo "🔧 Runtime mode: Setting user-specific permissions"
 else
@@ -19,12 +18,18 @@ else
     echo "🔧 Build mode: Skipping user-specific operations"
 fi
 
-# Ensure runtime directory structure exists (build-safe)
-mkdir -p "/run/user/${DEV_UID}"/{pulse,systemd}
-
+# Ensure runtime directories exist (build-safe)
+mkdir -p "/run/user/${DEV_UID}"
+mkdir -p "/run/user/${DEV_UID}/pulse"
 if [ "$IS_RUNTIME" = true ]; then
     chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/run/user/${DEV_UID}"
     chmod 700 "/run/user/${DEV_UID}"
+fi
+
+# Create systemd-style runtime directory structure
+mkdir -p "/run/user/${DEV_UID}/systemd"
+if [ "$IS_RUNTIME" = true ]; then
+    chown "${DEV_USERNAME}:${DEV_USERNAME}" "/run/user/${DEV_UID}/systemd"
 
     # Ensure PulseAudio config directory exists
     mkdir -p "/home/${DEV_USERNAME}/.config/pulse"
@@ -67,9 +72,8 @@ pcm.fallback {
 }
 EOF
 
-    chown "${DEV_USERNAME}:${DEV_USERNAME}" \
-        "/home/${DEV_USERNAME}/.asoundrc" \
-        "/home/${DEV_USERNAME}/.config/pulse/client.conf"
+    chown "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/.asoundrc"
+    chown "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/.config/pulse/client.conf"
 fi
 
 # Set proper permissions for audio devices if they exist (runtime only)

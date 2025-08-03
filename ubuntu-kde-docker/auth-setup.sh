@@ -5,17 +5,41 @@
 
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Reuse common logging utilities
-source "$SCRIPT_DIR/lib/core.sh"
+# Color codes
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
 
 # Default paths
-HTPASSWD_FILE="$SCRIPT_DIR/auth/.htpasswd"
-AUTH_DIR="$SCRIPT_DIR/auth"
+HTPASSWD_FILE="auth/.htpasswd"
+AUTH_DIR="auth"
 
-# Initialize auth directory
+print_status() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+print_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Initialize auth directory and files
 init_auth() {
     mkdir -p "$AUTH_DIR"
+    
+    if [[ ! -f "$HTPASSWD_FILE" ]]; then
+        touch "$HTPASSWD_FILE"
+        print_success "Created authentication file: $HTPASSWD_FILE"
+    fi
 }
 
 # Add or update user
@@ -48,16 +72,12 @@ add_user() {
     fi
     
     # Add or update user
-    if [[ -f "$HTPASSWD_FILE" ]] && grep -q "^${username}:" "$HTPASSWD_FILE" 2>/dev/null; then
+    if grep -q "^${username}:" "$HTPASSWD_FILE" 2>/dev/null; then
         print_status "Updating existing user: $username"
         htpasswd -b "$HTPASSWD_FILE" "$username" "$password"
     else
         print_status "Adding new user: $username"
-        if [[ ! -f "$HTPASSWD_FILE" || ! -s "$HTPASSWD_FILE" ]]; then
-            htpasswd -bc "$HTPASSWD_FILE" "$username" "$password"
-        else
-            htpasswd -b "$HTPASSWD_FILE" "$username" "$password"
-        fi
+        htpasswd -bc "$HTPASSWD_FILE" "$username" "$password" 2>/dev/null || htpasswd -b "$HTPASSWD_FILE" "$username" "$password"
     fi
     
     print_success "User $username configured successfully"
@@ -144,28 +164,6 @@ generate_auth_from_env() {
     print_success "Authentication configured from environment file"
 }
 
-# Setup authentication for a container
-setup_container_auth() {
-    local container_name="$1"
-
-    if [[ -z "$container_name" ]]; then
-        print_error "Usage: setup <container_name>"
-        return 1
-    fi
-
-    init_auth
-
-    if [[ ! -f "$HTPASSWD_FILE" ]]; then
-        print_warning "No authentication file found to copy"
-        return 0
-    fi
-
-    local dest="${DATA_ROOT:-/data/ubuntu-kde-docker}/$container_name/auth"
-    mkdir -p "$dest"
-    cp "$HTPASSWD_FILE" "$dest/.htpasswd"
-    print_success "Authentication configured for container: $container_name"
-}
-
 # Main function
 main() {
     case "${1:-}" in
@@ -190,11 +188,8 @@ main() {
         "generate")
             generate_auth_from_env "$2"
             ;;
-        "setup")
-            setup_container_auth "$2"
-            ;;
         *)
-            echo "Usage: $0 {add|remove|list|init|generate|setup} [options]"
+            echo "Usage: $0 {add|remove|list|init|generate} [options]"
             echo ""
             echo "Commands:"
             echo "  add <user:pass>     Add or update user"
@@ -203,14 +198,12 @@ main() {
             echo "  list                List all users"
             echo "  init                Initialize auth directory"
             echo "  generate [env_file] Generate auth from environment file"
-            echo "  setup <container>   Copy auth file for container"
             echo ""
             echo "Examples:"
             echo "  $0 add admin:secure123"
             echo "  $0 add client1 password123"
             echo "  $0 remove client1"
             echo "  $0 generate .env"
-            echo "  $0 setup my-container"
             exit 1
             ;;
     esac

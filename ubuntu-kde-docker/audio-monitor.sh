@@ -5,37 +5,11 @@
 set -euo pipefail
 
 DEV_USERNAME="${DEV_USERNAME:-devuser}"
-DEV_UID="${DEV_UID:-1000}"
 LOG_FILE="/var/log/supervisor/audio-monitor.log"
-
-# Skip monitoring entirely if running in headless mode
-if [ "${HEADLESS_MODE:-false}" = "true" ]; then
-    echo "$(date '+%Y-%m-%d %H:%M:%S') [AUDIO] Headless mode - skipping audio monitor" | tee -a "$LOG_FILE"
-    exit 0
-fi
-
-get_dev_uid() {
-    id -u "$DEV_USERNAME" 2>/dev/null || echo "$DEV_UID"
-}
-
-run_as_dev() {
-    local uid
-    uid="$(get_dev_uid)"
-    su - "$DEV_USERNAME" -c "export XDG_RUNTIME_DIR=/run/user/$uid; $*" 2>/dev/null
-}
 
 log_audio() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') [AUDIO] $1" | tee -a "$LOG_FILE"
 }
-
-# If critical audio utilities are missing we simply log the issue and
-# exit successfully so supervisor doesn't keep restarting us in a loop.
-for cmd in su pactl pgrep; do
-    if ! command -v "$cmd" >/dev/null 2>&1; then
-        log_audio "⚠️  $cmd command not found, skipping audio monitoring"
-        exit 0
-    fi
-done
 
 check_pulseaudio() {
     if pgrep -x pulseaudio >/dev/null; then
@@ -49,19 +23,20 @@ check_pulseaudio() {
 
 check_audio_devices() {
     local device_count
-
+    export XDG_RUNTIME_DIR="/run/user/${DEV_UID:-1000}"
+    
     # Check if user exists before attempting to switch to user context
-    if ! id "$DEV_USERNAME" >/dev/null 2>&1; then
-        log_audio "⚠️  User $DEV_USERNAME doesn't exist yet, skipping device check"
+    if ! id "${DEV_USERNAME}" >/dev/null 2>&1; then
+        log_audio "⚠️  User ${DEV_USERNAME} doesn't exist yet, skipping device check"
         return 1
     fi
-
+    
     # Gracefully handle pactl failures
-    if ! device_count=$(run_as_dev "pactl list short sinks 2>/dev/null | wc -l"); then
+    if ! device_count=$(su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID:-1000}; pactl list short sinks 2>/dev/null | wc -l" 2>/dev/null); then
         log_audio "⚠️  Could not connect to PulseAudio server"
         return 1
     fi
-
+    
     if [ "$device_count" -gt 0 ]; then
         log_audio "✅ Audio devices available: $device_count sinks"
         return 0
@@ -75,15 +50,20 @@ check_audio_devices() {
 
 attempt_device_recovery() {
     log_audio "🔄 Attempting to create missing virtual audio devices..."
-
-    if ! id "$DEV_USERNAME" >/dev/null 2>&1; then
+    
+    if ! id "${DEV_USERNAME}" >/dev/null 2>&1; then
         log_audio "⚠️  Cannot recover devices - user doesn't exist yet"
         return 1
     fi
-
-    run_as_dev "pactl load-module module-null-sink sink_name=virtual_speaker sink_properties=device.description=\"Virtual_Marketing_Speaker\" 2>/dev/null || true"
-    run_as_dev "pactl load-module module-null-sink sink_name=virtual_microphone sink_properties=device.description=\"Virtual_Marketing_Microphone\" 2>/dev/null || true"
-    run_as_dev "pactl set-default-sink virtual_speaker 2>/dev/null || true"
+    
+    # Try to create virtual devices
+    su - "${DEV_USERNAME}" -c "
+        export XDG_RUNTIME_DIR=/run/user/${DEV_UID:-1000}
+        export PULSE_RUNTIME_PATH=/run/user/${DEV_UID:-1000}/pulse
+        pactl load-module module-null-sink sink_name=virtual_speaker sink_properties=device.description=\"Virtual_Marketing_Speaker\" 2>/dev/null || true
+        pactl load-module module-null-sink sink_name=virtual_microphone sink_properties=device.description=\"Virtual_Marketing_Microphone\" 2>/dev/null || true
+        pactl set-default-sink virtual_speaker 2>/dev/null || true
+    " 2>/dev/null || log_audio "⚠️  Device recovery failed"
 }
 
 check_kde_audio() {
@@ -101,22 +81,23 @@ generate_audio_status() {
     
     # Check PulseAudio
     if check_pulseaudio; then
-        if check_audio_devices; then
-            # List available devices
-            log_audio "Available audio sinks:"
-            run_as_dev "pactl list short sinks 2>/dev/null" | while read -r line; do
-                log_audio "  - $line"
-            done
-
-            log_audio "Available audio sources:"
-            run_as_dev "pactl list short sources 2>/dev/null" | while read -r line; do
-                log_audio "  - $line"
-            done
-        fi
+        # Check devices
+        check_audio_devices
+        
+        # List available devices
+        log_audio "Available audio sinks:"
+        su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID:-1000}; pactl list short sinks 2>/dev/null" | while read -r line; do
+            log_audio "  - $line"
+        done
+        
+        log_audio "Available audio sources:"
+        su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID:-1000}; pactl list short sources 2>/dev/null" | while read -r line; do
+            log_audio "  - $line"
+        done
     fi
     
     # Check KDE integration
-    check_kde_audio || true
+    check_kde_audio
     
     # Check if test script is available
     if [ -f "/usr/local/bin/test-desktop-audio.sh" ]; then

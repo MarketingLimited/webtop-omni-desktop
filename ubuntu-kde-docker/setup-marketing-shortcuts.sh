@@ -1,9 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-# Default to google-chrome if BROWSER is not set
-BROWSER="${BROWSER:-google-chrome}"
-
 DEV_USERNAME="${DEV_USERNAME:-devuser}"
 APPLICATIONS_DIR="/home/${DEV_USERNAME}/.local/share/applications"
 DESKTOP_DIR="/home/${DEV_USERNAME}/Desktop"
@@ -11,49 +8,150 @@ DESKTOP_DIR="/home/${DEV_USERNAME}/Desktop"
 echo "🎯 Setting up marketing agency shortcuts..."
 
 # Ensure directories exist
-mkdir -p "$APPLICATIONS_DIR" "$DESKTOP_DIR/Marketing Tools"
+mkdir -p "$APPLICATIONS_DIR" "$DESKTOP_DIR"
 
-# App definitions: name|Display Name|Comment|URL|Categories
-apps=(
-  "canva|Canva|Design platform for marketing materials|https://www.canva.com|Graphics;Design;Office;"
-  "figma|Figma|Collaborative design tool|https://www.figma.com|Graphics;Design;Development;"
-  "google-analytics|Google Analytics|Web analytics service|https://analytics.google.com|Network;Office;"
-  "google-ads|Google Ads|Online advertising platform|https://ads.google.com|Network;Office;"
-  "mailchimp|Mailchimp|Email marketing platform|https://mailchimp.com|Network;Office;"
-  "hootsuite|Hootsuite|Social media management|https://hootsuite.com|Network;Office;"
-  "buffer|Buffer|Social media scheduling|https://buffer.com|Network;Office;"
-  "later|Later|Social media scheduling|https://later.com|Network;Office;"
-  "unsplash|Unsplash|Free high-quality photos|https://unsplash.com|Graphics;Photography;"
-  "pexels|Pexels|Free stock photos and videos|https://pexels.com|Graphics;Photography;"
-  "trello|Trello|Project management tool|https://trello.com|Office;ProjectManagement;"
-  "asana|Asana|Project management platform|https://app.asana.com|Office;ProjectManagement;"
-  "semrush|SEMrush|SEO and marketing analytics|https://www.semrush.com|Network;Office;"
-  "ahrefs|Ahrefs|SEO and keyword tools|https://ahrefs.com|Network;Office;"
-)
-
-# Generate desktop entries and copy to desktop folders
-for entry in "${apps[@]}"; do
-  IFS='|' read -r file_id name comment url categories <<< "$entry"
-
-  cat > "$APPLICATIONS_DIR/${file_id}.desktop" <<EOF
+# Create marketing web app shortcuts
+cat > "$APPLICATIONS_DIR/canva.desktop" << 'EOF'
 [Desktop Entry]
-Name=$name
-Comment=$comment
-Exec=$BROWSER --app=$url
+Name=Canva
+Comment=Design platform for marketing materials
+Exec=${BROWSER} --app=https://www.canva.com
 Icon=web-browser
 Terminal=false
 Type=Application
-Categories=$categories
+Categories=Graphics;Design;Office;
 EOF
 
-  for target in "$DESKTOP_DIR" "$DESKTOP_DIR/Marketing Tools"; do
-    cp "$APPLICATIONS_DIR/${file_id}.desktop" "$target/"
-    chmod +x "$target/${file_id}.desktop"
-  done
+cat > "$APPLICATIONS_DIR/figma.desktop" << 'EOF'
+[Desktop Entry]
+Name=Figma
+Comment=Collaborative design tool
+Exec=google-chrome --app=https://www.figma.com
+Icon=web-browser
+Terminal=false
+Type=Application
+Categories=Graphics;Design;Development;
+EOF
+
+cat > "$APPLICATIONS_DIR/google-analytics.desktop" << 'EOF'
+[Desktop Entry]
+Name=Google Analytics
+Comment=Web analytics service
+Exec=google-chrome --app=https://analytics.google.com
+Icon=web-browser
+Terminal=false
+Type=Application
+Categories=Network;Office;
+EOF
+
+cat > "$APPLICATIONS_DIR/google-ads.desktop" << 'EOF'
+[Desktop Entry]
+Name=Google Ads
+Comment=Online advertising platform
+Exec=google-chrome --app=https://ads.google.com
+Icon=web-browser
+Terminal=false
+Type=Application
+Categories=Network;Office;
+EOF
+
+cat > "$APPLICATIONS_DIR/mailchimp.desktop" << 'EOF'
+[Desktop Entry]
+Name=Mailchimp
+Comment=Email marketing platform
+Exec=google-chrome --app=https://mailchimp.com
+Icon=web-browser
+Terminal=false
+Type=Application
+Categories=Network;Office;
+EOF
+
+cat > "$APPLICATIONS_DIR/hootsuite.desktop" << 'EOF'
+[Desktop Entry]
+Name=Hootsuite
+Comment=Social media management
+Exec=google-chrome --app=https://hootsuite.com
+Icon=web-browser
+Terminal=false
+Type=Application
+Categories=Network;Office;
+EOF
+
+cat > "$APPLICATIONS_DIR/buffer.desktop" << 'EOF'
+[Desktop Entry]
+Name=Buffer
+Comment=Social media scheduling
+Exec=google-chrome --app=https://buffer.com
+Icon=web-browser
+Terminal=false
+Type=Application
+Categories=Network;Office;
+EOF
+
+cat > "$APPLICATIONS_DIR/unsplash.desktop" << 'EOF'
+[Desktop Entry]
+Name=Unsplash
+Comment=Free high-quality photos
+Exec=google-chrome --app=https://unsplash.com
+Icon=web-browser
+Terminal=false
+Type=Application
+Categories=Graphics;Photography;
+EOF
+
+cat > "$APPLICATIONS_DIR/pexels.desktop" << 'EOF'
+[Desktop Entry]
+Name=Pexels
+Comment=Free stock photos and videos
+Exec=google-chrome --app=https://pexels.com
+Icon=web-browser
+Terminal=false
+Type=Application
+Categories=Graphics;Photography;
+EOF
+
+cat > "$APPLICATIONS_DIR/trello.desktop" << 'EOF'
+[Desktop Entry]
+Name=Trello
+Comment=Project management tool
+Exec=google-chrome --app=https://trello.com
+Icon=web-browser
+Terminal=false
+Type=Application
+Categories=Office;ProjectManagement;
+EOF
+
+# Marketing tools array for desktop copying
+marketing_apps=(
+    "canva"
+    "figma"
+    "google-analytics"
+    "google-ads"
+    "mailchimp"
+    "hootsuite"
+    "buffer"
+    "unsplash"
+    "pexels"
+    "trello"
+)
+
+# Copy shortcuts to desktop
+for app in "${marketing_apps[@]}"; do
+    if [ -f "$APPLICATIONS_DIR/${app}.desktop" ]; then
+        cp "$APPLICATIONS_DIR/${app}.desktop" "$DESKTOP_DIR/"
+        chmod +x "$DESKTOP_DIR/${app}.desktop"
+    fi
+done
+
+# Create Marketing Tools folder on desktop
+mkdir -p "$DESKTOP_DIR/Marketing Tools"
+for app in "${marketing_apps[@]}"; do
+    if [ -f "$APPLICATIONS_DIR/${app}.desktop" ]; then
+        cp "$APPLICATIONS_DIR/${app}.desktop" "$DESKTOP_DIR/Marketing Tools/"
+    fi
 done
 
 # Set ownership
 chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "$DESKTOP_DIR" "$APPLICATIONS_DIR"
 
 echo "✅ Marketing shortcuts setup complete"
-

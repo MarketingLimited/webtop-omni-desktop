@@ -1,254 +1,355 @@
 #!/bin/bash
-# Enhanced System Validation Script
-# Performs comprehensive system health checks for container environment
+# System-wide validation script for Ubuntu KDE Docker container
+# Validates all services and components after startup
 
-set -euo pipefail
+set -e
 
 DEV_USERNAME="${DEV_USERNAME:-devuser}"
-DEV_UID="${DEV_UID:-1000}"
+VALIDATION_LOG="/var/log/system-validation.log"
+REPORT_FILE="/tmp/system-validation-report.txt"
+CACHE_FILE="/tmp/validation-cache.txt"
+OPTIMIZED_MODE=false
 
-LOG_FILE="/var/log/supervisor/system-validation.log"
-mkdir -p "$(dirname "$LOG_FILE")"
+# Color functions for output
+red() { echo -e "\033[31m$1\033[0m"; }
+green() { echo -e "\033[32m$1\033[0m"; }
+yellow() { echo -e "\033[33m$1\033[0m"; }
+blue() { echo -e "\033[34m$1\033[0m"; }
 
-log_message() {
-    local message="$1"
+# Logging function with level support
+log_validation() {
     local level="${2:-INFO}"
-    echo "$(date '+%Y-%m-%d %H:%M:%S') [$level] [VALIDATION] $message" | tee -a "$LOG_FILE"
-}
-
-# Validation results tracking
-VALIDATION_ERRORS=0
-VALIDATION_WARNINGS=0
-
-record_error() {
-    local message="$1"
-    log_message "$message" "ERROR"
-    VALIDATION_ERRORS=$((VALIDATION_ERRORS + 1))
-}
-
-record_warning() {
-    local message="$1"
-    log_message "$message" "WARN"
-    VALIDATION_WARNINGS=$((VALIDATION_WARNINGS + 1))
-}
-
-# Check system users
-validate_users() {
-    log_message "Validating system users..."
-    
-    # Check messagebus user
-    if ! id messagebus >/dev/null 2>&1; then
-        record_warning "messagebus user not found"
-    else
-        log_message "messagebus user: OK"
-    fi
-    
-    # Check development user
-    if ! id "$DEV_USERNAME" >/dev/null 2>&1; then
-        record_warning "Development user $DEV_USERNAME not found"
-    else
-        local actual_uid
-        actual_uid=$(id -u "$DEV_USERNAME")
-        if [ "$actual_uid" != "$DEV_UID" ]; then
-            record_warning "Development user UID mismatch: expected $DEV_UID, got $actual_uid"
-        else
-            log_message "Development user: OK"
-        fi
+    if [ "$OPTIMIZED_MODE" = "false" ] || [ "$level" = "ERROR" ] || [ "$level" = "WARN" ]; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') [$level] [VALIDATION] $1" | tee -a "$VALIDATION_LOG"
     fi
 }
 
-# Check essential directories
-validate_directories() {
-    log_message "Validating essential directories..."
-    
-    local critical_dirs=(
-        "/run/dbus"
-        "/var/log/supervisor"
-        "/tmp/.X11-unix"
-    )
-    
-    for dir in "${critical_dirs[@]}"; do
-        if [ ! -d "$dir" ]; then
-            record_error "Critical directory missing: $dir"
-        else
-            log_message "Directory $dir: OK"
-        fi
-    done
-    
-    # Check user runtime directory
-    local runtime_dir="/run/user/${DEV_UID}"
-    if [ ! -d "$runtime_dir" ]; then
-        record_warning "User runtime directory missing: $runtime_dir"
+# Check if validation cache is valid (within last hour)
+is_cache_valid() {
+    if [ -f "$CACHE_FILE" ]; then
+        local cache_age=$(($(date +%s) - $(stat -c %Y "$CACHE_FILE" 2>/dev/null || echo 0)))
+        [ $cache_age -lt 3600 ]  # 1 hour cache validity
     else
-        log_message "User runtime directory: OK"
+        false
     fi
 }
 
-# Check system services
-validate_services() {
-    log_message "Validating system services..."
-    
-    # Check D-Bus
-    if [ -S /run/dbus/system_bus_socket ]; then
-        if dbus-send --system --print-reply --dest=org.freedesktop.DBus / org.freedesktop.DBus.GetId >/dev/null 2>&1; then
-            log_message "D-Bus system service: OK"
-        else
-            record_error "D-Bus system service not responsive"
-        fi
-    else
-        record_error "D-Bus system socket not found"
-    fi
-    
-    # Check supervisor services
-    local expected_services=(
-        "dbus"
-        "pulseaudio"
-        "kasmvnc"
-        "sshd"
-        "ttyd"
-        "servicehealth"
-    )
-    
-    for service in "${expected_services[@]}"; do
-        if supervisorctl status "$service" >/dev/null 2>&1; then
-            local status
-            status=$(supervisorctl status "$service" | awk '{print $2}')
-            if [ "$status" = "RUNNING" ]; then
-                log_message "Service $service: OK"
-            else
-                record_warning "Service $service not running: $status"
-            fi
-        else
-            record_warning "Service $service not found in supervisor"
-        fi
-    done
+# Initialize validation report
+init_report() {
+    cat > "$REPORT_FILE" << 'EOF'
+==================================================
+    UBUNTU KDE DOCKER SYSTEM VALIDATION REPORT
+==================================================
+
+System Status Overview:
+EOF
 }
 
-# Check audio system
+# Add result to report
+add_result() {
+    local component="$1"
+    local status="$2"
+    local details="$3"
+    
+    if [ "$status" = "PASS" ]; then
+        echo "✅ $component: PASSED" >> "$REPORT_FILE"
+    else
+        echo "❌ $component: FAILED" >> "$REPORT_FILE"
+    fi
+    
+    if [ -n "$details" ]; then
+        echo "   Details: $details" >> "$REPORT_FILE"
+    fi
+    echo "" >> "$REPORT_FILE"
+}
+
+# Validate audio system
 validate_audio() {
-    log_message "Validating audio system..."
+    log_validation "Validating audio system..."
     
-    if [ "${HEADLESS_MODE:-false}" = "true" ]; then
-        log_message "Headless mode - skipping audio validation"
+    # Check if PulseAudio is running
+    if ! pgrep -x pulseaudio >/dev/null; then
+        add_result "Audio System" "FAIL" "PulseAudio daemon not running"
+        return 1
+    fi
+    
+    # Check for virtual audio devices
+    local sink_count=$(runuser -l "$DEV_USERNAME" -c 'pactl list sinks short 2>/dev/null | wc -l' || echo "0")
+    local source_count=$(runuser -l "$DEV_USERNAME" -c 'pactl list sources short 2>/dev/null | wc -l' || echo "0")
+    
+    if [ "$sink_count" -gt 0 ] && [ "$source_count" -gt 0 ]; then
+        add_result "Audio System" "PASS" "PulseAudio running with $sink_count sinks and $source_count sources"
         return 0
-    fi
-    
-    # Check PulseAudio
-    if pgrep -x pulseaudio >/dev/null; then
-        log_message "PulseAudio daemon: OK"
     else
-        record_warning "PulseAudio daemon not running"
+        add_result "Audio System" "FAIL" "No audio devices found (sinks: $sink_count, sources: $source_count)"
+        return 1
+    fi
+}
+
+
+# Validate TTYD web terminal
+validate_ttyd() {
+    log_validation "Validating TTYD web terminal..."
+    
+    # Check if TTYD process is running
+    if ! pgrep -x ttyd >/dev/null; then
+        add_result "TTYD Web Terminal" "FAIL" "TTYD process not running"
+        return 1
     fi
     
-    # Check audio devices (if user exists)
-    if id "$DEV_USERNAME" >/dev/null 2>&1; then
-        local device_count=0
-        if device_count=$(su - "$DEV_USERNAME" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl list short sinks 2>/dev/null | wc -l"); then
-            if [ "$device_count" -gt 0 ]; then
-                log_message "Audio devices available: $device_count"
-            else
-                record_warning "No audio devices found"
-            fi
-        else
-            record_warning "Cannot query audio devices"
+    # Check if port 7681 is listening
+    if ! netstat -ln | grep -q ":7681 "; then
+        add_result "TTYD Web Terminal" "FAIL" "Port 7681 not listening"
+        return 1
+    fi
+    
+    # Test basic connectivity
+    if curl -s --connect-timeout 5 http://localhost:7681 >/dev/null 2>&1; then
+        add_result "TTYD Web Terminal" "PASS" "Running and accessible on port 7681"
+        return 0
+    else
+        add_result "TTYD Web Terminal" "PARTIAL" "Process running but web interface not responding"
+        return 1
+    fi
+}
+
+# Validate VNC services
+validate_vnc() {
+    log_validation "Validating VNC services..."
+    
+    # Check VNC server (x11vnc)
+    if ! pgrep -x x11vnc >/dev/null; then
+        add_result "VNC Services" "FAIL" "x11vnc process not running"
+        return 1
+    fi
+    
+    # Check noVNC web interface (port 80)
+    if ! netstat -ln | grep -q ":80 "; then
+        add_result "VNC Services" "FAIL" "noVNC port 80 not listening"
+        return 1
+    fi
+    
+    # Test noVNC web interface
+    if curl -s --connect-timeout 5 http://localhost:80 >/dev/null 2>&1; then
+        add_result "VNC Services" "PASS" "VNC server and noVNC web interface running"
+        return 0
+    else
+        add_result "VNC Services" "PARTIAL" "VNC server running but web interface not responding"
+        return 1
+    fi
+}
+
+# Validate all supervisor services
+validate_supervisor_services() {
+    log_validation "Validating supervisor services..."
+    
+    local failed_services=()
+    local running_services=0
+    local total_services=0
+    
+    # Get supervisor status
+    while IFS= read -r line; do
+        if [[ "$line" == *"RUNNING"* ]]; then
+            ((running_services++))
+        elif [[ "$line" == *"FATAL"* ]] || [[ "$line" == *"BACKOFF"* ]]; then
+            local service_name=$(echo "$line" | awk '{print $1}')
+            failed_services+=("$service_name")
         fi
+        ((total_services++))
+    done < <(supervisorctl status | tail -n +2)
+    
+    if [ ${#failed_services[@]} -eq 0 ]; then
+        add_result "Supervisor Services" "PASS" "$running_services/$total_services services running"
+        return 0
+    else
+        local failed_list=$(IFS=', '; echo "${failed_services[*]}")
+        add_result "Supervisor Services" "FAIL" "Failed services: $failed_list"
+        return 1
     fi
 }
 
-# Check network connectivity
-validate_network() {
-    log_message "Validating network connectivity..."
+# Validate network ports
+validate_ports() {
+    log_validation "Validating network ports..."
     
-    # Check localhost connectivity
-    if nc -z localhost 22 2>/dev/null; then
-        log_message "SSH service accessible: OK"
-    else
-        record_warning "SSH service not accessible on localhost"
-    fi
+    local expected_ports=(80 5901 7681 22)
+    local listening_ports=()
+    local missing_ports=()
     
-    # Check VNC port
-    if nc -z localhost 5901 2>/dev/null; then
-        log_message "VNC service accessible: OK"
-    else
-        record_warning "VNC service not accessible on localhost"
-    fi
-    
-    # Check web terminal
-    if nc -z localhost 7681 2>/dev/null; then
-        log_message "Web terminal accessible: OK"
-    else
-        record_warning "Web terminal not accessible on localhost"
-    fi
-}
-
-# Check essential binaries
-validate_binaries() {
-    log_message "Validating essential binaries..."
-    
-    local essential_bins=(
-        "dbus-daemon"
-        "pulseaudio"
-        "ssh"
-        "supervisorctl"
-    )
-    
-    for bin in "${essential_bins[@]}"; do
-        if command -v "$bin" >/dev/null 2>&1; then
-            log_message "Binary $bin: OK"
+    for port in "${expected_ports[@]}"; do
+        if netstat -ln | grep -q ":$port "; then
+            listening_ports+=("$port")
         else
-            record_error "Essential binary missing: $bin"
+            missing_ports+=("$port")
         fi
     done
     
-    # Check desktop environment binaries
-    local desktop_bins=(
-        "startplasma-x11"
-        "kwin_x11"
-        "plasmashell"
-    )
-    
-    for bin in "${desktop_bins[@]}"; do
-        if command -v "$bin" >/dev/null 2>&1; then
-            log_message "Desktop binary $bin: OK"
-        else
-            record_warning "Desktop binary missing: $bin"
-        fi
-    done
-}
-
-# Generate validation report
-generate_report() {
-    log_message "=== SYSTEM VALIDATION REPORT ==="
-    log_message "Errors: $VALIDATION_ERRORS"
-    log_message "Warnings: $VALIDATION_WARNINGS"
-    
-    if [ $VALIDATION_ERRORS -eq 0 ]; then
-        if [ $VALIDATION_WARNINGS -eq 0 ]; then
-            log_message "System validation: PASSED (no issues)"
-            return 0
-        else
-            log_message "System validation: PASSED (with warnings)"
-            return 0
-        fi
-    else
-        log_message "System validation: FAILED ($VALIDATION_ERRORS critical errors)"
-        # Don't exit with error code to prevent supervisor restart loops
+    if [ ${#missing_ports[@]} -eq 0 ]; then
+        local ports_list=$(IFS=', '; echo "${listening_ports[*]}")
+        add_result "Network Ports" "PASS" "All expected ports listening: $ports_list"
         return 0
+    else
+        local missing_list=$(IFS=', '; echo "${missing_ports[*]}")
+        add_result "Network Ports" "FAIL" "Missing ports: $missing_list"
+        return 1
     fi
 }
 
-# Main validation execution
+# Validate KDE desktop environment
+validate_kde() {
+    log_validation "Validating KDE desktop environment..."
+    
+    # Check if KDE processes are running
+    if ! pgrep -f "startplasma-x11\|plasmashell\|kwin" >/dev/null; then
+        add_result "KDE Desktop" "FAIL" "KDE desktop processes not running"
+        return 1
+    fi
+    
+    # Check if X11 display is available
+    if ! DISPLAY=:1 xdpyinfo >/dev/null 2>&1; then
+        add_result "KDE Desktop" "FAIL" "X11 display :1 not available"
+        return 1
+    fi
+    
+    add_result "KDE Desktop" "PASS" "KDE desktop environment running on display :1"
+    return 0
+}
+
+# Generate final report summary
+generate_summary() {
+    local total_tests=6
+    local passed_tests=0
+    
+    # Count passed tests from report
+    passed_tests=$(grep -c "✅.*PASSED" "$REPORT_FILE" || echo "0")
+    
+    cat >> "$REPORT_FILE" << EOF
+
+==================================================
+                VALIDATION SUMMARY
+==================================================
+
+Tests Passed: $passed_tests/$total_tests
+
+EOF
+
+    if [ "$passed_tests" -eq "$total_tests" ]; then
+        cat >> "$REPORT_FILE" << EOF
+🎉 ALL TESTS PASSED! 
+
+Your Ubuntu KDE Docker container is fully functional:
+
+📱 Access Methods:
+  • noVNC Web Desktop: http://localhost:80
+  • Web Terminal: http://localhost:7681
+  • SSH: ssh devuser@localhost -p 22
+
+🔊 Audio: Virtual audio devices are configured and working
+🖥️  Desktop: KDE Plasma desktop environment is running
+📡 Services: All supervisor services are stable
+
+EOF
+    else
+        cat >> "$REPORT_FILE" << EOF
+⚠️  SOME TESTS FAILED
+
+Please check the failed components above and review the logs:
+  • System validation: /var/log/system-validation.log
+  • Supervisor logs: /var/log/supervisor/
+  • Service health: /var/log/supervisor/health.log
+
+EOF
+    fi
+
+    cat >> "$REPORT_FILE" << EOF
+Generated: $(date)
+==================================================
+EOF
+}
+
+# Quick validation for optimized mode
+quick_validation() {
+    log_validation "Running quick validation check..." "INFO"
+    
+    # Quick supervisor check
+    if ! supervisorctl status | grep -q "RUNNING"; then
+        log_validation "Quick validation failed - supervisor issues detected" "WARN"
+        return 1
+    fi
+    
+    # Quick port check
+    local critical_ports=(80 5901)
+    for port in "${critical_ports[@]}"; do
+        if ! netstat -ln | grep -q ":$port "; then
+            log_validation "Quick validation failed - critical port $port not listening" "WARN"
+            return 1
+        fi
+    done
+    
+    log_validation "Quick validation passed - system appears healthy" "INFO"
+    return 0
+}
+
+# Main validation function
 main() {
-    log_message "Starting comprehensive system validation"
+    # Check for optimized mode flag
+    if [ "$1" = "--optimized" ]; then
+        OPTIMIZED_MODE=true
+        log_validation "Starting optimized system validation..." "INFO"
+        
+        # If cache is valid and quick validation passes, exit early
+        if is_cache_valid && quick_validation; then
+            log_validation "Using cached validation results (system stable)" "INFO"
+            exit 0
+        fi
+    else
+        log_validation "Starting full system validation..." "INFO"
+    fi
     
-    validate_users
-    validate_directories
-    validate_services
-    validate_audio
-    validate_network
-    validate_binaries
+    init_report
     
-    generate_report
+    local exit_code=0
+    
+    # Run all validation tests
+    validate_supervisor_services || exit_code=1
+    validate_kde || exit_code=1
+    validate_audio || exit_code=1
+    validate_vnc || exit_code=1
+    validate_ttyd || exit_code=1
+    validate_ports || exit_code=1
+    
+    # Generate summary
+    generate_summary
+    
+    # Cache results if successful
+    if [ $exit_code -eq 0 ]; then
+        echo "$(date +%s)" > "$CACHE_FILE"
+    fi
+    
+    # Display report (only in non-optimized mode or if there are issues)
+    if [ "$OPTIMIZED_MODE" = "false" ] || [ $exit_code -ne 0 ]; then
+        echo ""
+        blue "=== SYSTEM VALIDATION REPORT ==="
+        cat "$REPORT_FILE"
+    fi
+    
+    log_validation "System validation completed with exit code: $exit_code" "INFO"
+    
+    # Copy report to accessible location
+    cp "$REPORT_FILE" "/home/$DEV_USERNAME/system-validation-report.txt" 2>/dev/null || true
+    
+    exit $exit_code
 }
 
-main "$@"
+# Handle script arguments
+case "${1:-}" in
+    "audio") validate_audio ;;
+    "ttyd") validate_ttyd ;;
+    "vnc") validate_vnc ;;
+    "services") validate_supervisor_services ;;
+    "ports") validate_ports ;;
+    "kde") validate_kde ;;
+    "quick") quick_validation ;;
+    "--optimized") main "$@" ;;
+    *) main "$@" ;;
+esac

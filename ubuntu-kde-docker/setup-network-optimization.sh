@@ -5,9 +5,13 @@ set -euo pipefail
 echo "🌐 Implementing network and streaming optimizations..."
 
 # Environment variables with defaults
+NETWORK_PROFILE="${NETWORK_PROFILE:-balanced}"
+WEBRTC_ENABLED="${WEBRTC_ENABLED:-true}"
 QOS_ENABLED="${QOS_ENABLED:-true}"
 ADAPTIVE_STREAMING="${ADAPTIVE_STREAMING:-true}"
 BANDWIDTH_OPTIMIZATION="${BANDWIDTH_OPTIMIZATION:-true}"
+
+echo "🚀 Network Profile: $NETWORK_PROFILE"
 
 # TCP Optimization for Streaming
 optimize_tcp_streaming() {
@@ -37,6 +41,403 @@ optimize_tcp_streaming() {
     echo "✅ TCP streaming optimization completed"
 }
 
+# WebRTC Implementation
+setup_webrtc_streaming() {
+    echo "📹 Setting up WebRTC streaming alternative..."
+    
+    # Install WebRTC dependencies if needed
+    which node >/dev/null 2>&1 || {
+        echo "⚠️  Node.js not found, WebRTC setup limited"
+        return
+    }
+    
+    # Create WebRTC signaling server
+    cat > /usr/local/bin/webrtc-signaling-server.js << 'EOF'
+const WebSocket = require('ws');
+const http = require('http');
+const url = require('url');
+
+const PORT = process.env.WEBRTC_PORT || 8080;
+const server = http.createServer();
+const wss = new WebSocket.Server({ server });
+
+console.log('🚀 WebRTC Signaling Server starting...');
+
+const clients = new Map();
+let roomCounter = 0;
+
+wss.on('connection', (ws, req) => {
+    const clientId = `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const room = `room-${roomCounter++}`;
+    
+    clients.set(clientId, { ws, room });
+    console.log(`👤 Client ${clientId} connected to room ${room}`);
+    
+    ws.on('message', (message) => {
+        try {
+            const data = JSON.parse(message);
+            console.log(`📨 Message from ${clientId}:`, data.type);
+            
+            // Broadcast to other clients in the same room
+            clients.forEach((client, id) => {
+                if (id !== clientId && client.room === room && client.ws.readyState === WebSocket.OPEN) {
+                    client.ws.send(JSON.stringify({
+                        ...data,
+                        from: clientId
+                    }));
+                }
+            });
+        } catch (error) {
+            console.error('❌ Error processing message:', error);
+        }
+    });
+    
+    ws.on('close', () => {
+        clients.delete(clientId);
+        console.log(`👋 Client ${clientId} disconnected`);
+    });
+    
+    ws.on('error', (error) => {
+        console.error(`❌ WebSocket error for ${clientId}:`, error);
+        clients.delete(clientId);
+    });
+    
+    // Send welcome message
+    ws.send(JSON.stringify({
+        type: 'welcome',
+        clientId: clientId,
+        room: room
+    }));
+});
+
+server.listen(PORT, () => {
+    console.log(`✅ WebRTC Signaling Server listening on port ${PORT}`);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+    console.log('🛑 Shutting down WebRTC Signaling Server...');
+    wss.close(() => {
+        server.close(() => {
+            process.exit(0);
+        });
+    });
+});
+EOF
+    
+    # Create WebRTC client integration
+    cat > /usr/share/novnc/webrtc-client.html << 'EOF'
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>WebRTC Remote Desktop - Marketing Agency WebTop</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .status-panel {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .video-container {
+            position: relative;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        #remoteVideo {
+            width: 100%;
+            height: auto;
+            min-height: 400px;
+            background: #000;
+        }
+        
+        .controls {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 5px;
+            padding: 10px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        button {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        button:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .quality-indicator {
+            background: #28a745;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+        
+        .quality-indicator.warning { background: #ffc107; }
+        .quality-indicator.error { background: #dc3545; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="status-panel">
+            <h1>🚀 WebRTC Remote Desktop</h1>
+            <div id="status">Initializing WebRTC connection...</div>
+            <div id="stats" style="margin-top: 10px; font-size: 14px; opacity: 0.8;"></div>
+        </div>
+        
+        <div class="video-container">
+            <video id="remoteVideo" autoplay playsinline></video>
+            <div class="controls">
+                <button id="connectBtn">Connect</button>
+                <button id="disconnectBtn" disabled>Disconnect</button>
+                <span class="quality-indicator" id="qualityIndicator">Initializing</span>
+                <span id="bitrateInfo" style="margin-left: auto; font-size: 12px;"></span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class WebRTCDesktop {
+            constructor() {
+                this.pc = null;
+                this.ws = null;
+                this.localStream = null;
+                this.remoteVideo = document.getElementById('remoteVideo');
+                this.statusDiv = document.getElementById('status');
+                this.statsDiv = document.getElementById('stats');
+                this.qualityIndicator = document.getElementById('qualityIndicator');
+                this.bitrateInfo = document.getElementById('bitrateInfo');
+                
+                this.setupEventListeners();
+                this.startStatsCollection();
+            }
+            
+            setupEventListeners() {
+                document.getElementById('connectBtn').addEventListener('click', () => this.connect());
+                document.getElementById('disconnectBtn').addEventListener('click', () => this.disconnect());
+            }
+            
+            async connect() {
+                try {
+                    this.updateStatus('Connecting to signaling server...');
+                    
+                    // Connect to WebRTC signaling server
+                    this.ws = new WebSocket(`ws://${window.location.hostname}:8080`);
+                    
+                    this.ws.onopen = () => {
+                        this.updateStatus('Connected to signaling server');
+                        this.initializePeerConnection();
+                    };
+                    
+                    this.ws.onmessage = (event) => {
+                        const message = JSON.parse(event.data);
+                        this.handleSignalingMessage(message);
+                    };
+                    
+                    this.ws.onerror = (error) => {
+                        this.updateStatus('WebSocket error: ' + error, 'error');
+                    };
+                    
+                    this.ws.onclose = () => {
+                        this.updateStatus('Disconnected from signaling server');
+                    };
+                    
+                } catch (error) {
+                    this.updateStatus('Connection failed: ' + error.message, 'error');
+                }
+            }
+            
+            initializePeerConnection() {
+                const configuration = {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' }
+                    ]
+                };
+                
+                this.pc = new RTCPeerConnection(configuration);
+                
+                this.pc.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        this.sendSignalingMessage({
+                            type: 'ice-candidate',
+                            candidate: event.candidate
+                        });
+                    }
+                };
+                
+                this.pc.ontrack = (event) => {
+                    this.remoteVideo.srcObject = event.streams[0];
+                    this.updateStatus('Receiving remote stream', 'success');
+                    document.getElementById('connectBtn').disabled = true;
+                    document.getElementById('disconnectBtn').disabled = false;
+                };
+                
+                this.pc.onconnectionstatechange = () => {
+                    this.updateStatus(`Connection state: ${this.pc.connectionState}`);
+                    this.updateQualityIndicator(this.pc.connectionState);
+                };
+                
+                // Request remote stream
+                this.sendSignalingMessage({ type: 'request-stream' });
+            }
+            
+            async handleSignalingMessage(message) {
+                switch (message.type) {
+                    case 'offer':
+                        await this.pc.setRemoteDescription(message.offer);
+                        const answer = await this.pc.createAnswer();
+                        await this.pc.setLocalDescription(answer);
+                        this.sendSignalingMessage({
+                            type: 'answer',
+                            answer: answer
+                        });
+                        break;
+                        
+                    case 'answer':
+                        await this.pc.setRemoteDescription(message.answer);
+                        break;
+                        
+                    case 'ice-candidate':
+                        await this.pc.addIceCandidate(message.candidate);
+                        break;
+                        
+                    case 'welcome':
+                        this.updateStatus(`Connected as ${message.clientId} in ${message.room}`);
+                        break;
+                }
+            }
+            
+            sendSignalingMessage(message) {
+                if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                    this.ws.send(JSON.stringify(message));
+                }
+            }
+            
+            disconnect() {
+                if (this.pc) {
+                    this.pc.close();
+                    this.pc = null;
+                }
+                
+                if (this.ws) {
+                    this.ws.close();
+                    this.ws = null;
+                }
+                
+                this.remoteVideo.srcObject = null;
+                this.updateStatus('Disconnected');
+                document.getElementById('connectBtn').disabled = false;
+                document.getElementById('disconnectBtn').disabled = true;
+            }
+            
+            updateStatus(message, type = 'info') {
+                this.statusDiv.textContent = message;
+                this.statusDiv.className = type;
+            }
+            
+            updateQualityIndicator(state) {
+                let className = 'quality-indicator';
+                let text = state;
+                
+                switch (state) {
+                    case 'connected':
+                        className += '';
+                        text = 'Connected';
+                        break;
+                    case 'connecting':
+                        className += ' warning';
+                        text = 'Connecting';
+                        break;
+                    case 'disconnected':
+                    case 'failed':
+                        className += ' error';
+                        text = 'Disconnected';
+                        break;
+                    default:
+                        className += ' warning';
+                }
+                
+                this.qualityIndicator.className = className;
+                this.qualityIndicator.textContent = text;
+            }
+            
+            async startStatsCollection() {
+                setInterval(async () => {
+                    if (this.pc && this.pc.connectionState === 'connected') {
+                        const stats = await this.pc.getStats();
+                        this.processStats(stats);
+                    }
+                }, 1000);
+            }
+            
+            processStats(stats) {
+                let inboundRtp = null;
+                
+                stats.forEach((report) => {
+                    if (report.type === 'inbound-rtp' && report.mediaType === 'video') {
+                        inboundRtp = report;
+                    }
+                });
+                
+                if (inboundRtp) {
+                    const bitrate = Math.round((inboundRtp.bytesReceived * 8) / 1000); // kbps
+                    const fps = inboundRtp.framesPerSecond || 0;
+                    
+                    this.bitrateInfo.textContent = `${bitrate} kbps, ${fps} fps`;
+                    this.statsDiv.textContent = `Packets: ${inboundRtp.packetsReceived}, Lost: ${inboundRtp.packetsLost || 0}`;
+                }
+            }
+        }
+        
+        // Initialize WebRTC Desktop when page loads
+        window.addEventListener('load', () => {
+            new WebRTCDesktop();
+        });
+    </script>
+</body>
+</html>
+EOF
+    
+    echo "✅ WebRTC streaming setup completed"
+}
 
 # Quality of Service (QoS) Management
 setup_qos_management() {
@@ -75,7 +476,7 @@ setup_traffic_shaping() {
     # VNC traffic (port 5901)
     tc filter add dev "$interface" parent 1:0 protocol ip prio 1 u32 match ip dport 5901 0xffff flowid 1:10 2>/dev/null || true
     
-    # WebSocket traffic (port 80)
+    # noVNC/WebSocket traffic (port 80)
     tc filter add dev "$interface" parent 1:0 protocol ip prio 1 u32 match ip dport 80 0xffff flowid 1:10 2>/dev/null || true
     
     # WebRTC signaling (port 8080)
@@ -197,7 +598,6 @@ assess_connection_quality() {
 adapt_quality() {
     local quality_score="$1"
     local new_quality=$current_quality
-    echo "$quality_score" > /tmp/connection_quality
     
     if [ "$quality_score" -gt 80 ]; then
         # Excellent connection - increase quality
@@ -226,7 +626,7 @@ adapt_quality() {
         echo "$current_quality" > /tmp/adaptive_quality
         
         # Signal quality change to streaming services
-        pkill -USR1 kasmvncserver 2>/dev/null || true
+        pkill -USR1 x11vnc 2>/dev/null || true
     else
         echo "📊 Quality maintained at $current_quality (score: $quality_score)"
     fi
@@ -473,15 +873,19 @@ EOF
 # Main execution
 main() {
     echo "🌐 Starting network and streaming optimizations..."
-
+    
     # Apply TCP optimizations
     optimize_tcp_streaming
-
+    
     # Setup advanced features based on configuration
+    if [ "$WEBRTC_ENABLED" = "true" ]; then
+        setup_webrtc_streaming
+    fi
+    
     if [ "$QOS_ENABLED" = "true" ]; then
         setup_qos_management
     fi
-
+    
     if [ "$ADAPTIVE_STREAMING" = "true" ]; then
         setup_adaptive_streaming
     fi
@@ -495,6 +899,7 @@ main() {
     
     echo "✅ Network and streaming optimization completed"
     echo "🌐 TCP settings optimized for streaming"
+    echo "📹 WebRTC alternative streaming available"
     echo "⚖️  QoS management configured"
     echo "📊 Adaptive bitrate streaming enabled"
     echo "🩺 Connection health monitoring active"

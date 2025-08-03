@@ -1,14 +1,1 @@
-{
-  "kde": {
-    "name": "webtop-kde",
-    "ports": {
-      "http": 32768,
-      "ssh": 2222,
-      "ttyd": 7681,
-      "audio": 8080,
-      "pulse": 4713
-    },
-    "created": "2024-01-01T00:00:00Z",
-    "status": "running"
-  }
-}
+{}

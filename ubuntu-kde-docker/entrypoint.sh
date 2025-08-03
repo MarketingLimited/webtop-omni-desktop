@@ -1,16 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# Logging functions
-log_info() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') [INFO] $*"
-}
-
-log_warn() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') [WARN] $*" >&2
-}
-
-log_info "🚀 Starting Ubuntu KDE Marketing Agency WebTop..."
+echo "🚀 Starting Ubuntu KDE Marketing Agency WebTop..."
 
 # Default credentials and IDs can be overridden via environment variables
 : "${DEV_USERNAME:=devuser}"
@@ -22,42 +13,26 @@ log_info "🚀 Starting Ubuntu KDE Marketing Agency WebTop..."
 : "${ROOT_PASSWORD:=ComplexP@ssw0rd!}"
 : "${TTYD_USER:=terminal}"
 : "${TTYD_PASSWORD:=TerminalPassw0rd!}"
-: "${ENABLE_GOOGLE_ADS_EDITOR:=false}"
-: "${XSTARTUP_SRC:=/usr/local/share/xstartup}"
-: "${HEADLESS_MODE:=false}"
 
-# Export variables so they are available to child processes like supervisord
-export DEV_USERNAME DEV_PASSWORD DEV_UID DEV_GID \
-       ADMIN_USERNAME ADMIN_PASSWORD ROOT_PASSWORD \
-       TTYD_USER TTYD_PASSWORD ENABLE_GOOGLE_ADS_EDITOR \
-       XSTARTUP_SRC HEADLESS_MODE
+# Logging function
+log_info() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') [INFO] $*"
+}
 
-# Determine which optional services should autostart. During headless or
-# debug runs we disable components that rely on a full desktop session to
-# avoid rapid supervisor restarts.
-if [ "$HEADLESS_MODE" = "true" ]; then
-    AUTOSTART_AUDIOMONITOR=false
-    AUTOSTART_SETUPDESKTOP=false
-    AUTOSTART_SYSTEMVALIDATION=false
-else
-    AUTOSTART_AUDIOMONITOR=true
-    AUTOSTART_SETUPDESKTOP=true
-    AUTOSTART_SYSTEMVALIDATION=true
-fi
-export AUTOSTART_AUDIOMONITOR AUTOSTART_SETUPDESKTOP AUTOSTART_SYSTEMVALIDATION
+log_error() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') [ERROR] $*" >&2
+}
+
+log_warn() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') [WARN] $*" >&2
+}
 
 # Initialize system directories
-mkdir -p /var/run/dbus /tmp/.ICE-unix /tmp/.X11-unix
+mkdir -p /var/run/dbus "/run/user/${DEV_UID}" /tmp/.ICE-unix /tmp/.X11-unix
 # /tmp/.X11-unix may be mounted read-only by the host. Avoid failing if chmod
 # cannot modify permissions.
-if ! chmod 1777 /tmp/.ICE-unix /tmp/.X11-unix 2>/dev/null; then
-  log_warn "/tmp/.X11-unix permissions could not be modified (read-only mount?)"
-fi
-
-# Ensure machine-id exists for stable D-Bus operation
-if [ ! -s /etc/machine-id ]; then
-  dbus-uuidgen --ensure=/etc/machine-id >/dev/null 2>&1 || true
-fi
+chmod 1777 /tmp/.ICE-unix /tmp/.X11-unix 2>/dev/null || \
+  echo "⚠️  Warning: unable to set permissions on /tmp/.X11-unix"
 
 # Replace default username in polkit rule if different
 if [ -f /etc/polkit-1/rules.d/99-devuser-all.rules ]; then
@@ -67,12 +42,11 @@ fi
 # Update root password if provided
 if [ -n "$ROOT_PASSWORD" ]; then
     echo "root:${ROOT_PASSWORD}" | chpasswd
-    log_info "Root password configured from environment variable"
 else
     # Generate a random password for root if not provided
     RANDOM_PASSWORD=$(openssl rand -base64 12)
     echo "root:${RANDOM_PASSWORD}" | chpasswd
-    log_info "Generated random root password"
+    echo "Root password set to: ${RANDOM_PASSWORD}"
 fi
 
 # Create missing system users that D-Bus might reference
@@ -85,25 +59,22 @@ getent group polkitd >/dev/null || groupadd -r polkitd
 getent passwd polkitd >/dev/null || useradd -r -g polkitd -s /sbin/nologin polkitd
 
 # Create basic polkit directories and configuration
-mkdir -p /var/lib/polkit-1/localauthority \
-         /etc/polkit-1/localauthority.conf.d \
-         /etc/polkit-1/rules.d \
-         /etc/dbus-1/system.d
+mkdir -p /var/lib/polkit-1/localauthority /etc/polkit-1/localauthority.conf.d /etc/dbus-1/system.d
 
 # Create messagebus user for D-Bus if it doesn't exist
 getent group messagebus >/dev/null || groupadd -r messagebus
 getent passwd messagebus >/dev/null || useradd -r -g messagebus -s /sbin/nologin messagebus
-
-# Ensure /run/dbus exists and is writable by the messagebus user. A missing or
-# root-owned directory can cause the system bus to terminate shortly after
-# startup.
-install -o messagebus -g messagebus -m 755 -d /run/dbus
 
 # Apply required capabilities and permissions for PolicyKit
 if command -v setcap >/dev/null 2>&1; then
     setcap cap_setgid=pe /usr/lib/polkit-1/polkitd || true
 fi
 chmod 4755 /usr/lib/policykit-1/polkit-agent-helper-1 2>/dev/null || true
+
+# Create missing PolicyKit config files for Ubuntu 24.04 bug fix
+mkdir -p /etc/polkit-1/localauthority.conf.d /etc/polkit-1/rules.d /var/lib/polkit-1/localauthority
+cp -f /tmp/polkit-localauthority.conf /etc/polkit-1/localauthority.conf.d/51-ubuntu-admin.conf 2>/dev/null || true
+cp -f /tmp/polkit-dbus.conf /etc/dbus-1/system.d/org.freedesktop.PolicyKit1.conf 2>/dev/null || true
 
 # Fix PolicyKit permissions
 chown polkitd:polkitd /var/lib/polkit-1/localauthority 2>/dev/null || true
@@ -151,22 +122,14 @@ sed -i 's/^%sudo.*/%sudo ALL=(ALL) NOPASSWD:ALL/' /etc/sudoers
 
 # Prepare VNC startup script for dev user
 mkdir -p "/home/${DEV_USERNAME}/.vnc"
-if [ -f "$XSTARTUP_SRC" ]; then
-    install -m 755 "$XSTARTUP_SRC" "/home/${DEV_USERNAME}/.vnc/xstartup"
-else
-    log_warn "VNC xstartup template not found at $XSTARTUP_SRC, creating default"
-    cat > "/home/${DEV_USERNAME}/.vnc/xstartup" <<'EOF'
+cat <<'XEOF' > "/home/${DEV_USERNAME}/.vnc/xstartup"
 #!/bin/sh
 export XKL_XMODMAP_DISABLE=1
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-export DISPLAY=${DISPLAY:-:1}
-unset SESSION_MANAGER
-unset DBUS_SESSION_BUS_ADDRESS
 exec dbus-launch --exit-with-session /usr/bin/startplasma-x11
-EOF
-    chmod 755 "/home/${DEV_USERNAME}/.vnc/xstartup"
-fi
+XEOF
 chown -R "${DEV_USERNAME}":"${DEV_USERNAME}" "/home/${DEV_USERNAME}/.vnc"
+chmod +x "/home/${DEV_USERNAME}/.vnc/xstartup"
 
 # XDG runtime directory
 mkdir -p "/run/user/${DEV_UID}"
@@ -174,55 +137,73 @@ chown "${DEV_USERNAME}":"${DEV_USERNAME}" "/run/user/${DEV_UID}"
 chmod 700 "/run/user/${DEV_UID}"
 export XDG_RUNTIME_DIR="/run/user/${DEV_UID}"
 
-# Ensure the dev user's home and runtime directories are writable. This is
-# necessary when bind-mounting a host directory that may be owned by root,
-# which would otherwise prevent KasmVNC from creating files like .Xauthority.
-if [ -x "/usr/local/bin/fix-permissions.sh" ]; then
-    /usr/local/bin/fix-permissions.sh
-fi
+# Register user with AccountsService
+
+# D-Bus will be managed by supervisor, just ensure directory exists
+echo "🔧 Preparing D-Bus directories..."
+mkdir -p /run/dbus
+echo "✅ D-Bus directories prepared"
 
 # Set up audio system before other services
 log_info "Setting up audio system..."
 if [ -f "/usr/local/bin/setup-audio.sh" ]; then
     /usr/local/bin/setup-audio.sh
-    log_info "Audio system setup completed"
+    echo "✅ Audio system setup completed"
     
     # Apply runtime audio fixes after user creation
     if [ -f "/usr/local/bin/fix-audio-startup.sh" ]; then
         /usr/local/bin/fix-audio-startup.sh
-        log_info "Audio startup configuration completed"
+        echo "✅ Audio startup configuration completed"
     fi
-
-    # Warn if host audio devices are not available
-    if [ ! -d /dev/snd ]; then
-        log_warn "/dev/snd device not found. Audio may not function; run container with --device /dev/snd"
-    fi
-
+    
     # Schedule audio validation after services start
     if [ -f "/usr/local/bin/audio-validation.sh" ]; then
         chmod +x /usr/local/bin/audio-validation.sh
-        log_info "Audio validation script prepared"
+        echo "✅ Audio validation scheduled"
     fi
 else
-    log_warn "Audio setup script not found"
+    echo "⚠️  Audio setup script not found"
 fi
 
 # Set up TTYD terminal service
 log_info "Setting up TTYD terminal service..."
 if [ -f "/usr/local/bin/setup-ttyd.sh" ]; then
     /usr/local/bin/setup-ttyd.sh
-    log_info "TTYD setup completed"
+    echo "✅ TTYD setup completed"
 else
-    log_warn "TTYD setup script not found"
+    echo "⚠️  TTYD setup script not found"
 fi
 
 # Set up desktop audio integration testing
 log_info "Setting up desktop audio integration..."
 if [ -f "/usr/local/bin/test-desktop-audio.sh" ]; then
     chmod +x /usr/local/bin/test-desktop-audio.sh
-    log_info "Desktop audio integration testing setup completed"
+    echo "✅ Desktop audio integration testing setup completed"
 else
-    log_warn "Desktop audio integration script not found"
+    echo "⚠️  Desktop audio integration script not found"
+fi
+
+# Set up Wine for Windows applications
+log_info "Setting up Wine for Windows applications..."
+if [ -f "/usr/local/bin/setup-wine.sh" ]; then
+    if /usr/local/bin/setup-wine.sh; then
+        log_info "Wine setup completed"
+
+        # Set up Google Ads Editor after Wine is ready with error handling
+        if [ -f "/usr/local/bin/setup-google-ads-editor.sh" ]; then
+            if /usr/local/bin/setup-google-ads-editor.sh; then
+                log_info "Google Ads Editor setup completed"
+            else
+                log_warn "Google Ads Editor setup failed (continuing)"
+            fi
+        else
+            log_warn "Google Ads Editor setup script not found"
+        fi
+    else
+        log_warn "Wine setup failed (continuing)"
+    fi
+else
+    log_warn "Wine setup script not found"
 fi
 
 # Generate SSH host keys if they don't exist
@@ -261,5 +242,323 @@ UsePrivilegeSeparation sandbox
 PidFile /run/sshd.pid
 EOF
 
-# Launch the main process (e.g., supervisord) passed as arguments
-exec "$@"
+if command -v dbus-send >/dev/null 2>&1; then
+    dbus-send --system --dest=org.freedesktop.Accounts --type=method_call \
+      /org/freedesktop/Accounts org.freedesktop.Accounts.CacheUser string:"${DEV_USERNAME}" || true
+else
+    echo "dbus-send not found; skipping AccountsService registration"
+fi
+if [ -f "/var/lib/AccountsService/users/${DEV_USERNAME}" ]; then
+    if ! grep -q '^SystemAccount=false' "/var/lib/AccountsService/users/${DEV_USERNAME}"; then
+        echo 'SystemAccount=false' >> "/var/lib/AccountsService/users/${DEV_USERNAME}"
+    fi
+fi
+
+# Launch accounts-daemon manually when systemd services are unavailable
+if command -v systemctl >/dev/null 2>&1 && [ "$(ps -p 1 -o comm=)" = systemd ]; then
+    systemctl restart accounts-daemon || true
+else
+    if pgrep -x accounts-daemon >/dev/null 2>&1; then
+        killall accounts-daemon || true
+    fi
+    started=false
+    for path in \
+        /usr/lib/accountsservice/accounts-daemon \
+        /usr/sbin/accounts-daemon \
+        /usr/libexec/accounts-daemon \
+        $(command -v accounts-daemon 2>/dev/null); do
+        if [ -x "$path" ]; then
+            echo "Starting accounts-daemon at $path"
+            "$path" &
+            started=true
+            break
+        fi
+    done
+    if [ "$started" = false ]; then
+        echo "accounts-daemon not available; skipping"
+    fi
+fi
+
+
+# Fix permissions so KDE apps can write files
+chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}"
+chown -R "${ADMIN_USERNAME}:${ADMIN_USERNAME}" "/home/${ADMIN_USERNAME}"
+
+# Setup container-optimized D-Bus first
+log_info "Setting up container D-Bus..."
+if [ -f "/usr/local/bin/setup-container-dbus.sh" ]; then
+    /usr/local/bin/setup-container-dbus.sh || log_warn "D-Bus setup failed"
+fi
+
+# Ensure D-Bus services are running so applications can connect
+if [ -f "/usr/local/bin/start-dbus" ]; then
+    /usr/local/bin/start-dbus || log_warn "Failed to start D-Bus services"
+fi
+
+# Setup font configuration early
+log_info "Setting up font configuration..."
+if [ -f "/usr/local/bin/setup-font-config.sh" ]; then
+    /usr/local/bin/setup-font-config.sh || log_warn "Font config setup failed"
+fi
+
+# Guarantee fontconfig exists to avoid KDE errors
+if [ ! -f "/home/${DEV_USERNAME}/.config/fontconfig/fonts.conf" ]; then
+    mkdir -p "/home/${DEV_USERNAME}/.config/fontconfig"
+    cat > "/home/${DEV_USERNAME}/.config/fontconfig/fonts.conf" <<'EOF'
+<?xml version="1.0"?>
+<fontconfig></fontconfig>
+EOF
+    chown "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/.config/fontconfig/fonts.conf"
+fi
+
+# Setup container-optimized Wine
+log_info "Setting up container Wine..."
+if [ -f "/usr/local/bin/setup-wine-container.sh" ]; then
+    /usr/local/bin/setup-wine-container.sh || log_warn "Wine container setup failed"
+else
+    # Fallback to original Wine setup
+    log_info "Setting up Wine and Google Ads Editor..."
+    if [ -f "/usr/local/bin/setup-wine.sh" ]; then
+        if /usr/local/bin/setup-wine.sh; then
+            log_info "Wine setup completed successfully"
+
+            # Setup Google Ads Editor
+            if [ -f "/usr/local/bin/setup-google-ads-editor.sh" ]; then
+                if /usr/local/bin/setup-google-ads-editor.sh; then
+                    log_info "Google Ads Editor setup completed successfully"
+                else
+                    log_warn "Google Ads Editor setup failed"
+                fi
+            else
+                log_warn "Google Ads Editor setup script not found"
+            fi
+        else
+            log_warn "Wine setup failed"
+        fi
+    else
+        log_warn "Wine setup script not found"
+    fi
+fi
+# Setup container Android solutions
+log_info "Setting up container Android..."
+if [ -f "/usr/local/bin/setup-android-container.sh" ]; then
+    /usr/local/bin/setup-android-container.sh || log_warn "Android container setup failed"
+else
+    # Fallback to original Android setup
+    log_info "Setting up Android subsystem..."
+    if [ -f "/usr/local/bin/setup-waydroid.sh" ]; then
+        if /usr/local/bin/setup-waydroid.sh; then
+            log_info "Android subsystem setup completed"
+        else
+            log_warn "Android subsystem setup failed"
+        fi
+    else
+        log_warn "Android subsystem setup script not found"
+    fi
+fi
+
+# Ensure binder/ashmem are available for Waydroid (optional, may fail in containers)
+log_info "Setting up Android kernel support (optional)..."
+if command -v modprobe >/dev/null 2>&1; then
+    modprobe binder_linux 2>/dev/null || log_warn "Could not load binder_linux module (container limitation)"
+    modprobe ashmem_linux 2>/dev/null || log_warn "Could not load ashmem_linux module (container limitation)"
+fi
+mkdir -p /dev/binderfs
+if ! mountpoint -q /dev/binderfs; then
+    mount -t binder binder /dev/binderfs 2>/dev/null || log_warn "Could not mount binderfs (container limitation)"
+fi
+
+# Setup service monitoring and recovery
+log_info "Setting up service monitoring..."
+mkdir -p /var/log/supervisor /var/run/supervisor
+
+# Create a simple service monitor script
+cat > /usr/local/bin/monitor-services.sh << 'EOF'
+#!/bin/bash
+while true; do
+    # Check critical services every 30 seconds
+    sleep 30
+    
+    # Check if D-Bus is running
+    if ! pgrep -x dbus-daemon >/dev/null; then
+        echo "$(date) [MONITOR] D-Bus not running, attempting restart" >> /var/log/supervisor/monitor.log
+        dbus-daemon --system --fork 2>/dev/null || true
+    fi
+    
+    # Log service status
+    echo "$(date) [MONITOR] Services check completed" >> /var/log/supervisor/monitor.log
+done &
+EOF
+
+# The monitor-services.sh is now copied from external file, just make it executable
+chmod +x /usr/local/bin/monitor-services.sh
+
+# Start the enhanced monitor
+/usr/local/bin/monitor-services.sh &
+
+# Setup enhanced monitoring
+log_info "Setting up enhanced monitoring..."
+if [ -f "/usr/local/bin/setup-enhanced-monitoring.sh" ]; then
+    /usr/local/bin/setup-enhanced-monitoring.sh || log_warn "Enhanced monitoring setup failed"
+fi
+
+# Set up service health monitoring
+log_info "Setting up service health monitoring..."
+if [ -f "/usr/local/bin/service-health.sh" ]; then
+    chmod +x /usr/local/bin/service-health.sh
+    /usr/local/bin/service-health.sh wait &
+    log_info "✅ Service health monitoring setup completed"
+else
+    log_warn "⚠️  Service health monitoring script not found"
+fi
+
+# Setup Xvfb optimization
+log_info "Setting up Xvfb display server optimization..."
+if [ -f "/usr/local/bin/setup-xvfb-optimization.sh" ]; then
+    chmod +x /usr/local/bin/setup-xvfb-optimization.sh
+    /usr/local/bin/setup-xvfb-optimization.sh
+    log_info "✅ Xvfb optimization setup completed"
+else
+    log_warn "⚠️  Xvfb optimization script not found"
+fi
+
+# Setup x11vnc optimization
+log_info "Setting up x11vnc performance optimization..."
+if [ -f "/usr/local/bin/setup-x11vnc-optimization.sh" ]; then
+    chmod +x /usr/local/bin/setup-x11vnc-optimization.sh
+    /usr/local/bin/setup-x11vnc-optimization.sh
+    log_info "✅ x11vnc optimization setup completed"
+else
+    log_warn "⚠️  x11vnc optimization script not found"
+fi
+
+# Setup noVNC enhancement
+log_info "Setting up noVNC client enhancement..."
+if [ -f "/usr/local/bin/setup-novnc-enhancement.sh" ]; then
+    chmod +x /usr/local/bin/setup-novnc-enhancement.sh
+    /usr/local/bin/setup-novnc-enhancement.sh
+    log_info "✅ noVNC enhancement setup completed"
+else
+    log_warn "⚠️  noVNC enhancement script not found"
+fi
+
+# Setup KDE optimization
+log_info "Setting up KDE Plasma desktop optimization..."
+if [ -f "/usr/local/bin/setup-kde-optimization.sh" ]; then
+    chmod +x /usr/local/bin/setup-kde-optimization.sh
+    /usr/local/bin/setup-kde-optimization.sh
+    log_info "✅ KDE optimization setup completed"
+else
+    log_warn "⚠️  KDE optimization script not found"
+fi
+
+# Setup system-level optimization
+log_info "Setting up system-level performance optimization..."
+if [ -f "/usr/local/bin/setup-system-optimization.sh" ]; then
+    chmod +x /usr/local/bin/setup-system-optimization.sh
+    /usr/local/bin/setup-system-optimization.sh
+    log_info "✅ System optimization setup completed"
+else
+    log_warn "⚠️  System optimization script not found"
+fi
+
+# Setup network and streaming optimization
+log_info "Setting up network and streaming optimization..."
+if [ -f "/usr/local/bin/setup-network-optimization.sh" ]; then
+    chmod +x /usr/local/bin/setup-network-optimization.sh
+    /usr/local/bin/setup-network-optimization.sh
+    log_info "✅ Network optimization setup completed"
+else
+    log_warn "⚠️  Network optimization script not found"
+fi
+
+# Setup advanced features (Phase 7)
+log_info "Setting up advanced desktop features..."
+if [ -f "/usr/local/bin/setup-advanced-features.sh" ]; then
+    chmod +x /usr/local/bin/setup-advanced-features.sh
+    /usr/local/bin/setup-advanced-features.sh 2>&1 | tee -a "/var/log/setup-advanced-features.log"
+    log_info "✅ Advanced features setup completed"
+else
+    log_warn "⚠️  Advanced features script not found"
+fi
+
+# Setup marketing optimization (Phase 8)
+log_info "Setting up marketing agency optimizations..."
+if [ -f "/usr/local/bin/setup-marketing-optimization.sh" ]; then
+    chmod +x /usr/local/bin/setup-marketing-optimization.sh
+    /usr/local/bin/setup-marketing-optimization.sh 2>&1 | tee -a "/var/log/setup-marketing-optimization.log"
+    log_info "✅ Marketing optimization setup completed"
+else
+    log_warn "⚠️  Marketing optimization script not found"
+fi
+
+# Setup modern features
+log_info "Setting up modern desktop features..."
+if [ -f "/usr/local/bin/setup-modern-features.sh" ]; then
+    chmod +x /usr/local/bin/setup-modern-features.sh
+    /usr/local/bin/setup-modern-features.sh 2>&1 | tee -a "/var/log/setup-modern-features.log"
+    log_info "✅ Modern features setup completed"
+else
+    log_warn "⚠️  Modern features script not found"
+fi
+
+
+log_info "Starting supervisor daemon..."
+
+# Default performance and service configuration
+: "${XVFB_PERFORMANCE_PROFILE:=balanced}"
+: "${XVFB_RESOLUTION:=1920x1080x24}"
+: "${XVFB_DPI:=96}"
+: "${KDE_PERFORMANCE_PROFILE:=performance}"
+: "${KDE_EFFECTS_DISABLED:=true}"
+: "${X11VNC_PERFORMANCE_PROFILE:=balanced}"
+: "${X11VNC_QUALITY:=6}"
+: "${X11VNC_ADAPTIVE:=true}"
+: "${NOVNC_PORT:=80}"
+: "${NOVNC_VNC_PORT:=5901}"
+: "${NOVNC_WEBGL:=true}"
+: "${NOVNC_COMPRESSION:=auto}"
+: "${WEBRTC_PORT:=8443}"
+
+# Log selected profiles for troubleshooting
+log_info "Xvfb profile: ${XVFB_PERFORMANCE_PROFILE}, resolution: ${XVFB_RESOLUTION}, dpi: ${XVFB_DPI}"
+log_info "KDE profile: ${KDE_PERFORMANCE_PROFILE}, effects disabled: ${KDE_EFFECTS_DISABLED}"
+log_info "x11vnc profile: ${X11VNC_PERFORMANCE_PROFILE}, quality: ${X11VNC_QUALITY}, adaptive: ${X11VNC_ADAPTIVE}"
+log_info "noVNC port: ${NOVNC_PORT}, VNC port: ${NOVNC_VNC_PORT}, webgl: ${NOVNC_WEBGL}, compression: ${NOVNC_COMPRESSION}"
+log_info "WebRTC signaling port: ${WEBRTC_PORT}"
+
+exec env \
+    ENV_DEV_USERNAME="${DEV_USERNAME}" \
+    ENV_DEV_UID="${DEV_UID}" \
+    ENV_DEV_GID="${DEV_GID}" \
+    ENV_TTYD_USER="${TTYD_USER}" \
+    ENV_TTYD_PASSWORD="${TTYD_PASSWORD}" \
+    XVFB_PERFORMANCE_PROFILE="${XVFB_PERFORMANCE_PROFILE}" \
+    XVFB_RESOLUTION="${XVFB_RESOLUTION}" \
+    XVFB_DPI="${XVFB_DPI}" \
+    KDE_PERFORMANCE_PROFILE="${KDE_PERFORMANCE_PROFILE}" \
+    KDE_EFFECTS_DISABLED="${KDE_EFFECTS_DISABLED}" \
+    X11VNC_PERFORMANCE_PROFILE="${X11VNC_PERFORMANCE_PROFILE}" \
+    X11VNC_QUALITY="${X11VNC_QUALITY}" \
+    X11VNC_ADAPTIVE="${X11VNC_ADAPTIVE}" \
+    NOVNC_PORT="${NOVNC_PORT}" \
+    NOVNC_VNC_PORT="${NOVNC_VNC_PORT}" \
+    NOVNC_WEBGL="${NOVNC_WEBGL}" \
+    NOVNC_COMPRESSION="${NOVNC_COMPRESSION}" \
+    WEBRTC_PORT="${WEBRTC_PORT}" \
+    ENV_XVFB_PERFORMANCE_PROFILE="${XVFB_PERFORMANCE_PROFILE}" \
+    ENV_XVFB_RESOLUTION="${XVFB_RESOLUTION}" \
+    ENV_XVFB_DPI="${XVFB_DPI}" \
+    ENV_KDE_PERFORMANCE_PROFILE="${KDE_PERFORMANCE_PROFILE}" \
+    ENV_KDE_EFFECTS_DISABLED="${KDE_EFFECTS_DISABLED}" \
+    ENV_X11VNC_PERFORMANCE_PROFILE="${X11VNC_PERFORMANCE_PROFILE}" \
+    ENV_X11VNC_QUALITY="${X11VNC_QUALITY}" \
+    ENV_X11VNC_ADAPTIVE="${X11VNC_ADAPTIVE}" \
+    ENV_NOVNC_PORT="${NOVNC_PORT}" \
+    ENV_NOVNC_VNC_PORT="${NOVNC_VNC_PORT}" \
+    ENV_NOVNC_WEBGL="${NOVNC_WEBGL}" \
+    ENV_NOVNC_COMPRESSION="${NOVNC_COMPRESSION}" \
+    ENV_WEBRTC_PORT="${WEBRTC_PORT}" \
+    DEV_USERNAME="${DEV_USERNAME}" DEV_UID="${DEV_UID}" DEV_GID="${DEV_GID}" \
+    TTYD_USER="${TTYD_USER}" TTYD_PASSWORD="${TTYD_PASSWORD}" \
+    /usr/bin/supervisord -c /etc/supervisor/supervisord.conf -n

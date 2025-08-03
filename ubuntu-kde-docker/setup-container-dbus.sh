@@ -7,13 +7,15 @@ DEV_GID="${DEV_GID:-1000}"
 
 echo "🚌 Setting up container-optimized D-Bus configuration..."
 
-# Create D-Bus directories with proper permissions
-install -o messagebus -g messagebus -m 755 -d /run/dbus
-install -d /var/lib/dbus /etc/dbus-1/system.d /etc/dbus-1/session.d
-install -o "${DEV_UID}" -g "${DEV_GID}" -m 700 -d "/run/user/${DEV_UID}"
+# Create D-Bus directories
+mkdir -p /run/dbus
+mkdir -p /var/lib/dbus
+mkdir -p /etc/dbus-1/system.d
+mkdir -p /etc/dbus-1/session.d
+mkdir -p /run/user/${DEV_UID}
 
 # Create container-specific D-Bus system configuration
-cat > /etc/dbus-1/system.conf <<EOF
+cat > /etc/dbus-1/system.conf << 'EOF'
 <!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
  "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
 <busconfig>
@@ -34,7 +36,7 @@ cat > /etc/dbus-1/system.conf <<EOF
     <allow receive_destination="*"/>
   </policy>
   
-  <policy user="${DEV_USERNAME}">
+  <policy user="devuser">
     <allow own="*"/>
     <allow send_destination="*"/>
     <allow receive_destination="*"/>
@@ -56,12 +58,12 @@ cat > /etc/dbus-1/system.conf <<EOF
 EOF
 
 # Create session D-Bus configuration
-cat > /etc/dbus-1/session.conf <<EOF
+cat > /etc/dbus-1/session.conf << 'EOF'
 <!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
  "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
 <busconfig>
   <type>session</type>
-  <listen>unix:path=/run/user/${DEV_UID}/bus</listen>
+  <listen>unix:path=/run/user/1000/bus</listen>
   
   <standard_session_servicedirs />
   
@@ -78,22 +80,27 @@ cat > /etc/dbus-1/session.conf <<EOF
 EOF
 
 # Create D-Bus startup script
-cat > /usr/local/bin/start-dbus <<EOF
+cat > /usr/local/bin/start-dbus << 'EOF'
 #!/bin/bash
-set -euo pipefail
 
-# Start system D-Bus if not already running
-install -o messagebus -g messagebus -m 755 -d /run/dbus
-if [ ! -f /run/dbus/pid ] && ! pgrep -x dbus-daemon >/dev/null; then
+# Start system D-Bus
+mkdir -p /run/dbus
+if [ ! -f /run/dbus/pid ]; then
     dbus-daemon --system --fork --print-pid > /run/dbus/pid 2>/dev/null || true
 fi
 
-# Start session D-Bus for ${DEV_USERNAME}
-install -o ${DEV_UID} -g ${DEV_GID} -m 700 -d /run/user/${DEV_UID}
-if [ ! -f /run/user/${DEV_UID}/dbus.pid ]; then
-    sudo -u ${DEV_USERNAME} XDG_RUNTIME_DIR=/run/user/${DEV_UID} \
-        dbus-daemon --session --fork --print-pid > /run/user/${DEV_UID}/dbus.pid 2>/dev/null || true
+# Start session D-Bus for devuser
+mkdir -p /run/user/1000
+chown devuser:devuser /run/user/1000
+chmod 700 /run/user/1000
+
+sudo -u devuser bash -c '
+export XDG_RUNTIME_DIR=/run/user/1000
+if [ ! -f /run/user/1000/dbus.pid ]; then
+    dbus-daemon --session --fork --print-pid > /run/user/1000/dbus.pid 2>/dev/null || true
 fi
+export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+'
 
 echo "D-Bus services started"
 EOF
@@ -101,21 +108,17 @@ EOF
 chmod +x /usr/local/bin/start-dbus
 
 # Create D-Bus health check
-cat > /usr/local/bin/check-dbus <<EOF
+cat > /usr/local/bin/check-dbus << 'EOF'
 #!/bin/bash
-set -euo pipefail
 
 # Check system D-Bus
-if ! dbus-send --system --dest=org.freedesktop.DBus --type=method_call --print-reply \
-    /org/freedesktop/DBus org.freedesktop.DBus.ListNames >/dev/null 2>&1; then
+if ! dbus-send --system --dest=org.freedesktop.DBus --type=method_call --print-reply /org/freedesktop/DBus org.freedesktop.DBus.ListNames >/dev/null 2>&1; then
     echo "System D-Bus not accessible"
     exit 1
 fi
 
 # Check session D-Bus
-if ! sudo -u ${DEV_USERNAME} DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${DEV_UID}/bus \
-    dbus-send --session --dest=org.freedesktop.DBus --type=method_call --print-reply \
-    /org/freedesktop/DBus org.freedesktop.DBus.ListNames >/dev/null 2>&1; then
+if ! sudo -u devuser bash -c 'export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus; dbus-send --session --dest=org.freedesktop.DBus --type=method_call --print-reply /org/freedesktop/DBus org.freedesktop.DBus.ListNames' >/dev/null 2>&1; then
     echo "Session D-Bus not accessible"
     exit 1
 fi
@@ -126,7 +129,7 @@ EOF
 chmod +x /usr/local/bin/check-dbus
 
 # Set proper permissions
-chown -R "${DEV_UID}:${DEV_GID}" /run/user/${DEV_UID}
+chown -R "${DEV_USERNAME}:${DEV_USERNAME}" /run/user/${DEV_UID}
 chmod 700 /run/user/${DEV_UID}
 
 echo "✅ Container D-Bus configuration complete"

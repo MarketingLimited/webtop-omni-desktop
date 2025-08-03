@@ -16,10 +16,10 @@ echo "🚀 System Performance Profile: $SYSTEM_PERFORMANCE_PROFILE"
 optimize_cpu() {
     echo "🖥️  Optimizing CPU performance..."
     
-    # Set CPU governor to performance mode on all cores if available
-    for gov in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
-        [ -f "$gov" ] && echo "performance" > "$gov" 2>/dev/null || echo "⚠️  Could not set CPU governor for $gov"
-    done
+    # Set CPU governor to performance mode if available
+    if [ -d "/sys/devices/system/cpu/cpu0/cpufreq" ]; then
+        echo "performance" > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null || echo "⚠️  Could not set CPU governor"
+    fi
     
     # Optimize CPU scheduler parameters
     sysctl -w kernel.sched_latency_ns=1000000 2>/dev/null || echo "⚠️  Could not set sched_latency_ns"
@@ -48,7 +48,6 @@ optimize_memory() {
     
     # Configure huge pages if available
     echo 'never' > /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null || echo "⚠️  Could not disable transparent hugepages"
-    echo 'never' > /sys/kernel/mm/transparent_hugepage/defrag 2>/dev/null || echo "⚠️  Could not disable transparent hugepage defrag"
     
     # Memory caching optimization
     sysctl -w vm.min_free_kbytes=65536 2>/dev/null || echo "⚠️  Could not set min_free_kbytes"
@@ -67,12 +66,16 @@ set_cpu_affinity() {
     # Define CPU affinity based on available cores
     if [ "$CPU_CORES" -ge 4 ]; then
         # Multi-core system optimization
-        KASMVNC_AFFINITY="2,3"
+        XVFB_AFFINITY="0,1"
+        X11VNC_AFFINITY="2,3"
         KDE_AFFINITY="0,1,2"
+        NOVNC_AFFINITY="3"
     elif [ "$CPU_CORES" -ge 2 ]; then
         # Dual-core system optimization
-        KASMVNC_AFFINITY="1"
+        XVFB_AFFINITY="0"
+        X11VNC_AFFINITY="1"
         KDE_AFFINITY="0,1"
+        NOVNC_AFFINITY="1"
     else
         # Single-core system (no affinity setting)
         echo "⚠️  Single-core system detected, skipping CPU affinity"
@@ -80,8 +83,10 @@ set_cpu_affinity() {
     fi
     
     # Set affinity for critical processes (will be applied when processes start)
-    export KASMVNC_CPU_AFFINITY="$KASMVNC_AFFINITY"
+    export XVFB_CPU_AFFINITY="$XVFB_AFFINITY"
+    export X11VNC_CPU_AFFINITY="$X11VNC_AFFINITY"
     export KDE_CPU_AFFINITY="$KDE_AFFINITY"
+    export NOVNC_CPU_AFFINITY="$NOVNC_AFFINITY"
     
     echo "🎯 CPU affinity configuration set"
 }
@@ -91,8 +96,16 @@ optimize_kernel_parameters() {
     echo "🔧 Optimizing kernel parameters..."
     
     # Network optimizations
+    sysctl -w net.core.rmem_max=134217728 2>/dev/null || echo "⚠️  Could not set rmem_max"
+    sysctl -w net.core.wmem_max=134217728 2>/dev/null || echo "⚠️  Could not set wmem_max"
     sysctl -w net.core.netdev_max_backlog=5000 2>/dev/null || echo "⚠️  Could not set netdev_max_backlog"
-
+    
+    # TCP optimizations
+    sysctl -w net.ipv4.tcp_rmem="4096 87380 134217728" 2>/dev/null || echo "⚠️  Could not set tcp_rmem"
+    sysctl -w net.ipv4.tcp_wmem="4096 65536 134217728" 2>/dev/null || echo "⚠️  Could not set tcp_wmem"
+    sysctl -w net.ipv4.tcp_window_scaling=1 2>/dev/null || echo "⚠️  Could not enable tcp_window_scaling"
+    sysctl -w net.ipv4.tcp_congestion_control=bbr 2>/dev/null || echo "⚠️  Could not set BBR congestion control"
+    
     # File system optimizations
     sysctl -w fs.file-max=65536 2>/dev/null || echo "⚠️  Could not set file-max"
     sysctl -w fs.inotify.max_user_watches=524288 2>/dev/null || echo "⚠️  Could not set inotify max_user_watches"
@@ -139,9 +152,9 @@ setup_performance_monitoring() {
 set -euo pipefail
 
 LOGFILE="/var/log/system-performance.log"
-ALERT_THRESHOLD_CPU="${ALERT_THRESHOLD_CPU:-80}"
-ALERT_THRESHOLD_MEM="${ALERT_THRESHOLD_MEM:-85}"
-ALERT_THRESHOLD_LOAD="${ALERT_THRESHOLD_LOAD:-4.0}"
+ALERT_THRESHOLD_CPU=80
+ALERT_THRESHOLD_MEM=85
+ALERT_THRESHOLD_LOAD=4.0
 
 log_performance() {
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
@@ -194,8 +207,7 @@ monitor_system
 EOF
     
     chmod +x /usr/local/bin/system-performance-monitor
-    nohup /usr/local/bin/system-performance-monitor >/dev/null 2>&1 &
-
+    
     echo "✅ Performance monitoring setup completed"
 }
 
@@ -220,7 +232,8 @@ adjust_process_priorities() {
         echo "⚠️  High system load detected, adjusting priorities..."
         
         # Boost X server and VNC priorities
-        pgrep kasmvncserver | xargs -r renice -5 2>/dev/null || true
+        pgrep Xvfb | xargs -r renice -10 2>/dev/null || true
+        pgrep x11vnc | xargs -r renice -5 2>/dev/null || true
         
         # Lower priority for non-essential processes
         pgrep firefox | xargs -r renice +10 2>/dev/null || true
@@ -231,7 +244,8 @@ adjust_process_priorities() {
         echo "✅ Normal system load, balanced priorities"
         
         # Reset to normal priorities
-        pgrep kasmvncserver | xargs -r renice 0 2>/dev/null || true
+        pgrep Xvfb | xargs -r renice 0 2>/dev/null || true
+        pgrep x11vnc | xargs -r renice 0 2>/dev/null || true
         pgrep firefox | xargs -r renice 0 2>/dev/null || true
         pgrep chrome | xargs -r renice 0 2>/dev/null || true
     fi
@@ -257,8 +271,7 @@ done
 EOF
     
     chmod +x /usr/local/bin/dynamic-resource-allocator
-    nohup /usr/local/bin/dynamic-resource-allocator >/dev/null 2>&1 &
-
+    
     echo "✅ Dynamic resource allocation setup completed"
 }
 
@@ -283,7 +296,8 @@ declare -A PRIORITY_CLASSES=(
 
 # Define process classifications
 declare -A PROCESS_PRIORITIES=(
-    ["kasmvncserver"]="high"
+    ["Xvfb"]="critical"
+    ["x11vnc"]="high"
     ["websockify"]="high"
     ["startplasma-x11"]="normal"
     ["plasmashell"]="normal"
@@ -325,8 +339,7 @@ done
 EOF
     
     chmod +x /usr/local/bin/process-priority-manager
-    nohup /usr/local/bin/process-priority-manager >/dev/null 2>&1 &
-
+    
     echo "✅ Process priority management setup completed"
 }
 

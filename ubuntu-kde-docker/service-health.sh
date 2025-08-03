@@ -1,28 +1,16 @@
 #!/bin/bash
-set -euo pipefail
 
 # Service Health Check Script for Marketing Agency WebTop
 # Provides service status monitoring and reporting
 
 # Configuration
-readonly HEALTH_CHECK_INTERVAL="${HEALTH_CHECK_INTERVAL:-300}"
-readonly LOG_FILE="/var/log/supervisor/service-health.log"
-readonly STATE_FILE="/tmp/service-health-state.txt"
-
-# Services to monitor: "Name:check_command"
-readonly -a SERVICES=(
-    "supervisord:pgrep -f supervisord"
-    "D-Bus:check_dbus"
-    "KDE:check_kde"
-    "PulseAudio:check_pulseaudio"
-    "KasmVNC:check_vnc"
-    "TTYD:check_ttyd"
-    "SSH:check_ssh"
-)
+HEALTH_CHECK_INTERVAL=${HEALTH_CHECK_INTERVAL:-300}
+LOG_FILE="/var/log/supervisor/service-health.log"
+STATE_FILE="/tmp/service-health-state.txt"
+LAST_REPORT_FILE="/tmp/last-health-report.txt"
 
 # Utility functions
 health_log() {
-    mkdir -p "$(dirname "$LOG_FILE")"
     echo "$(date '+%Y-%m-%d %H:%M:%S') [SERVICE-HEALTH] $1" | tee -a "$LOG_FILE"
 }
 
@@ -72,6 +60,9 @@ wait_for_service() {
 }
 
 # Service check functions
+check_xvfb() {
+    pgrep -f "Xvfb.*:1" > /dev/null
+}
 
 check_dbus() {
     pgrep -f "dbus.*system" > /dev/null && [ -S /var/run/dbus/system_bus_socket ]
@@ -82,7 +73,11 @@ check_kde() {
 }
 
 check_vnc() {
-    pgrep -f "kasmvncserver" > /dev/null
+    pgrep -f "x11vnc.*:1" > /dev/null
+}
+
+check_novnc() {
+    pgrep -f "websockify.*80.*:5901" > /dev/null
 }
 
 
@@ -103,6 +98,7 @@ check_service_dependencies() {
     health_log "🔍 Starting service dependency check..."
     
     # Stage 1: Core services
+    wait_for_service "Xvfb" "check_xvfb" 30
     wait_for_service "D-Bus" "check_dbus" 30
     
     # Stage 2: Desktop environment
@@ -112,7 +108,8 @@ check_service_dependencies() {
     wait_for_service "PulseAudio" "check_pulseaudio" 30
     
     # Stage 4: Remote access services
-    wait_for_service "KasmVNC" "check_vnc" 30
+    wait_for_service "VNC" "check_vnc" 30
+    wait_for_service "noVNC" "check_novnc" 30
     
     # Stage 5: Optional services
     
@@ -130,8 +127,20 @@ check_service_dependencies() {
 # Service status reporting
 generate_status_report() {
     health_log "📊 Generating service status report..."
-
-    for service_info in "${SERVICES[@]}"; do
+    
+    local services=(
+        "supervisord:pgrep -f supervisord"
+        "Xvfb:check_xvfb"
+        "D-Bus:check_dbus"
+        "KDE:check_kde"
+        "PulseAudio:check_pulseaudio"
+        "VNC:check_vnc"
+        "noVNC:check_novnc"
+        "TTYD:check_ttyd"
+        "SSH:check_ssh"
+    )
+    
+    for service_info in "${services[@]}"; do
         local service_name="${service_info%%:*}"
         local check_cmd="${service_info##*:}"
         
@@ -143,33 +152,23 @@ generate_status_report() {
     done
 }
 
-# Determine if a port is listening
-port_listening() {
-    local port="$1"
-    if command -v ss >/dev/null 2>&1; then
-        ss -tuln | grep -q ":$port "
-    else
-        netstat -tuln 2>/dev/null | grep -q ":$port "
-    fi
-}
-
 # Port status checking
 check_port_status() {
     health_log "🌐 Checking port status..."
-
+    
     local ports=(
-        "80:KasmVNC Web Interface"
+        "80:noVNC Web Interface"
         "5901:VNC Server"
         "7681:TTYD Web Terminal"
         "22:SSH Server"
         "4713:PulseAudio TCP"
     )
-
+    
     for port_info in "${ports[@]}"; do
         local port="${port_info%%:*}"
         local description="${port_info##*:}"
-
-        if port_listening "$port"; then
+        
+        if netstat -tuln 2>/dev/null | grep -q ":$port "; then
             health_log "✅ Port $port ($description): LISTENING"
         else
             health_log "❌ Port $port ($description): NOT LISTENING"
@@ -212,8 +211,20 @@ smart_monitor() {
 
 # Generate hash of current service states
 generate_service_state_hash() {
+    local services=(
+        "supervisord:pgrep -f supervisord"
+        "Xvfb:check_xvfb"
+        "D-Bus:check_dbus"
+        "KDE:check_kde"
+        "PulseAudio:check_pulseaudio"
+        "VNC:check_vnc"
+        "noVNC:check_novnc"
+        "TTYD:check_ttyd"
+        "SSH:check_ssh"
+    )
+    
     local state_string=""
-    for service_info in "${SERVICES[@]}"; do
+    for service_info in "${services[@]}"; do
         local check_cmd="${service_info##*:}"
         if eval "$check_cmd" > /dev/null 2>&1; then
             state_string="${state_string}1"

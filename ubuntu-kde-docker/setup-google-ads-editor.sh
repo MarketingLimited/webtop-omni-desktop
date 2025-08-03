@@ -3,8 +3,6 @@ set -euo pipefail
 
 DEV_USERNAME="${DEV_USERNAME:-devuser}"
 DEV_HOME="/home/${DEV_USERNAME}"
-APPLICATIONS_DIR="${DEV_HOME}/.local/share/applications"
-DESKTOP_DIR="${DEV_HOME}/Desktop"
 
 echo "📊 Setting up Google Ads Editor..."
 
@@ -15,9 +13,8 @@ if [ ! -d "${DEV_HOME}/.wine" ]; then
 fi
 
 # Set up Google Ads Editor as the dev user
-sudo -u "$DEV_USERNAME" bash <<'ADS_EDITOR_SETUP'
-set -euo pipefail
-export WINEPREFIX="$HOME/.wine"
+sudo -u "$DEV_USERNAME" bash << 'ADS_EDITOR_SETUP'
+export WINEPREFIX="/home/devuser/.wine"
 export WINEARCH="win64"
 export WINEDLLOVERRIDES="mscoree,mshtml="
 export DISPLAY=:1
@@ -47,25 +44,24 @@ ADS_EDITOR_SETUP
 
 # Create desktop shortcut with correct username
 echo "🔗 Creating desktop shortcut..."
-mkdir -p "$APPLICATIONS_DIR" "$DESKTOP_DIR"
+mkdir -p "${DEV_HOME}/Desktop"
 
-cat > "$APPLICATIONS_DIR/google-ads-editor.desktop" <<EOF
+cat > "${DEV_HOME}/Desktop/GoogleAdsEditor.desktop" << EOF
 [Desktop Entry]
 Version=1.0
 Type=Application
 Name=Google Ads Editor
 Comment=Manage your Google Ads campaigns
-Exec=wine "${DEV_HOME}/.wine/drive_c/Program Files/Google/Google Ads Editor/google_ads_editor.exe"
+Exec=wine "/home/${DEV_USERNAME}/.wine/drive_c/Program Files/Google/Google Ads Editor/google_ads_editor.exe"
 Icon=wine
 Categories=Office;
 Terminal=false
 EOF
 
-# Copy to desktop and make executable
-cp "$APPLICATIONS_DIR/google-ads-editor.desktop" "$DESKTOP_DIR/"
-chmod +x "$DESKTOP_DIR/google-ads-editor.desktop"
+# Make desktop shortcut executable
+chmod +x "${DEV_HOME}/Desktop/GoogleAdsEditor.desktop"
 
 # Set ownership
-chown "${DEV_USERNAME}:${DEV_USERNAME}" "$APPLICATIONS_DIR/google-ads-editor.desktop" "$DESKTOP_DIR/google-ads-editor.desktop"
+chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "${DEV_HOME}"
 
 echo "✅ Google Ads Editor setup complete"

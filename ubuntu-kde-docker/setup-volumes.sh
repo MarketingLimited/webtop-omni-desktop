@@ -3,31 +3,36 @@ set -euo pipefail
 
 # Volume Setup Script for Enhanced Container Management
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
-
-BACKUP_DIR="$SCRIPT_DIR/backups"
-TEMPLATE_DIR="$SCRIPT_DIR/templates"
+BACKUP_DIR="./backups"
+TEMPLATE_DIR="./templates"
+SHARED_DIR="./shared"
 
 echo "🔧 Setting up enhanced volume management..."
 
-# Ensure base directories and shared volume exist using webtop initialization
-./webtop.sh volumes list >/dev/null 2>&1 || true
+# Create directories
+mkdir -p "$BACKUP_DIR" "$TEMPLATE_DIR" "$SHARED_DIR"
 
-# Populate shared resources volume if empty
-if ! docker run --rm -v shared_resources:/shared alpine test -f /shared/README.txt >/dev/null 2>&1; then
-    echo "📦 Populating shared resources volume..."
-    docker run --rm -v shared_resources:/shared alpine sh -c "\
-        mkdir -p /shared/fonts /shared/tools /shared/resources /shared/templates\n\
-        echo 'Shared resources initialized' > /shared/README.txt\n\
+# Create shared resources structure
+mkdir -p "$SHARED_DIR/resources" "$SHARED_DIR/fonts" "$SHARED_DIR/tools"
+
+# Create shared resources volume if it doesn't exist
+if ! docker volume ls | grep -q "shared_resources"; then
+    echo "📦 Creating shared resources volume..."
+    docker volume create shared_resources
+    
+    # Populate shared resources with basic items
+    echo "📁 Setting up shared resources..."
+    docker run --rm -v shared_resources:/shared alpine sh -c "
+        mkdir -p /shared/fonts /shared/tools /shared/resources /shared/templates
+        echo 'Shared resources initialized' > /shared/README.txt
     "
 fi
 
-# Create basic template if missing
-if [ ! -f "$TEMPLATE_DIR/basic/template.json" ]; then
-    echo "📝 Creating basic template..."
-    mkdir -p "$TEMPLATE_DIR/basic"
-    cat > "$TEMPLATE_DIR/basic/template.json" <<'TEMPLATE'
+# Create basic templates directory structure
+mkdir -p "$TEMPLATE_DIR/basic" "$TEMPLATE_DIR/marketing" "$TEMPLATE_DIR/developer"
+
+# Create template metadata for basic template
+cat > "$TEMPLATE_DIR/basic/template.json" << 'EOF'
 {
     "name": "basic",
     "source_container": "base",
@@ -35,16 +40,16 @@ if [ ! -f "$TEMPLATE_DIR/basic/template.json" ]; then
     "description": "Basic KDE desktop environment",
     "volumes": ["config", "home"]
 }
-TEMPLATE
-fi
+EOF
 
 echo "📁 Directory structure:"
 echo "  📦 Backups: $BACKUP_DIR"
-echo "  📝 Templates: $TEMPLATE_DIR"
+echo "  📝 Templates: $TEMPLATE_DIR" 
+echo "  🔗 Shared: $SHARED_DIR"
 echo "  🌐 Shared Volume: shared_resources"
 
 echo "✅ Volume management setup complete!"
-echo
+echo ""
 echo "💡 Usage Examples:"
 echo "  ./webtop.sh up --name client1                    # Create container"
 echo "  ./webtop.sh backup client1                       # Backup container"
@@ -53,4 +58,4 @@ echo "  ./webtop.sh template save client1 my-template    # Save as template"
 echo "  ./webtop.sh template create client3 my-template  # Create from template"
 echo "  ./webtop.sh volumes list                         # List all volumes"
 echo "  ./webtop.sh volumes backup-all                   # Backup all containers"
-echo
+echo ""

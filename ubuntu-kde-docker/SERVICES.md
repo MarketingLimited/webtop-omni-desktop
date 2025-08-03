@@ -9,6 +9,13 @@ The Ubuntu KDE Docker container uses supervisord to manage multiple services wit
 ### Core Infrastructure (Priority 10-20)
 Services that other components depend on.
 
+#### Xvfb (Priority 10)
+- **Purpose**: Virtual X11 display server
+- **Port**: Display :1
+- **Dependencies**: None
+- **Status**: Always running
+- **Critical**: Yes - Required for all GUI applications
+
 #### D-Bus (Priority 15) 
 - **Purpose**: Desktop message bus system
 - **Dependencies**: None
@@ -21,7 +28,7 @@ Container-compatible audio infrastructure.
 #### PulseAudio (Priority 25)
 - **Purpose**: Audio server with virtual devices
 - **Port**: 4713 (TCP)
-- **Dependencies**: D-Bus
+- **Dependencies**: Xvfb, D-Bus
 - **Configuration**: Uses virtual sinks for container compatibility
 - **Critical**: Yes - Required for audio functionality
 
@@ -42,7 +49,7 @@ KDE Plasma desktop session.
 
 #### KDE (Priority 35)
 - **Purpose**: Full KDE Plasma desktop environment
-- **Dependencies**: D-Bus, PulseAudio
+- **Dependencies**: Xvfb, D-Bus, PulseAudio
 - **User**: devuser
 - **Display**: :1
 - **Critical**: Yes - Main desktop interface
@@ -50,15 +57,22 @@ KDE Plasma desktop session.
 ### Remote Access Services (Priority 40-50)
 Multiple methods for accessing the desktop remotely.
 
-#### KasmVNC (Priority 40)
+#### X11VNC (Priority 40)
 - **Purpose**: VNC server for desktop sharing
 - **Port**: 5901
-- **Dependencies**: KDE
+- **Dependencies**: KDE, Xvfb
 - **Authentication**: Password-based
 - **Critical**: Yes - Primary remote access method
 
-- **Web Access**: `http://localhost:80`
+#### noVNC (Priority 45)
+- **Purpose**: Web-based VNC client
+- **Port**: 80 (HTTP)
+- **Dependencies**: X11VNC
+- **Access**: `http://localhost:80`
+- **Critical**: Yes - Web interface for VNC
+
 - **Features**: Audio forwarding, better compression
+- **Critical**: Yes - Advanced remote access
 
 #### SSH (Priority 46)
 - **Purpose**: Secure shell access
@@ -99,14 +113,15 @@ System validation and health monitoring.
 
 ```mermaid
 graph TD
+    A[Xvfb] --> C[PulseAudio]
     B[D-Bus] --> C
     C --> D[AudioValidation]
     D --> E[KDE]
     C --> E
     A --> E
     B --> E
-    E --> F[KasmVNC]
-    F --> G[KasmVNC]
+    E --> F[X11VNC]
+    F --> G[noVNC]
     
     C --> H
     E --> I[ServiceHealth]
@@ -118,7 +133,7 @@ graph TD
 ## Service Configuration
 
 ### Startup Sequence
-1. **Infrastructure**: D-Bus start first
+1. **Infrastructure**: Xvfb, D-Bus start first
 2. **Audio**: PulseAudio with virtual device setup
 3. **Desktop**: KDE Plasma desktop environment
 4. **Remote Access**: VNC, SSH, TTYD services
@@ -133,9 +148,9 @@ graph TD
 
 | Port | Service | Protocol | Purpose |
 |------|---------|----------|---------|
-| 80 | KasmVNC | HTTP | Web VNC client |
+| 80 | noVNC | HTTP | Web VNC client |
 | 22 | SSH | SSH | Secure shell |
-| 5901 | KasmVNC | VNC | VNC server |
+| 5901 | X11VNC | VNC | VNC server |
 | 7681 | TTYD | HTTP | Web terminal |
 
 | 4713 | PulseAudio | TCP | Audio server |
@@ -183,7 +198,7 @@ docker exec webtop-kde ps aux | grep plasma
 #### Remote Access Services
 ```bash
 # Restart VNC services
-docker exec webtop-kde supervisorctl restart KasmVNC
+docker exec webtop-kde supervisorctl restart X11VNC noVNC
 
 
 # Test port accessibility
@@ -255,7 +270,7 @@ netstat -tlnp | grep -E "(80|5901|7681|22)"
 docker exec webtop-kde supervisorctl stop all
 
 # Start core services first
-docker exec webtop-kde supervisorctl start dbus pulseaudio
+docker exec webtop-kde supervisorctl start Xvfb dbus pulseaudio
 
 # Wait for stability
 sleep 10
@@ -267,7 +282,7 @@ docker exec webtop-kde supervisorctl start AudioValidation KDE
 sleep 15
 
 # Start remote access
-docker exec webtop-kde supervisorctl start KasmVNC sshd ttyd
+docker exec webtop-kde supervisorctl start X11VNC noVNC sshd ttyd
 
 # Start monitoring
 docker exec webtop-kde supervisorctl start ServiceHealth SystemValidation
@@ -279,7 +294,7 @@ docker exec webtop-kde supervisorctl start ServiceHealth SystemValidation
 docker exec webtop-kde supervisorctl restart pulseaudio AudioValidation AudioMonitor
 
 # Restart remote access chain
-docker exec webtop-kde supervisorctl restart KasmVNC
+docker exec webtop-kde supervisorctl restart X11VNC noVNC
 ```
 
 ## Service Customization
