@@ -192,7 +192,12 @@ if [ -f "/usr/local/bin/setup-audio.sh" ]; then
         /usr/local/bin/fix-audio-startup.sh
         log_info "Audio startup configuration completed"
     fi
-    
+
+    # Warn if host audio devices are not available
+    if [ ! -d /dev/snd ]; then
+        log_warn "/dev/snd device not found. Audio may not function; run container with --device /dev/snd"
+    fi
+
     # Schedule audio validation after services start
     if [ -f "/usr/local/bin/audio-validation.sh" ]; then
         chmod +x /usr/local/bin/audio-validation.sh
