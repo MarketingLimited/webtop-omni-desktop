@@ -29,7 +29,6 @@ services:
     volumes:
       - ./dev_config:/config
       - ./logs:/var/log/supervisor
-      - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - /lib/modules:/lib/modules:ro
       - /dev:/dev:rw
       - ./dbus_session:/run/user/1000

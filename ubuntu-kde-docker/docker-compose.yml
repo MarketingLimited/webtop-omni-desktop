@@ -30,7 +30,6 @@ services:
     volumes:
       - ${DATA_ROOT}/default/config:/config
       - ${DATA_ROOT}/default/logs:/var/log/supervisor
-      - /tmp/.X11-unix:/tmp/.X11-unix:ro  # Read-only for X11 socket
       - /lib/modules:/lib/modules:ro      # Kernel modules access
       - /dev:/dev:rw                      # Device access for Android
       - ${DATA_ROOT}/default/dbus_session:/run/user/1000
