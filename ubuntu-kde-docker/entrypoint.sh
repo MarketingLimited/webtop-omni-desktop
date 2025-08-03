@@ -28,7 +28,7 @@ log_warn() {
 }
 
 # Initialize system directories
-mkdir -p /var/run/dbus /run/user/${DEV_UID} /tmp/.ICE-unix /tmp/.X11-unix
+mkdir -p /var/run/dbus "/run/user/${DEV_UID}" /tmp/.ICE-unix /tmp/.X11-unix
 # /tmp/.X11-unix may be mounted read-only by the host. Avoid failing if chmod
 # cannot modify permissions.
 chmod 1777 /tmp/.ICE-unix /tmp/.X11-unix 2>/dev/null || \
@@ -143,6 +143,11 @@ export XDG_RUNTIME_DIR="/run/user/${DEV_UID}"
 echo "🔧 Preparing D-Bus directories..."
 mkdir -p /run/dbus
 echo "✅ D-Bus directories prepared"
+
+# Ensure system D-Bus is running before making D-Bus calls
+if ! pgrep -x dbus-daemon >/dev/null 2>&1; then
+    dbus-daemon --system --fork 2>/dev/null || true
+fi
 
 # Set up audio system before other services
 log_info "Setting up audio system..."

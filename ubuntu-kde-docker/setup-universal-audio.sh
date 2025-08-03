@@ -13,7 +13,7 @@ check_novnc_ready() {
     local count=0
     
     while [ $count -lt $timeout ]; do
-        if [ -d "$NOVNC_DIR" ] && ([ -f "$NOVNC_DIR/vnc.html" ] || [ -f "$NOVNC_DIR/index.html" ]); then
+        if [ -d "$NOVNC_DIR" ] && { [ -f "$NOVNC_DIR/vnc.html" ] || [ -f "$NOVNC_DIR/index.html" ]; }; then
             echo "✅ noVNC installation detected"
             return 0
         fi
