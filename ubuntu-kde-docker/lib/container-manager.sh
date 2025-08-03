@@ -100,7 +100,6 @@ services:
       - ${DATA_ROOT}/${container_name}/logs:/var/log/supervisor
       - ${DATA_ROOT}/${container_name}/dbus_session:/run/user/1000
       - shared_resources:/shared:ro
-      - /tmp/.X11-unix:/tmp/.X11-unix:ro
     devices:
       - /dev/snd:/dev/snd
     tmpfs:
