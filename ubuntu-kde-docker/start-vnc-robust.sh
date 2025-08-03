@@ -71,29 +71,35 @@ fi
 echo "🚀 Starting KasmVNC server with binary: $VNC_BINARY"
 
 # Attempt to enable GPU acceleration when a DRI device is available.
-# The previous implementation used `exec ... || exec ...`, but once an
-# `exec` command succeeds the shell is replaced and no fallback occurs
-# if the spawned process exits immediately. This resulted in KasmVNC
-# failing to start and Supervisor reporting exit status 1. We now test
-# for the DRI node explicitly and choose the appropriate command.
+# If KasmVNC with GPU acceleration fails, it automatically falls back to
+# software rendering. This provides a more robust startup sequence.
 if [ -e /dev/dri/renderD128 ]; then
-    echo "🔧 DRI device found, starting with GPU acceleration"
-    exec "$VNC_BINARY" :1 \
+    echo "🔧 DRI device found, attempting to start with GPU acceleration"
+    "$VNC_BINARY" :1 \
         -geometry 1920x1080 \
         -depth 24 \
         -interface 0.0.0.0 \
         -httpPort "${KASMVNC_PORT:-80}" \
         -vncPort "${KASMVNC_VNC_PORT:-5901}" \
         -SecurityTypes None \
-        -select-de manual \
-        -driNode /dev/dri/renderD128
-else
-    echo "⚠️ DRI device not found, starting without GPU acceleration"
-    exec "$VNC_BINARY" :1 \
-        -geometry 1920x1080 \
-        -depth 24 \
-        -interface 0.0.0.0 \
-        -httpPort "${KASMVNC_PORT:-80}" \
-        -vncPort "${KASMVNC_VNC_PORT:-5901}" \
-        -SecurityTypes None
+        -driNode /dev/dri/renderD128 &
+    VNC_PID=$!
+    sleep 3
+    if ! kill -0 "$VNC_PID" >/dev/null 2>&1; then
+        echo "⚠️ KasmVNC with GPU acceleration failed. Falling back."
+    else
+        echo "✅ KasmVNC with GPU acceleration started. Monitoring process."
+        wait "$VNC_PID"
+        exit $?
+    fi
 fi
+
+# Fallback to software rendering
+echo "🚀 Starting KasmVNC server without GPU acceleration"
+exec "$VNC_BINARY" :1 \
+    -geometry 1920x1080 \
+    -depth 24 \
+    -interface 0.0.0.0 \
+    -httpPort "${KASMVNC_PORT:-80}" \
+    -vncPort "${KASMVNC_VNC_PORT:-5901}" \
+    -SecurityTypes None
