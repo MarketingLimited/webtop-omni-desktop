@@ -10,6 +10,28 @@ This WebTop includes a comprehensive audio system with web-based streaming capab
 - **KDE Integration**: Full audio support within KDE Plasma desktop
 - **Automatic Recovery**: Self-healing audio system with validation and monitoring
 
+## Host Setup
+
+The container relies on an ALSA loopback device provided by the host. Before
+starting the WebTop container, make sure the module is loaded:
+
+```bash
+sudo modprobe snd-aloop
+echo snd-aloop | sudo tee -a /etc/modules
+```
+
+For PulseAudio to function, mount a user runtime directory from the host and
+expose it to the container. Replace `<uid>` with the ID used for the container
+user:
+
+```bash
+-v /run/user/<uid>:/run/user/<uid> \
+-e XDG_RUNTIME_DIR=/run/user/<uid>
+```
+
+These steps ensure the audio system has the necessary devices and runtime
+environment when the container starts.
+
 ## How It Works
 
 ### Audio Architecture

@@ -2,7 +2,9 @@
 set -euo pipefail
 
 DEV_USERNAME="${DEV_USERNAME:-devuser}"
-DEV_UID="${DEV_UID:-1000}"
+# Resolve the actual UID for the developer user. This handles containers where
+# the user is not mapped to the default UID 1000.
+DEV_UID="${DEV_UID:-$(id -u "$DEV_USERNAME" 2>/dev/null || echo 1000)}"
 
 echo "🔊 Setting up audio system for marketing agency..."
 
@@ -26,7 +28,7 @@ fi
 cat <<EOF > /etc/asound.conf
 pcm.!default {
     type pulse
-    server "unix:/run/user/1000/pulse/native"
+    server "unix:/run/user/${DEV_UID}/pulse/native"
     fallback {
         type pulse
         server "tcp:localhost:4713"
@@ -34,7 +36,7 @@ pcm.!default {
 }
 ctl.!default {
     type pulse
-    server "unix:/run/user/1000/pulse/native"
+    server "unix:/run/user/${DEV_UID}/pulse/native"
     fallback {
         type pulse
         server "tcp:localhost:4713"
@@ -67,7 +69,7 @@ load-module module-card-restore
 load-module module-augment-properties
 
 # Load native protocol first (local socket)
-load-module module-native-protocol-unix auth-anonymous=1 socket=/run/user/1000/pulse/native
+load-module module-native-protocol-unix auth-anonymous=1 socket=/run/user/${DEV_UID}/pulse/native
 
 # Enable TCP module for remote audio access (VNC)
 load-module module-native-protocol-tcp auth-anonymous=1 port=4713 listen=0.0.0.0
@@ -119,7 +121,7 @@ if [ "$IS_RUNTIME" = true ]; then
 # Container-compatible ALSA configuration with fallback
 pcm.!default {
     type pulse
-    server "unix:/run/user/1000/pulse/native"
+    server "unix:/run/user/${DEV_UID}/pulse/native"
     hint {
         show on
         description "PulseAudio Local Socket"
@@ -136,7 +138,7 @@ pcm.!default {
 
 ctl.!default {
     type pulse
-    server "unix:/run/user/1000/pulse/native"
+    server "unix:/run/user/${DEV_UID}/pulse/native"
     fallback {
         type pulse
         server "tcp:localhost:4713"
@@ -394,7 +396,7 @@ set -e
 echo "🔧 Audio Recovery System..."
 
 DEV_USERNAME="${DEV_USERNAME:-devuser}"
-DEV_UID="${DEV_UID:-1000}"
+DEV_UID="${DEV_UID:-$(id -u "$DEV_USERNAME" 2>/dev/null || echo 1000)}"
 
 # Restart PulseAudio with fallback configuration
 restart_pulseaudio() {
