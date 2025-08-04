@@ -28,7 +28,7 @@ log_warn() {
 }
 
 # Initialize system directories
-mkdir -p /var/run/dbus "/run/user/${DEV_UID}" /tmp/.ICE-unix /tmp/.X11-unix
+mkdir -p /var/run/dbus /tmp/.ICE-unix /tmp/.X11-unix
 # /tmp/.X11-unix may be mounted read-only by the host. Avoid failing if chmod
 # cannot modify permissions.
 chmod 1777 /tmp/.ICE-unix /tmp/.X11-unix 2>/dev/null || \
@@ -109,6 +109,10 @@ if ! getent group pulse-access >/dev/null; then
     groupadd -r pulse-access
 fi
 usermod -aG sudo,ssl-cert,pulse-access,video "$DEV_USERNAME"
+
+# Ensure runtime variables match the actual user IDs
+DEV_UID="$(id -u "$DEV_USERNAME")"
+DEV_GID="$(id -g "$DEV_USERNAME")"
 
 # Admin user
 if ! id -u "$ADMIN_USERNAME" > /dev/null 2>&1; then
@@ -334,8 +338,9 @@ log_info "Starting supervisor daemon..."
 exec env \
     ENV_DEV_USERNAME="${DEV_USERNAME}" \
     ENV_DEV_UID="${DEV_UID}" \
+    ENV_DEV_GID="${DEV_GID}" \
     ENV_TTYD_USER="${TTYD_USER}" \
     ENV_TTYD_PASSWORD="${TTYD_PASSWORD}" \
-    DEV_USERNAME="${DEV_USERNAME}" DEV_UID="${DEV_UID}" \
+    DEV_USERNAME="${DEV_USERNAME}" DEV_UID="${DEV_UID}" DEV_GID="${DEV_GID}" \
     TTYD_USER="${TTYD_USER}" TTYD_PASSWORD="${TTYD_PASSWORD}" \
     /usr/bin/supervisord -c /etc/supervisor/supervisord.conf -n
