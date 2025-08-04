@@ -194,14 +194,6 @@ log_info "Setting up Wine for Windows applications..."
 if [ -f "/usr/local/bin/setup-wine.sh" ]; then
     /usr/local/bin/setup-wine.sh
     echo "✅ Wine setup completed"
-    
-    # Set up Google Ads Editor after Wine is ready
-    if [ -f "/usr/local/bin/setup-google-ads-editor.sh" ]; then
-        /usr/local/bin/setup-google-ads-editor.sh
-        echo "✅ Google Ads Editor setup completed"
-    else
-        echo "⚠️  Google Ads Editor setup script not found"
-    fi
 else
     echo "⚠️  Wine setup script not found"
 fi
@@ -284,22 +276,11 @@ fi
 chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}"
 chown -R "${ADMIN_USERNAME}:${ADMIN_USERNAME}" "/home/${ADMIN_USERNAME}"
 
-# Setup Wine and Windows applications (runtime only)
-log_info "Setting up Wine and Google Ads Editor..."
+# Setup Wine (runtime only)
+log_info "Setting up Wine..."
 if [ -f "/usr/local/bin/setup-wine.sh" ]; then
     if /usr/local/bin/setup-wine.sh; then
         log_info "Wine setup completed successfully"
-        
-        # Setup Google Ads Editor
-        if [ -f "/usr/local/bin/setup-google-ads-editor.sh" ]; then
-            if /usr/local/bin/setup-google-ads-editor.sh; then
-                log_info "Google Ads Editor setup completed successfully"
-            else
-                log_warn "Google Ads Editor setup failed"
-            fi
-        else
-            log_warn "Google Ads Editor setup script not found"
-        fi
     else
         log_warn "Wine setup failed"
     fi
