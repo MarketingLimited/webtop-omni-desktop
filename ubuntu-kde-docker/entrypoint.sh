@@ -144,10 +144,11 @@ echo "🔧 Preparing D-Bus directories..."
 mkdir -p /run/dbus
 echo "✅ D-Bus directories prepared"
 
-# Ensure system D-Bus is running before making D-Bus calls
-if ! pgrep -x dbus-daemon >/dev/null 2>&1; then
-    dbus-daemon --system --fork 2>/dev/null || true
-fi
+# D-Bus is managed by supervisor, so we don't start it here.
+# We just ensure the directory exists for supervisor to use.
+# if ! pgrep -x dbus-daemon >/dev/null 2>&1; then
+#     dbus-daemon --system --fork 2>/dev/null || true
+# fi
 
 # Set up audio system before other services
 log_info "Setting up audio system..."
@@ -333,29 +334,10 @@ fi
 log_info "Setting up service monitoring..."
 mkdir -p /var/log/supervisor /var/run/supervisor
 
-# Create a simple service monitor script
-cat > /usr/local/bin/monitor-services.sh << 'EOF'
-#!/bin/bash
-while true; do
-    # Check critical services every 30 seconds
-    sleep 30
-    
-    # Check if D-Bus is running
-    if ! pgrep -x dbus-daemon >/dev/null; then
-        echo "$(date) [MONITOR] D-Bus not running, attempting restart" >> /var/log/supervisor/monitor.log
-        dbus-daemon --system --fork 2>/dev/null || true
-    fi
-    
-    # Log service status
-    echo "$(date) [MONITOR] Services check completed" >> /var/log/supervisor/monitor.log
-done &
-EOF
-
-# The monitor-services.sh is now copied from external file, just make it executable
+# The monitor-services.sh is copied via the Dockerfile and is managed by supervisord.
+# The custom script generation below is removed, and the separate monitor is disabled.
 chmod +x /usr/local/bin/monitor-services.sh
-
-# Start the enhanced monitor
-/usr/local/bin/monitor-services.sh &
+# /usr/local/bin/monitor-services.sh &
 
 # Set up service health monitoring
 log_info "Setting up service health monitoring..."
