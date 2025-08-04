@@ -238,7 +238,7 @@ cp .container-registry.json backups/registry-$(date +%Y%m%d).json
 tar -czf backups/auth-$(date +%Y%m%d).tar.gz auth/
 
 # Backup container volumes
-docker run --rm -v webtop_config:/source -v $(pwd)/backups:/backup \
+docker run --rm -v /data/ubuntu-kde-docker_webtop/config:/source -v $(pwd)/backups:/backup \
   alpine tar -czf /backup/volumes-$(date +%Y%m%d).tar.gz -C /source .
 ```
 

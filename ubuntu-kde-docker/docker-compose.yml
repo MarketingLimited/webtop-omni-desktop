@@ -18,9 +18,9 @@ services:
     env_file:
       - .env
     volumes:
-      - webtop_config:/config
-      - webtop_logs:/var/log/supervisor
-      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+      - /data/ubuntu-kde-docker_webtop/config:/config
+      - /data/ubuntu-kde-docker_webtop/var/log/supervisor:/var/log/supervisor
+      - /data/ubuntu-kde-docker_webtop/tmp/.X11-unix:/tmp/.X11-unix:ro
     devices:
       - /dev/snd:/dev/snd
     tmpfs:
@@ -39,6 +39,3 @@ services:
       retries: 3
       start_period: 60s
 
-volumes:
-  webtop_config:
-  webtop_logs:
