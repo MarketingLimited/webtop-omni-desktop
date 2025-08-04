@@ -34,23 +34,27 @@ detect_ip() {
 
 : "${AUDIO_PORT:=8080}"
 : "${AUDIO_HOST:=$(detect_ip)}"
-export AUDIO_HOST AUDIO_PORT
+: "${AUDIO_WS_SCHEME:=}"
+export AUDIO_HOST AUDIO_PORT AUDIO_WS_SCHEME
 
 # Update runtime .env if present
 ENV_FILE="/config/.env"
 if [ -f "$ENV_FILE" ]; then
     sed -i "s/^AUDIO_HOST=.*/AUDIO_HOST=${AUDIO_HOST}/" "$ENV_FILE"
     sed -i "s/^AUDIO_PORT=.*/AUDIO_PORT=${AUDIO_PORT}/" "$ENV_FILE"
+    sed -i "s/^AUDIO_WS_SCHEME=.*/AUDIO_WS_SCHEME=${AUDIO_WS_SCHEME}/" "$ENV_FILE"
 elif [ -f "/.env" ]; then
     ENV_FILE="/.env"
     sed -i "s/^AUDIO_HOST=.*/AUDIO_HOST=${AUDIO_HOST}/" "$ENV_FILE"
     sed -i "s/^AUDIO_PORT=.*/AUDIO_PORT=${AUDIO_PORT}/" "$ENV_FILE"
+    sed -i "s/^AUDIO_WS_SCHEME=.*/AUDIO_WS_SCHEME=${AUDIO_WS_SCHEME}/" "$ENV_FILE"
 fi
 
 # Write audio configuration for browser clients
 cat > /usr/share/novnc/audio-env.js <<EOF
 window.AUDIO_HOST = '${AUDIO_HOST}';
 window.AUDIO_PORT = ${AUDIO_PORT};
+window.AUDIO_WS_SCHEME = '${AUDIO_WS_SCHEME}';
 EOF
 
 # Initialize system directories

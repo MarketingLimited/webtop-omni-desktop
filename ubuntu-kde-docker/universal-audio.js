@@ -401,7 +401,7 @@
         }
 
         async attemptConnection() {
-            const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+            const wsProtocol = window.AUDIO_WS_SCHEME || (window.location.protocol === 'https:' ? 'wss' : 'ws');
             const wsUrls = [
                 `${wsProtocol}://${audioHost}:${audioPort}`,
                 `${wsProtocol}://${window.location.host}/audio-bridge`
