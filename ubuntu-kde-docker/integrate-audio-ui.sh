@@ -362,8 +362,8 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
                         this.setVolume(savedVolume);
                     }
                     
-                    // Determine the appropriate WebSocket protocol based on the page context
-                    const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+                    // Determine WebSocket protocol, allow override via environment
+                    const wsProtocol = window.AUDIO_WS_SCHEME || (window.location.protocol === 'https:' ? 'wss' : 'ws');
 
                     // Try multiple connection methods with fallback using the matched protocol
                     const connectionMethods = [
@@ -530,6 +530,7 @@ cp "/usr/local/bin/universal-audio.js" "$NOVNC_DIR/" 2>/dev/null || echo "Note: 
 cat > "$NOVNC_DIR/audio-env.js" <<'EOF'
 window.AUDIO_HOST = window.AUDIO_HOST || window.location.hostname;
 window.AUDIO_PORT = window.AUDIO_PORT || 8080;
+window.AUDIO_WS_SCHEME = window.AUDIO_WS_SCHEME || '';
 EOF
 
 # Create comprehensive noVNC home page with interface navigation

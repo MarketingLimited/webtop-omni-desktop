@@ -34,6 +34,7 @@ npm install
 
 # Create the audio bridge server
 cat > server.js << 'EOF'
+const http = require('http');
 const WebSocket = require('ws');
 const express = require('express');
 const { spawn } = require('child_process');
@@ -45,7 +46,18 @@ const PORT = 8080;
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 
-const server = app.listen(PORT, () => {
+// Explicit routes for resources needed by the noVNC client
+app.get('/package.json', (req, res) => {
+    res.sendFile(path.join(__dirname, 'package.json'));
+});
+
+app.get('/audio-player.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'audio-player.html'));
+});
+
+const server = http.createServer(app);
+
+server.listen(PORT, () => {
     console.log(`Audio bridge server listening on port ${PORT}`);
 });
 
