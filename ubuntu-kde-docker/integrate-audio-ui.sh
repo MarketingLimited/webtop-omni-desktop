@@ -443,27 +443,69 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
             }
             
             processAudioData(data) {
-                if (!this.audioContext || !this.gainNode) return;
+                if (!this.audioContext || !this.gainNode || this.audioContext.state === 'closed') return;
                 
                 try {
+                    // Validate data size
+                    if (data.byteLength === 0) {
+                        console.warn('⚠️  Received empty audio data');
+                        return;
+                    }
+                    
                     const samples = new Int16Array(data);
-                    const audioBuffer = this.audioContext.createBuffer(2, samples.length / 2, 44100);
+                    if (samples.length === 0 || samples.length % 2 !== 0) {
+                        console.warn('⚠️  Invalid audio data length:', samples.length);
+                        return;
+                    }
+                    
+                    // Resume audio context if suspended (Chrome autoplay policy)
+                    if (this.audioContext.state === 'suspended') {
+                        this.audioContext.resume().catch(e => console.warn('Could not resume audio context:', e));
+                        return; // Skip this frame, context will be ready next time
+                    }
+                    
+                    const frameLength = samples.length / 2;
+                    const audioBuffer = this.audioContext.createBuffer(2, frameLength, 44100);
                     
                     const leftChannel = audioBuffer.getChannelData(0);
                     const rightChannel = audioBuffer.getChannelData(1);
                     
-                    for (let i = 0; i < samples.length / 2; i++) {
-                        leftChannel[i] = samples[i * 2] / 32768.0;
-                        rightChannel[i] = samples[i * 2 + 1] / 32768.0;
+                    // Convert 16-bit PCM to float with proper range checking
+                    for (let i = 0; i < frameLength; i++) {
+                        const leftSample = samples[i * 2];
+                        const rightSample = samples[i * 2 + 1];
+                        
+                        // Convert to float (-1.0 to 1.0) with proper scaling
+                        leftChannel[i] = Math.max(-1, Math.min(1, leftSample / 32768.0));
+                        rightChannel[i] = Math.max(-1, Math.min(1, rightSample / 32768.0));
                     }
                     
                     const source = this.audioContext.createBufferSource();
                     source.buffer = audioBuffer;
                     source.connect(this.gainNode);
-                    source.start();
+                    
+                    // Schedule playback immediately but handle potential overlap
+                    const playTime = this.audioContext.currentTime;
+                    source.start(playTime);
+                    
+                    // Clean up source after playback
+                    setTimeout(() => {
+                        try {
+                            source.disconnect();
+                        } catch (e) {
+                            // Source already disconnected
+                        }
+                    }, (frameLength / 44100) * 1000 + 100);
                     
                 } catch (error) {
-                    console.error('Error processing audio data:', error);
+                    console.error('❌ Error processing audio data:', error);
+                    
+                    // Attempt to recover audio context if it's in an error state
+                    if (this.audioContext && this.audioContext.state === 'closed') {
+                        console.log('🔄 Audio context closed, attempting to recreate...');
+                        this.disconnectAudio();
+                        setTimeout(() => this.connectAudio(), 1000);
+                    }
                 }
             }
             

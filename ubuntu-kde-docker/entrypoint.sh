@@ -48,12 +48,43 @@ elif [ -f "/.env" ]; then
     sed -i "s/^AUDIO_WS_SCHEME=.*/AUDIO_WS_SCHEME=${AUDIO_WS_SCHEME}/" "$ENV_FILE"
 fi
 
-# Write audio configuration for browser clients
+# Write audio configuration for browser clients with validation
+echo "🔧 Configuring audio environment for browsers..."
+
+# Ensure directory exists
+mkdir -p /usr/share/novnc
+
+# Write audio configuration with proper escaping and validation
 cat > /usr/share/novnc/audio-env.js <<EOF
+// Audio environment configuration
+// Generated at $(date)
+console.log('Loading audio environment configuration...');
+
 window.AUDIO_HOST = '${AUDIO_HOST}';
 window.AUDIO_PORT = ${AUDIO_PORT};
 window.AUDIO_WS_SCHEME = '${AUDIO_WS_SCHEME}';
+
+// Debug information
+console.log('Audio configuration:', {
+    host: window.AUDIO_HOST,
+    port: window.AUDIO_PORT,
+    scheme: window.AUDIO_WS_SCHEME
+});
+
+// Validate configuration
+if (!window.AUDIO_PORT || window.AUDIO_PORT < 1 || window.AUDIO_PORT > 65535) {
+    console.warn('Invalid audio port configuration:', window.AUDIO_PORT);
+}
 EOF
+
+# Verify the file was created correctly
+if [ -f /usr/share/novnc/audio-env.js ]; then
+    echo "✅ Audio environment configuration created successfully"
+    echo "Configuration preview:"
+    head -5 /usr/share/novnc/audio-env.js
+else
+    echo "❌ Failed to create audio environment configuration"
+fi
 
 # Initialize system directories
 mkdir -p /var/run/dbus /tmp/.ICE-unix /tmp/.X11-unix
@@ -182,11 +213,19 @@ if [ -f "/usr/local/bin/setup-audio.sh" ]; then
         echo "✅ Audio startup configuration completed"
     fi
     
-    # Schedule audio validation after services start
+    # Schedule audio validation and routing fix after services start
     if [ -f "/usr/local/bin/audio-validation.sh" ]; then
         chmod +x /usr/local/bin/audio-validation.sh
         echo "✅ Audio validation scheduled"
     fi
+    
+    # Make audio debug and routing scripts executable
+    chmod +x /usr/local/bin/debug-audio-pipeline.sh 2>/dev/null || true
+    chmod +x /usr/local/bin/fix-audio-routing.sh 2>/dev/null || true
+    
+    # Schedule audio routing fix after a brief delay to allow services to start
+    echo "🎯 Scheduling audio routing fix..."
+    (sleep 10 && /usr/local/bin/fix-audio-routing.sh >/dev/null 2>&1) &
 else
     echo "⚠️  Audio setup script not found"
 fi

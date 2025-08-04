@@ -10,13 +10,19 @@ DEV_UID="${DEV_UID:-$(id -u "$DEV_USERNAME" 2>/dev/null || echo 1000)}"
 
 echo "🔧 Fixing audio system startup configuration..."
 
+# Color output functions
+red() { echo -e "\033[31m$*\033[0m"; }
+green() { echo -e "\033[32m$*\033[0m"; }
+yellow() { echo -e "\033[33m$*\033[0m"; }
+blue() { echo -e "\033[34m$*\033[0m"; }
+
 # Check if we're running during build (user doesn't exist yet) or runtime
 if id "$DEV_USERNAME" >/dev/null 2>&1; then
     IS_RUNTIME=true
-    echo "🔧 Runtime mode: Setting user-specific permissions"
+    blue "🔧 Runtime mode: Setting user-specific permissions"
 else
     IS_RUNTIME=false
-    echo "🔧 Build mode: Skipping user-specific operations"
+    blue "🔧 Build mode: Skipping user-specific operations"
 fi
 
 # Ensure runtime directories exist (build-safe)
@@ -84,4 +90,20 @@ if [ "$IS_RUNTIME" = true ] && [ -d "/dev/snd" ]; then
     usermod -a -G audio "${DEV_USERNAME}" 2>/dev/null || true
 fi
 
-echo "✅ Audio system startup configuration completed"
+# Ensure virtual audio device creation (runtime only)
+if [ "$IS_RUNTIME" = true ]; then
+    green "🔊 Ensuring virtual audio devices are ready..."
+    
+    # Wait briefly for PulseAudio to initialize
+    sleep 2
+    
+    # Verify and create virtual devices if needed
+    if ! su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl list short sinks" 2>/dev/null | grep -q virtual_speaker; then
+        yellow "⚠️  Virtual speaker not found, triggering device creation..."
+        /usr/local/bin/create-virtual-audio-devices.sh &
+    else
+        green "✅ Virtual audio devices already present"
+    fi
+fi
+
+green "✅ Audio system startup configuration completed"

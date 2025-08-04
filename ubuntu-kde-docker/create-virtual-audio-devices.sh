@@ -63,29 +63,37 @@ wait_for_pulseaudio() {
 create_virtual_devices() {
     echo "🔧 Creating virtual audio devices..."
     
-    # Function to run pactl with fallback servers
+    # Function to run pactl with fallback servers and proper output
     run_pactl() {
         local cmd="$1"
+        local check_output="${2:-false}"
+        
         # Try local socket first, then TCP fallback
-        if su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl $cmd >/dev/null 2>&1"; then
+        if su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl $cmd" 2>/dev/null; then
             return 0
-        elif su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl -s tcp:localhost:4713 $cmd >/dev/null 2>&1"; then
+        elif su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl -s tcp:localhost:4713 $cmd" 2>/dev/null; then
             return 0
         else
+            echo "❌ Failed to execute pactl command: $cmd"
             return 1
         fi
     }
     
-    # Create virtual speaker
-    if ! run_pactl "list short sinks" | grep -q virtual_speaker; then
+    # Check current sinks and create virtual speaker if needed
+    local current_sinks
+    current_sinks=$(run_pactl "list short sinks" "true" 2>/dev/null || echo "")
+    
+    if ! echo "$current_sinks" | grep -q virtual_speaker; then
         echo "Creating virtual speaker..."
-        if ! run_pactl "load-module module-null-sink sink_name=virtual_speaker sink_properties=device.description=\"Virtual_Marketing_Speaker\""; then
-            echo "⚠️ Failed to create virtual speaker, using fallback method"
+        if run_pactl "load-module module-null-sink sink_name=virtual_speaker sink_properties=device.description=\"Virtual_Marketing_Speaker\""; then
+            echo "✅ Virtual speaker created successfully"
+        else
+            echo "⚠️ Failed to create virtual speaker, trying alternative method..."
             su - "${DEV_USERNAME}" -c "
                 export XDG_RUNTIME_DIR=/run/user/${DEV_UID}
                 export PULSE_RUNTIME_PATH=/run/user/${DEV_UID}/pulse
-                pactl -s tcp:localhost:4713 load-module module-null-sink sink_name=virtual_speaker sink_properties=device.description=\"Virtual_Marketing_Speaker\" || true
-            "
+                pactl -s tcp:localhost:4713 load-module module-null-sink sink_name=virtual_speaker sink_properties=device.description=\"Virtual_Marketing_Speaker\" 2>/dev/null || echo 'Alternative method also failed'
+            " || true
         fi
     else
         echo "✅ Virtual speaker already exists"
