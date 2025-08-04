@@ -33,6 +33,13 @@ mkdir -p /var/run/dbus /tmp/.ICE-unix /tmp/.X11-unix
 # cannot modify permissions.
 chmod 1777 /tmp/.ICE-unix /tmp/.X11-unix 2>/dev/null || \
   echo "⚠️  Warning: unable to set permissions on /tmp/.X11-unix"
+if [ ! -w /tmp/.X11-unix ]; then
+  log_warn "/tmp/.X11-unix is not writable; attempting to recreate"
+  rm -rf /tmp/.X11-unix 2>/dev/null || true
+  mkdir -p /tmp/.X11-unix
+  chmod 1777 /tmp/.X11-unix 2>/dev/null || \
+    log_warn "Failed to set permissions on /tmp/.X11-unix; Xvfb may not work"
+fi
 
 # Replace default username in polkit rule if different
 if [ -f /etc/polkit-1/rules.d/99-devuser-all.rules ]; then
@@ -141,18 +148,9 @@ chown "${DEV_USERNAME}":"${DEV_USERNAME}" "/run/user/${DEV_UID}"
 chmod 700 "/run/user/${DEV_UID}"
 export XDG_RUNTIME_DIR="/run/user/${DEV_UID}"
 
-# Register user with AccountsService
-
-# D-Bus will be managed by supervisor, just ensure directory exists
 echo "🔧 Preparing D-Bus directories..."
 mkdir -p /run/dbus
 echo "✅ D-Bus directories prepared"
-
-# D-Bus is managed by supervisor, so we don't start it here.
-# We just ensure the directory exists for supervisor to use.
-# if ! pgrep -x dbus-daemon >/dev/null 2>&1; then
-#     dbus-daemon --system --fork 2>/dev/null || true
-# fi
 
 # Set up audio system before other services
 log_info "Setting up audio system..."
@@ -238,42 +236,7 @@ UsePrivilegeSeparation sandbox
 PidFile /run/sshd.pid
 EOF
 
-if command -v dbus-send >/dev/null 2>&1; then
-    dbus-send --system --dest=org.freedesktop.Accounts --type=method_call \
-      /org/freedesktop/Accounts org.freedesktop.Accounts.CacheUser string:"${DEV_USERNAME}" || true
-else
-    echo "dbus-send not found; skipping AccountsService registration"
-fi
-if [ -f "/var/lib/AccountsService/users/${DEV_USERNAME}" ]; then
-    if ! grep -q '^SystemAccount=false' "/var/lib/AccountsService/users/${DEV_USERNAME}"; then
-        echo 'SystemAccount=false' >> "/var/lib/AccountsService/users/${DEV_USERNAME}"
-    fi
-fi
 
-# Launch accounts-daemon manually when systemd services are unavailable
-if command -v systemctl >/dev/null 2>&1 && [ "$(ps -p 1 -o comm=)" = systemd ]; then
-    systemctl restart accounts-daemon || true
-else
-    if pgrep -x accounts-daemon >/dev/null 2>&1; then
-        killall accounts-daemon || true
-    fi
-    started=false
-    for path in \
-        /usr/lib/accountsservice/accounts-daemon \
-        /usr/sbin/accounts-daemon \
-        /usr/libexec/accounts-daemon \
-        $(command -v accounts-daemon 2>/dev/null); do
-        if [ -x "$path" ]; then
-            echo "Starting accounts-daemon at $path"
-            "$path" &
-            started=true
-            break
-        fi
-    done
-    if [ "$started" = false ]; then
-        echo "accounts-daemon not available; skipping"
-    fi
-fi
 
 
 # Fix permissions so KDE apps can write files
@@ -313,6 +276,9 @@ fi
 mkdir -p /dev/binderfs
 if ! mountpoint -q /dev/binderfs; then
     mount -t binder binder /dev/binderfs 2>/dev/null || log_warn "Could not mount binderfs (container limitation)"
+fi
+if ! lsmod | grep -q binder_linux || ! lsmod | grep -q ashmem_linux; then
+    log_warn "Android kernel modules missing; load binder_linux and ashmem_linux on the host for Waydroid support"
 fi
 
 # Setup service monitoring and recovery
