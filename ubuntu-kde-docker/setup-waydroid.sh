@@ -5,6 +5,7 @@ DEV_USERNAME="${DEV_USERNAME:-devuser}"
 DEV_HOME="/home/${DEV_USERNAME}"
 # Determine the UID of the development user for runtime directory paths
 DEV_UID="${DEV_UID:-$(id -u "$DEV_USERNAME" 2>/dev/null || echo 1000)}"
+ANDROID_SOLUTION="none"
 
 # Logging function
 log_info() {
@@ -20,9 +21,6 @@ log_error() {
 }
 
 log_info "Setting up Android subsystem (Waydroid/Anbox)..."
-
-# Anbox fallback has been removed to simplify the setup process
-# and because it is unlikely to work in this containerized environment.
 
 # Function to setup container-compatible Waydroid
 setup_waydroid_container() {
@@ -98,22 +96,29 @@ To enable Android support, please ensure these modules are loaded on your Docker
 EOF
     chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "${DEV_HOME}/Desktop"
 
-    # Exit cleanly as this is a configuration issue, not a script error.
-    exit 0
-fi
+    # Attempt Anbox fallback if available
+    if [ -x "$(dirname "$0")/setup-anbox.sh" ]; then
+        log_info "Attempting Anbox fallback..."
+        if "$(dirname "$0")/setup-anbox.sh"; then
+            ANDROID_SOLUTION="anbox"
+        else
+            log_warn "Anbox fallback failed"
+        fi
+    fi
 
-log_info "All Android requirements met. Proceeding with Waydroid setup..."
+else
+    log_info "All Android requirements met. Proceeding with Waydroid setup..."
+    ANDROID_SOLUTION="waydroid"
+    # Check if Waydroid is available
+    if command -v waydroid >/dev/null 2>&1; then
+        log_info "Waydroid found, attempting container setup..."
 
-# Check if Waydroid is available
-if command -v waydroid >/dev/null 2>&1; then
-    log_info "Waydroid found, attempting container setup..."
-    
-    if setup_waydroid_container; then
-        log_info "Waydroid setup successful"
-        # Create desktop shortcuts
-        mkdir -p "${DEV_HOME}/.local/share/applications"
-        mkdir -p "${DEV_HOME}/Desktop/Android Apps"
-        cat > "${DEV_HOME}/.local/share/applications/waydroid.desktop" << 'EOF'
+        if setup_waydroid_container; then
+            log_info "Waydroid setup successful"
+            # Create desktop shortcuts
+            mkdir -p "${DEV_HOME}/.local/share/applications"
+            mkdir -p "${DEV_HOME}/Desktop/Android Apps"
+            cat > "${DEV_HOME}/.local/share/applications/waydroid.desktop" << 'EOF'
 [Desktop Entry]
 Name=Waydroid (Android Apps)
 Comment=Android container for running Android apps
@@ -123,25 +128,31 @@ Terminal=false
 Type=Application
 Categories=System;Emulator;
 EOF
-        cp "${DEV_HOME}/.local/share/applications/waydroid.desktop" "${DEV_HOME}/Desktop/Android Apps/"
-        chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "${DEV_HOME}"
-        echo "✅ Waydroid setup complete (container-optimized)"
+            cp "${DEV_HOME}/.local/share/applications/waydroid.desktop" "${DEV_HOME}/Desktop/Android Apps/"
+            chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "${DEV_HOME}"
+            echo "✅ Waydroid setup complete (container-optimized)"
+        else
+            log_error "Waydroid setup failed even with kernel modules present."
+            log_warn "There might be an issue with the Waydroid installation or configuration."
+        fi
     else
-        log_error "Waydroid setup failed even with kernel modules present."
-        log_warn "There might be an issue with the Waydroid installation or configuration."
+        log_warn "Waydroid command not found, skipping Android setup."
+        ANDROID_SOLUTION="none"
     fi
-else
-    log_warn "Waydroid command not found, skipping Android setup."
 fi
 
 # Create Android debugging tools
 mkdir -p "${DEV_HOME}/.local/bin"
-cat > "${DEV_HOME}/.local/bin/android-debug" << 'EOF'
+cat > "${DEV_HOME}/.local/bin/android-debug" <<EOF
 #!/bin/bash
 echo "=== Android Debug Information ==="
-echo "Solution: waydroid"
-echo "Waydroid Status:"
-waydroid status 2>/dev/null || echo "Waydroid not running"
+echo "Solution: ${ANDROID_SOLUTION}"
+if command -v waydroid >/dev/null 2>&1; then
+    echo "Waydroid Status:"
+    waydroid status 2>/dev/null || echo "Waydroid not running"
+else
+    echo "Waydroid not installed"
+fi
 echo ""
 echo "Kernel Modules:"
 lsmod | grep -E "(binder|ashmem)" || echo "No Android kernel modules loaded"
