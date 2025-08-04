@@ -6,11 +6,23 @@ DEV_HOME="/home/${DEV_USERNAME}"
 
 echo "🍷 Setting up Wine for Windows applications..."
 
-# Initialize Wine prefix with proper architecture
+# Clean up any existing Wine state
+rm -rf "${DEV_HOME}/.wine"
+rm -f /tmp/.X*-lock
+killall -q Xvfb wineserver wine 2>/dev/null || true
+
+# Initialize Wine prefix with 32-bit architecture
 export WINEPREFIX="${DEV_HOME}/.wine"
-export WINEARCH="win64"
+export WINEARCH="win32"
 export WINEDLLOVERRIDES="mscoree,mshtml="
 mkdir -p "$WINEPREFIX"
+
+# Start a virtual display if needed
+if ! pgrep Xvfb >/dev/null; then
+    Xvfb :99 -screen 0 1024x768x16 &
+    sleep 2
+fi
+export DISPLAY=:99
 
 # Ensure Wine prefix is properly owned
 mkdir -p "$WINEPREFIX"
@@ -19,9 +31,9 @@ chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "$WINEPREFIX"
 # Set up Wine as the dev user
 sudo -u "$DEV_USERNAME" bash << 'WINE_SETUP'
 export WINEPREFIX="/home/devuser/.wine"
-export WINEARCH="win64"
+export WINEARCH="win32"
 export WINEDLLOVERRIDES="mscoree,mshtml="
-export DISPLAY=:1
+export DISPLAY=:99
 
 # Initialize Wine with no GUI prompts
 echo "🔧 Initializing Wine prefix..."
@@ -75,3 +87,4 @@ cp "${DEV_HOME}/.local/share/applications/wine-"*.desktop "${DEV_HOME}/Desktop/W
 chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "${DEV_HOME}"
 
 echo "✅ Wine setup complete"
+
