@@ -79,7 +79,7 @@ log_info "Checking for Android subsystem requirements..."
 
 # Waydroid requires binder_linux and ashmem_linux kernel modules on the host.
 if ! lsmod | grep -q "binder_linux" || ! lsmod | grep -q "ashmem_linux"; then
-    log_error "Android subsystem setup failed: Missing required kernel modules."
+    log_warn "Android subsystem setup failed: Missing required kernel modules."
     log_warn "The host system is missing 'binder_linux' and/or 'ashmem_linux' kernel modules."
     log_warn "These modules must be loaded on the Docker host to enable Android support."
     log_warn "Waydroid installation will be skipped."
