@@ -72,11 +72,11 @@ wss.on('connection', (ws) => {
     const startRecording = () => {
         // Try different PulseAudio connection methods
         const parecordOptions = [
-            // Try default (local socket)
-            ['--format=s16le', '--rate=44100', '--channels=2', '--raw'],
-            // Try TCP server fallback
-            ['--server=tcp:localhost:4713', '--format=s16le', '--rate=44100', '--channels=2', '--raw'],
-            // Try specific device fallback
+            // Record from the default sink's monitor (local socket)
+            ['--device=default.monitor', '--format=s16le', '--rate=44100', '--channels=2', '--raw'],
+            // Try TCP server fallback using the default monitor
+            ['--server=tcp:localhost:4713', '--device=default.monitor', '--format=s16le', '--rate=44100', '--channels=2', '--raw'],
+            // Final fallback: explicit virtual speaker monitor
             ['--device=virtual_speaker.monitor', '--format=s16le', '--rate=44100', '--channels=2', '--raw']
         ];
         
