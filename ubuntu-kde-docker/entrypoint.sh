@@ -27,13 +27,11 @@ log_warn() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') [WARN] $*" >&2
 }
 
-# Detect container IP and configure audio service
-detect_ip() {
-    ip route get 1 2>/dev/null | awk '{print $7; exit}'
-}
-
+# Configure audio service defaults. Leave AUDIO_HOST unset so browsers
+# fall back to the current window hostname, ensuring remote clients can
+# connect even when the container runs behind NAT or port forwarding.
 : "${AUDIO_PORT:=8080}"
-: "${AUDIO_HOST:=$(detect_ip)}"
+: "${AUDIO_HOST:=}"
 : "${AUDIO_WS_SCHEME:=}"
 export AUDIO_HOST AUDIO_PORT AUDIO_WS_SCHEME
 
