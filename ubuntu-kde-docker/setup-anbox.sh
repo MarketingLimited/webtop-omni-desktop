@@ -3,6 +3,8 @@ set -euo pipefail
 
 DEV_USERNAME="${DEV_USERNAME:-devuser}"
 DEV_HOME="/home/${DEV_USERNAME}"
+# Resolve the UID for the runtime directory
+DEV_UID="${DEV_UID:-$(id -u "$DEV_USERNAME" 2>/dev/null || echo 1000)}"
 
 # Logging function
 log_info() {
@@ -58,7 +60,7 @@ cat > "${DEV_HOME}/.config/anbox/config" << 'EOF'
 [core]
 use_system_dbus=false
 data_path=/home/devuser/.local/share/anbox
-socket_path=/run/user/1000/anbox_bridge
+socket_path=/run/user/${DEV_UID}/anbox_bridge
 
 [graphics]
 egl_driver=swiftshader
@@ -73,7 +75,7 @@ mkdir -p "${DEV_HOME}/.local/bin"
 cat > "${DEV_HOME}/.local/bin/anbox-start" << 'EOF'
 #!/bin/bash
 export ANBOX_LOG_LEVEL=info
-export XDG_RUNTIME_DIR="/run/user/1000"
+export XDG_RUNTIME_DIR="/run/user/${DEV_UID}"
 
 # Start Anbox session manager
 anbox session-manager &

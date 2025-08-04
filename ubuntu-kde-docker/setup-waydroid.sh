@@ -3,6 +3,8 @@ set -euo pipefail
 
 DEV_USERNAME="${DEV_USERNAME:-devuser}"
 DEV_HOME="/home/${DEV_USERNAME}"
+# Determine the UID of the development user for runtime directory paths
+DEV_UID="${DEV_UID:-$(id -u "$DEV_USERNAME" 2>/dev/null || echo 1000)}"
 
 # Logging function
 log_info() {
@@ -42,9 +44,9 @@ arch=x86_64
 images_path=/home/devuser/.local/share/waydroid/images
 vendor_type=MAINLINE
 system_type=VANILLA
-xdg_runtime_dir=/run/user/1000
+xdg_runtime_dir=/run/user/${DEV_UID}
 wayland_display=wayland-0
-pulse_server=unix:/run/user/1000/pulse/native
+pulse_server=unix:/run/user/${DEV_UID}/pulse/native
 
 [session]
 user_manager=true
@@ -55,7 +57,7 @@ EOF
 
     # Try to initialize Waydroid with container-specific settings
     export WAYDROID_LOG=true
-    export XDG_RUNTIME_DIR="/run/user/1000"
+    export XDG_RUNTIME_DIR="/run/user/${DEV_UID}"
     export WAYLAND_DISPLAY="wayland-0"
     
     # Initialize without hardware requirements

@@ -5,7 +5,9 @@
 set -e
 
 DEV_USERNAME="${DEV_USERNAME:-devuser}"
-DEV_UID="${DEV_UID:-1000}"
+# Determine UID dynamically so audio setup works when the container user has a
+# non-default UID (e.g. when mapped to host user IDs).
+DEV_UID="${DEV_UID:-$(id -u "$DEV_USERNAME" 2>/dev/null || echo 1000)}"
 
 echo "🔊 Creating persistent virtual audio devices..."
 

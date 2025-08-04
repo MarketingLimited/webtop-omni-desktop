@@ -5,7 +5,8 @@
 set -euo pipefail
 
 DEV_USERNAME="${DEV_USERNAME:-devuser}"
-DEV_UID="${DEV_UID:-1000}"
+# Determine the correct UID at runtime. Fall back to 1000 if the user doesn't exist yet
+DEV_UID="${DEV_UID:-$(id -u "$DEV_USERNAME" 2>/dev/null || echo 1000)}"
 
 echo "🔧 Fixing audio system startup configuration..."
 
