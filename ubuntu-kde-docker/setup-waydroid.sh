@@ -173,7 +173,12 @@ case "$ANDROID_SOLUTION" in
     "anbox")
         echo "✅ Anbox setup complete (fallback solution)"
         ;;
-    "none")
+"none")
         echo "⚠️  No Android solution available"
         ;;
 esac
+if [ "$ANDROID_SOLUTION" = "none" ]; then
+    exit 1
+else
+    exit 0
+fi
