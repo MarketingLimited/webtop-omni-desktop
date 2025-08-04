@@ -2,6 +2,9 @@ FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+# Enable 32-bit architecture for Wine support
+RUN dpkg --add-architecture i386
+
 # Install all required packages and lightweight fallback WM
 RUN apt-get update && apt-get install -y \
     sudo wget curl gnupg2 apt-transport-https software-properties-common \
@@ -24,7 +27,7 @@ RUN apt-get update && apt-get install -y \
     # Docker and Container Tools
     docker.io docker-compose \
     # Wine for Windows applications
-    wine winetricks playonlinux winbind \
+    wine winetricks playonlinux winbind wine32:i386 libwine:i386 cabextract fonts-liberation \
     # Android/Waydroid support
     python3-requests-unixsocket \
     lxc-utils dbus-user-session systemd-container \
