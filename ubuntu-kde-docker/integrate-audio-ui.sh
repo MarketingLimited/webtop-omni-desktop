@@ -363,7 +363,7 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
                     }
                     
                     // Determine WebSocket protocol, allow override via environment
-                    const wsProtocol = window.AUDIO_WS_SCHEME || (window.location.protocol === 'https:' ? 'wss' : 'ws');
+                    const wsProtocol = window.AUDIO_WS_SCHEME || 'ws'; // Enforce non-secure websocket
 
                     // Try multiple connection methods with fallback using the matched protocol
                     const connectionMethods = [
@@ -531,6 +531,146 @@ cat > "$NOVNC_DIR/audio-env.js" <<'EOF'
 window.AUDIO_HOST = window.AUDIO_HOST || window.location.hostname;
 window.AUDIO_PORT = window.AUDIO_PORT || 8080;
 window.AUDIO_WS_SCHEME = window.AUDIO_WS_SCHEME || '';
+EOF
+
+# Create standalone audio player for testing
+cat > "$NOVNC_DIR/audio-player.html" << 'EOF'
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Standalone Audio Player</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #2d3748;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .player {
+            background: #1a202c;
+            padding: 40px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        .player-button {
+            background: #4299e1;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+        }
+        .player-button:disabled {
+            background: #718096;
+        }
+        .status {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="player">
+        <h2>🎧 Standalone Audio Player</h2>
+        <button id="connect-audio" class="player-button">Connect</button>
+        <button id="disconnect-audio" class="player-button" disabled>Disconnect</button>
+        <div id="status" class="status">Status: Disconnected</div>
+    </div>
+    <script src="audio-env.js"></script>
+    <script>
+        // Simplified Audio Manager for standalone player
+        const connectBtn = document.getElementById('connect-audio');
+        const disconnectBtn = document.getElementById('disconnect-audio');
+        const statusEl = document.getElementById('status');
+        let audioContext, websocket, gainNode;
+
+        connectBtn.addEventListener('click', connectAudio);
+        disconnectBtn.addEventListener('click', disconnectAudio);
+
+        async function connectAudio() {
+            updateStatus('Connecting...');
+            connectBtn.disabled = true;
+
+            try {
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    gainNode = audioContext.createGain();
+                    gainNode.connect(audioContext.destination);
+                }
+
+                const wsProtocol = window.AUDIO_WS_SCHEME || 'ws';
+                const wsUrl = `${wsProtocol}://${window.AUDIO_HOST || window.location.hostname}:${window.AUDIO_PORT || 8080}`;
+
+                websocket = new WebSocket(wsUrl);
+                websocket.binaryType = 'arraybuffer';
+
+                websocket.onopen = () => {
+                    updateStatus('Connected');
+                    disconnectBtn.disabled = false;
+                };
+
+                websocket.onmessage = (event) => processAudioData(event.data);
+
+                websocket.onclose = () => {
+                    updateStatus('Disconnected');
+                    connectBtn.disabled = false;
+                    disconnectBtn.disabled = true;
+                };
+
+                websocket.onerror = (err) => {
+                    updateStatus('Error: ' + err.message);
+                    connectBtn.disabled = false;
+                };
+
+            } catch (error) {
+                updateStatus('Error: ' + error.message);
+                connectBtn.disabled = false;
+            }
+        }
+
+        function disconnectAudio() {
+            if (websocket) {
+                websocket.close();
+            }
+            if (audioContext) {
+                audioContext.close().then(() => {
+                    audioContext = null;
+                });
+            }
+            updateStatus('Disconnected');
+            disconnectBtn.disabled = true;
+            connectBtn.disabled = false;
+        }
+
+        function processAudioData(data) {
+            if (!audioContext) return;
+            const samples = new Int16Array(data);
+            const buffer = audioContext.createBuffer(2, samples.length / 2, 44100);
+            const left = buffer.getChannelData(0);
+            const right = buffer.getChannelData(1);
+            for (let i = 0; i < samples.length / 2; i++) {
+                left[i] = samples[i * 2] / 32768.0;
+                right[i] = samples[i * 2 + 1] / 32768.0;
+            }
+            const source = audioContext.createBufferSource();
+            source.buffer = buffer;
+            source.connect(gainNode);
+            source.start();
+        }
+
+        function updateStatus(message) {
+            statusEl.textContent = 'Status: ' + message;
+        }
+    </script>
+</body>
+</html>
 EOF
 
 # Create comprehensive noVNC home page with interface navigation
