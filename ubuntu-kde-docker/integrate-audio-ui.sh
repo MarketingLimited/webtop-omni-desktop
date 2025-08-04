@@ -363,7 +363,7 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
                     }
                     
                     // Determine WebSocket protocol, allow override via environment
-                    const wsProtocol = window.AUDIO_WS_SCHEME || 'ws'; // Enforce non-secure websocket
+                    const wsProtocol = window.AUDIO_WS_SCHEME || (window.location.protocol === 'https:' ? 'wss' : 'ws');
 
                     // Try multiple connection methods with fallback using the matched protocol
                     const connectionMethods = [
@@ -605,7 +605,7 @@ cat > "$NOVNC_DIR/audio-player.html" << 'EOF'
                     gainNode.connect(audioContext.destination);
                 }
 
-                const wsProtocol = window.AUDIO_WS_SCHEME || 'ws';
+                const wsProtocol = window.AUDIO_WS_SCHEME || (window.location.protocol === 'https:' ? 'wss' : 'ws');
                 const wsUrl = `${wsProtocol}://${window.AUDIO_HOST || window.location.hostname}:${window.AUDIO_PORT || 8080}`;
 
                 websocket = new WebSocket(wsUrl);
