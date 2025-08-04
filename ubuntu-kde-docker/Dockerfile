@@ -154,7 +154,6 @@ COPY fix-audio-startup.sh /usr/local/bin/fix-audio-startup.sh
 COPY setup-marketing-shortcuts.sh /usr/local/bin/setup-marketing-shortcuts.sh
 COPY setup-development.sh /usr/local/bin/setup-development.sh
 COPY setup-wine.sh /usr/local/bin/setup-wine.sh
-COPY setup-google-ads-editor.sh /usr/local/bin/setup-google-ads-editor.sh
 COPY setup-waydroid.sh /usr/local/bin/setup-waydroid.sh
 COPY setup-video-editing.sh /usr/local/bin/setup-video-editing.sh
 COPY setup-ttyd.sh /usr/local/bin/setup-ttyd.sh
