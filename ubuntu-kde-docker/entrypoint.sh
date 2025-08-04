@@ -59,17 +59,7 @@ EOF
 
 # Initialize system directories
 mkdir -p /var/run/dbus /tmp/.ICE-unix /tmp/.X11-unix
-# /tmp/.X11-unix may be mounted read-only by the host. Avoid failing if chmod
-# cannot modify permissions.
-chmod 1777 /tmp/.ICE-unix /tmp/.X11-unix 2>/dev/null || \
-  echo "⚠️  Warning: unable to set permissions on /tmp/.X11-unix"
-if [ ! -w /tmp/.X11-unix ]; then
-  log_warn "/tmp/.X11-unix is not writable; attempting to recreate"
-  rm -rf /tmp/.X11-unix 2>/dev/null || true
-  mkdir -p /tmp/.X11-unix
-  chmod 1777 /tmp/.X11-unix 2>/dev/null || \
-    log_warn "Failed to set permissions on /tmp/.X11-unix; Xvfb may not work"
-fi
+chmod 1777 /tmp/.ICE-unix
 
 # Replace default username in polkit rule if different
 if [ -f /etc/polkit-1/rules.d/99-devuser-all.rules ]; then
@@ -221,14 +211,7 @@ else
     echo "⚠️  Desktop audio integration script not found"
 fi
 
-# Set up Wine for Windows applications
-log_info "Setting up Wine for Windows applications..."
-if [ -f "/usr/local/bin/setup-wine.sh" ]; then
-    /usr/local/bin/setup-wine.sh
-    echo "✅ Wine setup completed"
-else
-    echo "⚠️  Wine setup script not found"
-fi
+# Wine setup is handled later in the script.
 
 # Generate SSH host keys if they don't exist
 log_info "Setting up SSH host keys..."
