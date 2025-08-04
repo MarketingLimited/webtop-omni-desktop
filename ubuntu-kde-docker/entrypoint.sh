@@ -86,6 +86,16 @@ else
     echo "❌ Failed to create audio environment configuration"
 fi
 
+# Provide package metadata expected by noVNC's UI
+if [ ! -f /usr/share/novnc/package.json ]; then
+    cat > /usr/share/novnc/package.json <<'EOF'
+{
+  "name": "novnc",
+  "version": "1.0.0"
+}
+EOF
+fi
+
 # Initialize system directories
 mkdir -p /var/run/dbus /tmp/.ICE-unix /tmp/.X11-unix
 chmod 1777 /tmp/.ICE-unix
