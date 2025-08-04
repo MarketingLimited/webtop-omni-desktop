@@ -27,6 +27,32 @@ log_warn() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') [WARN] $*" >&2
 }
 
+# Detect container IP and configure audio service
+detect_ip() {
+    ip route get 1 2>/dev/null | awk '{print $7; exit}'
+}
+
+: "${AUDIO_PORT:=8080}"
+: "${AUDIO_HOST:=$(detect_ip)}"
+export AUDIO_HOST AUDIO_PORT
+
+# Update runtime .env if present
+ENV_FILE="/config/.env"
+if [ -f "$ENV_FILE" ]; then
+    sed -i "s/^AUDIO_HOST=.*/AUDIO_HOST=${AUDIO_HOST}/" "$ENV_FILE"
+    sed -i "s/^AUDIO_PORT=.*/AUDIO_PORT=${AUDIO_PORT}/" "$ENV_FILE"
+elif [ -f "/.env" ]; then
+    ENV_FILE="/.env"
+    sed -i "s/^AUDIO_HOST=.*/AUDIO_HOST=${AUDIO_HOST}/" "$ENV_FILE"
+    sed -i "s/^AUDIO_PORT=.*/AUDIO_PORT=${AUDIO_PORT}/" "$ENV_FILE"
+fi
+
+# Write audio configuration for browser clients
+cat > /usr/share/novnc/audio-env.js <<EOF
+window.AUDIO_HOST = '${AUDIO_HOST}';
+window.AUDIO_PORT = ${AUDIO_PORT};
+EOF
+
 # Initialize system directories
 mkdir -p /var/run/dbus /tmp/.ICE-unix /tmp/.X11-unix
 # /tmp/.X11-unix may be mounted read-only by the host. Avoid failing if chmod

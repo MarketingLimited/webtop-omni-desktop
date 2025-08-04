@@ -175,6 +175,7 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
         </div>
     </div>
 
+    <script src="audio-env.js"></script>
     <script>
         class DesktopAudioManager {
             constructor() {
@@ -366,7 +367,7 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
 
                     // Try multiple connection methods with fallback using the matched protocol
                     const connectionMethods = [
-                        () => this.connectWebSocket(`${wsProtocol}://${window.location.hostname}:8080`),
+                        () => this.connectWebSocket(`${wsProtocol}://${window.AUDIO_HOST || window.location.hostname}:${window.AUDIO_PORT || 8080}`),
                         () => this.connectWebSocket(`${wsProtocol}://${window.location.host}/audio-bridge`)
                     ];
                     
@@ -508,8 +509,8 @@ echo "Injecting universal audio support into all noVNC pages..."
 # Backup and enhance vnc.html with universal audio
 if [ -f "$NOVNC_DIR/vnc.html" ]; then
     if ! grep -q "universal-audio.js" "$NOVNC_DIR/vnc.html"; then
-        # Add universal audio script before closing body tag
-        sed -i 's|</body>|    <script src="universal-audio.js"></script>\n</body>|' "$NOVNC_DIR/vnc.html"
+        # Add audio configuration and universal audio scripts before closing body tag
+        sed -i 's|</body>|    <script src="audio-env.js"></script>\n    <script src="universal-audio.js"></script>\n</body>|' "$NOVNC_DIR/vnc.html"
         echo "Enhanced vnc.html with universal audio"
     fi
 fi
@@ -517,13 +518,19 @@ fi
 # Backup and enhance vnc_lite.html if it exists
 if [ -f "$NOVNC_DIR/vnc_lite.html" ]; then
     if ! grep -q "universal-audio.js" "$NOVNC_DIR/vnc_lite.html"; then
-        sed -i 's|</body>|    <script src="universal-audio.js"></script>\n</body>|' "$NOVNC_DIR/vnc_lite.html"
+        sed -i 's|</body>|    <script src="audio-env.js"></script>\n    <script src="universal-audio.js"></script>\n</body>|' "$NOVNC_DIR/vnc_lite.html"
         echo "Enhanced vnc_lite.html with universal audio"
     fi
 fi
 
 # Copy universal audio script to noVNC directory
 cp "/usr/local/bin/universal-audio.js" "$NOVNC_DIR/" 2>/dev/null || echo "Note: Universal audio script will be created during setup"
+
+# Create placeholder audio configuration file for runtime overrides
+cat > "$NOVNC_DIR/audio-env.js" <<'EOF'
+window.AUDIO_HOST = window.AUDIO_HOST || window.location.hostname;
+window.AUDIO_PORT = window.AUDIO_PORT || 8080;
+EOF
 
 # Create comprehensive noVNC home page with interface navigation
 cat > "$NOVNC_DIR/index.html" << 'EOF'

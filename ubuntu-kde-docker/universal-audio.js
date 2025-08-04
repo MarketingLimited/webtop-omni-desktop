@@ -5,6 +5,10 @@
 (function() {
     'use strict';
 
+    // Allow runtime override of audio service location
+    const audioHost = window.AUDIO_HOST || window.location.hostname;
+    const audioPort = window.AUDIO_PORT || 8080;
+
     // Prevent multiple instances
     if (window.UniversalAudioManager) return;
 
@@ -346,7 +350,7 @@
                 // Test multiple potential audio bridge endpoints
                 const endpoints = [
                     '/audio-player.html',
-                    `http://${window.location.hostname}:8080`,
+                    `http://${audioHost}:${audioPort}`,
                     '/health'
                 ];
 
@@ -399,7 +403,7 @@
         async attemptConnection() {
             const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
             const wsUrls = [
-                `${wsProtocol}://${window.location.hostname}:8080`,
+                `${wsProtocol}://${audioHost}:${audioPort}`,
                 `${wsProtocol}://${window.location.host}/audio-bridge`
             ];
 
