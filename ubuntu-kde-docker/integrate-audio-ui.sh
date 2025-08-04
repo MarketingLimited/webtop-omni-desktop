@@ -361,12 +361,13 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
                         this.setVolume(savedVolume);
                     }
                     
-                    // Try multiple connection methods with fallback
+                    // Determine the appropriate WebSocket protocol based on the page context
+                    const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+
+                    // Try multiple connection methods with fallback using the matched protocol
                     const connectionMethods = [
-                        () => this.connectWebSocket(`ws://${window.location.hostname}:8080`),
-                        () => this.connectWebSocket(`wss://${window.location.hostname}:8080`),
-                        () => this.connectWebSocket(`ws://${window.location.host}/audio-bridge`),
-                        () => this.connectWebSocket(`wss://${window.location.host}/audio-bridge`)
+                        () => this.connectWebSocket(`${wsProtocol}://${window.location.hostname}:8080`),
+                        () => this.connectWebSocket(`${wsProtocol}://${window.location.host}/audio-bridge`)
                     ];
                     
                     for (const method of connectionMethods) {

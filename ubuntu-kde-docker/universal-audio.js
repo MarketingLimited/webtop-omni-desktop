@@ -397,11 +397,10 @@
         }
 
         async attemptConnection() {
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
             const wsUrls = [
-                `ws://${window.location.hostname}:8080`,
-                `wss://${window.location.hostname}:8080`,
-                `ws://${window.location.host}/audio-bridge`,
-                `wss://${window.location.host}/audio-bridge`
+                `${wsProtocol}://${window.location.hostname}:8080`,
+                `${wsProtocol}://${window.location.host}/audio-bridge`
             ];
 
             for (const wsUrl of wsUrls) {
