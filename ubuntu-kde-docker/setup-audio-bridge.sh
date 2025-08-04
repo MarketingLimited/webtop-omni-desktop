@@ -37,7 +37,7 @@ cat > server.js << 'EOF'
 const http = require('http');
 const WebSocket = require('ws');
 const express = require('express');
-const { spawn } = require('child_process');
+const { spawn, execSync } = require('child_process');
 const path = require('path');
 
 const app = express();
@@ -57,6 +57,22 @@ app.get('/audio-player.html', (req, res) => {
 
 const server = http.createServer(app);
 
+function detectMonitor() {
+    try {
+        const output = execSync('pactl list short sources', { encoding: 'utf8' });
+        const line = output.split('\n').find(l => l.includes('virtual_speaker'));
+        if (line) {
+            const name = line.split('\t')[1];
+            console.log(`\uD83C\uDFA7 Using detected monitor: ${name}`);
+            return name;
+        }
+    } catch (err) {
+        console.error('Failed to detect virtual_speaker monitor:', err);
+    }
+    console.log('\u2139\uFE0F Falling back to @DEFAULT_MONITOR@');
+    return '@DEFAULT_MONITOR@';
+}
+
 server.listen(PORT, () => {
     console.log(`Audio bridge server listening on port ${PORT}`);
 });
@@ -75,16 +91,13 @@ wss.on('connection', (ws) => {
         if (isRecordingActive) return;
         
         // Enhanced PulseAudio connection methods with debugging
+        const monitor = detectMonitor();
+        console.log(`\uD83D\uDD0A Starting recording from monitor: ${monitor}`);
         const parecordOptions = [
-            // Try virtual_speaker.monitor first (this is what we want)
-            ['--device=virtual_speaker.monitor', '--format=s16le', '--rate=44100', '--channels=2', '--raw'],
-            // Try default monitor
+            ['--device=' + monitor, '--format=s16le', '--rate=44100', '--channels=2', '--raw'],
             ['--device=@DEFAULT_MONITOR@', '--format=s16le', '--rate=44100', '--channels=2', '--raw'],
-            // Try TCP with specific device
-            ['--server=tcp:localhost:4713', '--device=virtual_speaker.monitor', '--format=s16le', '--rate=44100', '--channels=2', '--raw'],
-            // Try TCP with default monitor
+            ['--server=tcp:localhost:4713', '--device=' + monitor, '--format=s16le', '--rate=44100', '--channels=2', '--raw'],
             ['--server=tcp:localhost:4713', '--device=@DEFAULT_MONITOR@', '--format=s16le', '--rate=44100', '--channels=2', '--raw'],
-            // Final fallback to any available sink monitor
             ['--server=tcp:localhost:4713', '--format=s16le', '--rate=44100', '--channels=2', '--raw']
         ];
         
@@ -284,6 +297,7 @@ cat > public/audio-player.html << 'EOF'
                 try {
                     // Initialize audio context
                     this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    await this.audioContext.resume();
                     this.gainNode = this.audioContext.createGain();
                     this.gainNode.connect(this.audioContext.destination);
                     this.setVolume(this.volumeSlider.value);
