@@ -2,6 +2,9 @@
 
 # Audio Bridge Setup Script
 # Sets up web-based audio streaming from PulseAudio to browser
+# WebSocket server is mounted at /audio-bridge; clients should connect via
+# ws(s)://<host>:8080/audio-bridge or a reverse-proxied equivalent rather than
+# the server root
 
 set -e
 
@@ -78,7 +81,13 @@ server.listen(PORT, () => {
 });
 
 // WebSocket server for audio streaming
-const wss = new WebSocket.Server({ server });
+// Allow the websocket server to be mounted behind a reverse proxy
+// using a specific path (e.g. /audio-bridge).  This matches the
+// connection attempts performed by the frontend's UniversalAudioManager
+// which will try both the raw port and the proxied path.  Without
+// specifying the path here the connection would only succeed when the
+// bridge was exposed at the server root.
+const wss = new WebSocket.Server({ server, path: '/audio-bridge' });
 
 wss.on('connection', (ws) => {
     console.log('Client connected for audio streaming');
