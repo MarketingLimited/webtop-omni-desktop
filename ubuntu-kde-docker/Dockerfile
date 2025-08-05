@@ -1,7 +1,8 @@
+FROM ubuntu:24.04
+
 # Copy and set permissions for diagnostic-and-fix.sh
 COPY diagnostic-and-fix.sh /usr/local/bin/diagnostic-and-fix.sh
 RUN chmod +x /usr/local/bin/diagnostic-and-fix.sh
-FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
