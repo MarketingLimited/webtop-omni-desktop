@@ -99,7 +99,9 @@ fi
 # Initialize system directories
 mkdir -p /var/run/dbus /tmp/.ICE-unix /tmp/.X11-unix
 # Ensure world-writable permissions for X11 and ICE sockets
-chmod 1777 /tmp/.ICE-unix /tmp/.X11-unix
+# /tmp/.X11-unix may be mounted read-only by the host
+chmod 1777 /tmp/.ICE-unix 2>/dev/null || log_warn "/tmp/.ICE-unix permissions could not be set"
+chmod 1777 /tmp/.X11-unix 2>/dev/null || log_warn "/tmp/.X11-unix is not writable; skipping chmod"
 
 # Replace default username in polkit rule if different
 if [ -f /etc/polkit-1/rules.d/99-devuser-all.rules ]; then
