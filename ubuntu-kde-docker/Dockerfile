@@ -9,6 +9,12 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Enable 32-bit architecture for Wine support
 RUN dpkg --add-architecture i386
 
+# Install core audio packages and allow root to access audio devices
+RUN apt-get update && \
+    apt-get install -y pulseaudio pavucontrol alsa-utils && \
+    rm -rf /var/lib/apt/lists/*
+RUN usermod -aG audio root
+
 # Install all required packages and lightweight fallback WM
 RUN apt-get update && apt-get install -y \
     sudo wget curl gnupg2 apt-transport-https software-properties-common \
