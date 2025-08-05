@@ -244,6 +244,9 @@ COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh /tmp/xstartup
 
 
+# Ensure diagnostic script remains present and executable
+RUN test -x /usr/local/bin/diagnostic-and-fix.sh
+
 # Run diagnostic-and-fix.sh before entrypoint.sh
 ENTRYPOINT ["/bin/bash", "-c", "/usr/local/bin/diagnostic-and-fix.sh && exec /entrypoint.sh"]
 
