@@ -39,6 +39,7 @@ check_audio_devices() {
     
     if [ "$device_count" -gt 0 ]; then
         log_audio "✅ Audio devices available: $device_count sinks"
+        ensure_default_sink
         return 0
     else
         log_audio "⚠️  No audio devices available - will attempt recovery"
@@ -64,6 +65,25 @@ attempt_device_recovery() {
         pactl load-module module-null-sink sink_name=virtual_microphone sink_properties=device.description=\"Virtual_Marketing_Microphone\" 2>/dev/null || true
         pactl set-default-sink virtual_speaker 2>/dev/null || true
     " 2>/dev/null || log_audio "⚠️  Device recovery failed"
+}
+
+# Ensure PulseAudio routes audio through the virtual_speaker sink
+ensure_default_sink() {
+    if ! id "${DEV_USERNAME}" >/dev/null 2>&1; then
+        return
+    fi
+
+    local current_sink
+    current_sink=$(su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID:-1000}; pactl info 2>/dev/null | grep 'Default Sink' | awk -F ': ' '{print \$2}'" 2>/dev/null || echo "unknown")
+
+    if [ "$current_sink" != "virtual_speaker" ]; then
+        log_audio "⚠️  Default sink is $current_sink - resetting to virtual_speaker"
+        su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID:-1000}; pactl set-default-sink virtual_speaker 2>/dev/null" || true
+        # Move existing audio streams to virtual_speaker
+        su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID:-1000}; pactl list short sink-inputs 2>/dev/null | awk '{print \$1}' | xargs -r -n1 pactl move-sink-input {} virtual_speaker 2>/dev/null" || true
+    else
+        log_audio "✅ Default sink correctly set to virtual_speaker"
+    fi
 }
 
 check_kde_audio() {
