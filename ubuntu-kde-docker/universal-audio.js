@@ -402,8 +402,14 @@
 
         async attemptConnection() {
             const wsProtocol = window.AUDIO_WS_SCHEME || (window.location.protocol === 'https:' ? 'wss' : 'ws');
+            // Try multiple websocket endpoints in order of preference. The
+            // first entry connects directly to the audio bridge port while the
+            // following entries allow the service to be accessed when it is
+            // proxied behind the primary web interface (with or without a
+            // path prefix).
             const wsUrls = [
                 `${wsProtocol}://${audioHost}:${audioPort}`,
+                `${wsProtocol}://${window.location.host}`,
                 `${wsProtocol}://${window.location.host}/audio-bridge`
             ];
 
