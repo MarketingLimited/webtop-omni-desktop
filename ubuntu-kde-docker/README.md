@@ -40,6 +40,33 @@ A comprehensive Docker environment featuring Ubuntu with KDE Plasma desktop, spe
 - 4GB+ RAM recommended
 - Modern web browser
 
+### Host Audio Setup
+The Docker image installs `pulseaudio`, `pavucontrol`, and `alsa-utils` and adds the `root` user to the `audio` group. To output
+real audio instead of only virtual sinks, the host must run PulseAudio and share its socket and sound devices with the
+container.
+
+```bash
+apt update && apt install pulseaudio alsa-utils -y
+pulseaudio --start
+pactl list short sinks   # verify a real sink is available
+```
+
+The provided Docker Compose files already configure the required mounts and environment variables:
+
+```yaml
+environment:
+  - PULSE_SERVER=unix:/run/user/0/pulse/native
+volumes:
+  - /run/user/0/pulse:/run/user/0/pulse
+  - /root/.config/pulse/cookie:/root/.config/pulse/cookie
+  - /tmp/.X11-unix:/tmp/.X11-unix
+devices:
+  - /dev/snd
+```
+
+Ensure `/tmp/.X11-unix` is writable on the host (`chmod 1777 /tmp/.X11-unix`) and that `pactl list short sinks` reports a
+hardware sink before starting the container.
+
 ### 1. Clone & Configure
 ```bash
 git clone <repository>
