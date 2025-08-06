@@ -67,6 +67,9 @@ EOF
     # Create WirePlumber configuration
     cat <<'EOF' > "/home/${DEV_USERNAME}/.config/wireplumber/main.lua.d/99-virtual-devices.lua"
 -- Virtual device configuration for container environment
+-- Ensure virtual devices are properly managed by WirePlumber
+
+-- Rule for virtual speaker
 virtual_speaker_rule = {
   matches = {
     {
@@ -82,9 +85,12 @@ virtual_speaker_rule = {
     ["media.class"] = "Audio/Sink",
     ["priority.driver"] = 1000,
     ["priority.session"] = 1000,
+    ["node.pause-on-idle"] = false,
+    ["session.suspend-timeout-seconds"] = 0,
   },
 }
 
+-- Rule for virtual microphone
 virtual_microphone_rule = {
   matches = {
     {
@@ -100,12 +106,35 @@ virtual_microphone_rule = {
     ["media.class"] = "Audio/Sink",
     ["priority.driver"] = 1000,
     ["priority.session"] = 1000,
+    ["node.pause-on-idle"] = false,
+    ["session.suspend-timeout-seconds"] = 0,
   },
 }
 
+-- Apply rules to appropriate monitors
 if alsa_monitor and alsa_monitor.rules then
   table.insert(alsa_monitor.rules, virtual_speaker_rule)
   table.insert(alsa_monitor.rules, virtual_microphone_rule)
+end
+
+-- Also apply to default monitor if available
+if default_access and default_access.rules then
+  table.insert(default_access.rules, virtual_speaker_rule)
+  table.insert(default_access.rules, virtual_microphone_rule)
+end
+
+-- Container-specific settings
+container_settings = {
+  ["log.level"] = 2,
+  ["wireplumber.export-core"] = true,
+  ["support.dbus"] = false,
+}
+
+-- Apply container settings
+for key, value in pairs(container_settings) do
+  if context and context.properties then
+    context.properties[key] = value
+  end
 end
 EOF
 
