@@ -37,7 +37,7 @@ if [ "$IS_RUNTIME" = true ]; then
 
     # Ensure PipeWire config directory exists
     mkdir -p "/home/${DEV_USERNAME}/.config/pipewire"
-    mkdir -p "/home/${DEV_USERNAME}/.config/wireplumber"
+    mkdir -p "/home/${DEV_USERNAME}/.config/wireplumber/main.lua.d"
     chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/.config"
 fi
 
