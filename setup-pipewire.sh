@@ -65,7 +65,6 @@ context.modules = [
         args = { }
     }
     { name = libpipewire-module-link-factory }
-    { name = libpipewire-module-session-manager }
 ]
 
 context.objects = [

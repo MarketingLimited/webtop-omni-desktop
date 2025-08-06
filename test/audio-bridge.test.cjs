@@ -1,7 +1,17 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { spawn } = require('child_process');
-const { WebSocket } = require('/opt/webrtc-bridge/node_modules/ws');
+const { spawn, execSync } = require('child_process');
+const fs = require('node:fs');
+const path = require('node:path');
+
+// Ensure the WebRTC bridge and its dependencies are installed
+const wsModulePath = '/opt/webrtc-bridge/node_modules/ws/index.js';
+if (!fs.existsSync(wsModulePath)) {
+  const setupScript = path.resolve(__dirname, '../setup-webrtc-bridge.sh');
+  execSync(`bash ${setupScript}`, { stdio: 'inherit' });
+}
+
+const WebSocket = require(wsModulePath);
 
 const wait = (ms) => new Promise((res) => setTimeout(res, ms));
 

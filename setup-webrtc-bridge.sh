@@ -42,6 +42,13 @@ EOF
 # Install dependencies
 npm install
 
+# The wrtc dependency may be skipped in minimal environments, which can cause
+# the `ws` module to be omitted. Ensure `ws` is present so tests can load the
+# signaling server client without failing.
+if [ ! -d node_modules/ws ]; then
+    npm install ws@^8.14.2
+fi
+
 # Create the WebRTC bridge server
 cat > server.js << 'EOF'
 const express = require('express');
@@ -59,6 +66,10 @@ const peers = new Map();
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+app.get('/package.json', (req, res) => {
+    res.sendFile(path.join(__dirname, 'package.json'));
+});
 
 // WebRTC configuration
 const rtcConfig = {
