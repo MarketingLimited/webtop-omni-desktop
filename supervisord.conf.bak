@@ -53,20 +53,20 @@ autorestart=true
 user=%(ENV_DEV_USERNAME)s
 environment=HOME=/home/%(ENV_DEV_USERNAME)s,USER=%(ENV_DEV_USERNAME)s,XDG_RUNTIME_DIR=/run/user/%(ENV_DEV_UID)s,PIPEWIRE_RUNTIME_DIR=/run/user/%(ENV_DEV_UID)s/pipewire
 startretries=5
-startsecs=15
+startsecs=8
 stopwaitsecs=10
 stdout_logfile=/var/log/supervisor/pipewire.log
 stderr_logfile=/var/log/supervisor/pipewire.log
 
 [program:wireplumber]
-command=/bin/sh -c "sleep 5 && /usr/local/bin/wait-for-service.sh /run/user/%(ENV_DEV_UID)s/pipewire-0 /usr/bin/wireplumber"
+command=/usr/local/bin/wait-for-service.sh /run/user/%(ENV_DEV_UID)s/pipewire-0 /usr/bin/wireplumber
 priority=26
 autostart=true
 autorestart=true
 user=%(ENV_DEV_USERNAME)s
 environment=HOME=/home/%(ENV_DEV_USERNAME)s,USER=%(ENV_DEV_USERNAME)s,XDG_RUNTIME_DIR=/run/user/%(ENV_DEV_UID)s,PIPEWIRE_RUNTIME_DIR=/run/user/%(ENV_DEV_UID)s/pipewire
 startretries=5
-startsecs=20
+startsecs=10
 stopwaitsecs=10
 stdout_logfile=/var/log/supervisor/wireplumber.log
 stderr_logfile=/var/log/supervisor/wireplumber.log
@@ -133,8 +133,52 @@ exitcodes=0,130
 stdout_logfile=/var/log/supervisor/ttyd.log
 stderr_logfile=/var/log/supervisor/ttyd.log
 
+[program:AudioValidation]
+command=/bin/sh -c "sleep 30; /usr/local/bin/audio-validation.sh"
+priority=28
+autostart=true
+autorestart=false
+stopsignal=TERM
+user=root
+environment=DEV_USERNAME=%(ENV_DEV_USERNAME)s,DEV_UID=%(ENV_DEV_UID)s
+exitcodes=0,1
+startsecs=5
+startretries=2
+stdout_logfile=/var/log/supervisor/audio-validation.log
+stderr_logfile=/var/log/supervisor/audio-validation.log
+
+
+[program:AudioMonitor]
+command=/bin/sh -c "sleep 60; /usr/local/bin/audio-monitor.sh intelligent-monitor"
+priority=27
+autostart=true
+autorestart=unexpected
+stopsignal=TERM
+user=root
+environment=DEV_USERNAME=%(ENV_DEV_USERNAME)s,DEV_UID=%(ENV_DEV_UID)s
+startsecs=30
+startretries=2
+exitcodes=0,1
+autorestart_backoff=120
+stdout_logfile=/var/log/supervisor/audio-monitor.log
+stderr_logfile=/var/log/supervisor/audio-monitor.log
+
+[program:ServiceHealth]
+command=/bin/sh -c "sleep 75; /usr/local/bin/service-health.sh smart-monitor"
+priority=55
+autostart=true
+autorestart=unexpected
+stopsignal=TERM
+user=root
+exitcodes=0,1
+startsecs=20
+startretries=1
+autorestart_backoff=300
+stdout_logfile=/var/log/supervisor/health.log
+stderr_logfile=/var/log/supervisor/health.log
+
 [program:CreateVirtualPipeWireDevices]
-command=/bin/bash -c "sleep 45 && /usr/local/bin/create-virtual-pipewire-devices.sh"
+command=/bin/bash -c "sleep 15 && /usr/local/bin/create-virtual-pipewire-devices.sh"
 user=root
 autostart=true
 autorestart=false
@@ -191,8 +235,23 @@ stderr_logfile=/var/log/supervisor/validation.log
 programs=Xvfb,dbus,accounts-daemon
 priority=10
 
-[include]
-files = /etc/supervisor/conf.d/*.conf supervisord-audio-fix.conf
+[group:audio]
+programs=pipewire,wireplumber,AudioValidation,CreateVirtualPipeWireDevices,AudioMonitor,WebRTCBridge
+priority=25
+
+[program:PipeWireRecovery]
+command=/bin/bash -c "sleep 45; /usr/local/bin/pipewire-recovery.sh check || /usr/local/bin/pipewire-recovery.sh recover"
+priority=29
+autostart=true
+autorestart=false
+stopsignal=TERM
+user=root
+environment=DEV_USERNAME=%(ENV_DEV_USERNAME)s,DEV_UID=%(ENV_DEV_UID)s
+exitcodes=0,1
+startsecs=5
+startretries=1
+stdout_logfile=/var/log/supervisor/pipewire-recovery.log
+stderr_logfile=/var/log/supervisor/pipewire-recovery.log
 
 [program:ServiceRecoveryManager]
 command=/bin/bash -c "sleep 90; /usr/local/bin/service-recovery-manager.sh monitor"
@@ -218,5 +277,5 @@ programs=X11VNC,noVNC,sshd,ttyd
 priority=40
 
 [group:monitoring]
-programs=SystemValidation,ServiceRecoveryManager
+programs=ServiceHealth,SystemValidation,ServiceRecoveryManager
 priority=55
