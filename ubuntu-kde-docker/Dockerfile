@@ -176,6 +176,7 @@ COPY health-check.sh /usr/local/bin/health-check.sh
 COPY fix-permissions.sh /usr/local/bin/fix-permissions.sh
 COPY test-polkit.sh /usr/local/bin/test-polkit.sh
 COPY create-virtual-audio-devices.sh /usr/local/bin/create-virtual-audio-devices.sh
+COPY fix-audio-routing.sh /usr/local/bin/fix-audio-routing.sh
 COPY setup-universal-audio.sh /usr/local/bin/setup-universal-audio.sh
 RUN chmod +x /usr/local/bin/setup-*.sh \
     /usr/local/bin/service-health.sh \
@@ -186,7 +187,8 @@ RUN chmod +x /usr/local/bin/setup-*.sh \
     /usr/local/bin/fix-permissions.sh \
     /usr/local/bin/test-polkit.sh \
     /usr/local/bin/fix-audio-startup.sh \
-    /usr/local/bin/create-virtual-audio-devices.sh
+    /usr/local/bin/create-virtual-audio-devices.sh \
+    /usr/local/bin/fix-audio-routing.sh
 
 # Initialize audio system during build
 RUN /usr/local/bin/setup-audio.sh && \

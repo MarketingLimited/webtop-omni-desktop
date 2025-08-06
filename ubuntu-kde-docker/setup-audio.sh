@@ -238,24 +238,24 @@ test_audio_devices() {
     echo "🔍 Testing audio devices..."
     
     echo "Available audio sinks:"
-    if pactl list short sinks 2>/dev/null; then
+    if pactl list short sinks 2>/dev/null || pactl -s tcp:localhost:4713 list short sinks 2>/dev/null; then
         green "✅ Audio sinks detected"
     else
         red "❌ No audio sinks found"
     fi
     
     echo "Available audio sources:"
-    if pactl list short sources 2>/dev/null; then
+    if pactl list short sources 2>/dev/null || pactl -s tcp:localhost:4713 list short sources 2>/dev/null; then
         green "✅ Audio sources detected"
     else
         red "❌ No audio sources found"
     fi
     
     echo "Default sink:"
-    pactl get-default-sink 2>/dev/null || red "❌ No default sink"
-    
+    pactl get-default-sink 2>/dev/null || pactl -s tcp:localhost:4713 get-default-sink 2>/dev/null || red "❌ No default sink"
+
     echo "Default source:"
-    pactl get-default-source 2>/dev/null || red "❌ No default source"
+    pactl get-default-source 2>/dev/null || pactl -s tcp:localhost:4713 get-default-source 2>/dev/null || red "❌ No default source"
 }
 
 # Test VNC audio integration
