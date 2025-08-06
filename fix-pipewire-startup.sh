@@ -21,8 +21,8 @@ wait_for_pipewire_socket() {
     done
 
     if [ ! -S "/run/user/${DEV_UID}/pipewire-0" ]; then
-        red "❌ PipeWire socket not found after 30 seconds. Aborting."
-        exit 1
+        red "❌ PipeWire socket not found after 30 seconds."
+        return 1
     fi
     green "✅ PipeWire socket is available."
 }
@@ -52,18 +52,31 @@ main() {
         fi
     fi
 
-    # 3. Start PipeWire and WirePlumber services
+    # 3. Ensure a D-Bus session is available before starting services
+    if ! pgrep -x dbus-daemon >/dev/null 2>&1; then
+        yellow "⚠️ D-Bus session not running. Skipping PipeWire startup."
+        return 0
+    fi
+
+    # 4. Start PipeWire and WirePlumber services
     blue "🚀 Starting PipeWire and WirePlumber services..."
-    supervisord -c /etc/supervisor/conf.d/pipewire.conf
+    if ! supervisord -c /etc/supervisor/conf.d/pipewire.conf; then
+        yellow "⚠️ Unable to start PipeWire via supervisord. Continuing without audio services."
+        return 0
+    fi
 
-    # 4. Wait for the PipeWire socket to be available
-    wait_for_pipewire_socket
+    # 5. Wait for the PipeWire socket to be available
+    if ! wait_for_pipewire_socket; then
+        yellow "⚠️ PipeWire socket not available. Skipping virtual device setup."
+        return 0
+    fi
 
-    # 5. Create virtual audio devices
+    # 6. Create virtual audio devices
     blue "🎧 Creating virtual audio devices..."
-    /usr/local/bin/create-virtual-pipewire-devices.sh
+    /usr/local/bin/create-virtual-pipewire-devices.sh || yellow "⚠️ Failed to create virtual audio devices"
 
     green "✅ PipeWire startup and configuration completed successfully."
 }
 
 main "$@"
+
