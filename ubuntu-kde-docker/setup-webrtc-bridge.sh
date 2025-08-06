@@ -13,6 +13,12 @@ if ! command -v node &> /dev/null; then
     apt-get install -y nodejs
 fi
 
+# The wrtc package relies on the node-pre-gyp binary during installation.
+# On some minimal images it may not be installed, causing "node-pre-gyp: not found"
+# during `npm install`.  Install it globally to ensure the dependency is present
+# before installing the bridge's packages.
+npm install -g node-pre-gyp
+
 # Create WebRTC bridge directory
 mkdir -p /opt/webrtc-bridge
 cd /opt/webrtc-bridge
