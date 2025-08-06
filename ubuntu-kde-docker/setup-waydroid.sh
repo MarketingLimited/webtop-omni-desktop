@@ -44,7 +44,6 @@ vendor_type=MAINLINE
 system_type=VANILLA
 xdg_runtime_dir=/run/user/${DEV_UID}
 wayland_display=wayland-0
-pulse_server=unix:/run/user/${DEV_UID}/pulse/native
 
 [session]
 user_manager=true

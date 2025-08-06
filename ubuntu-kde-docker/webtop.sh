@@ -100,7 +100,6 @@ load_env() {
     export BASE_SSH_PORT=${BASE_SSH_PORT:-2223}
     export BASE_TTYD_PORT=${BASE_TTYD_PORT:-7682}
     export BASE_AUDIO_PORT=${BASE_AUDIO_PORT:-8080}
-    export BASE_PULSE_PORT=${BASE_PULSE_PORT:-4714}
 }
 
 # Check if port is available
@@ -150,9 +149,8 @@ get_container_ports() {
         local ssh_port=$(jq -r ".\"$container_name\".ports.ssh" "$CONTAINER_REGISTRY")
         local ttyd_port=$(jq -r ".\"$container_name\".ports.ttyd" "$CONTAINER_REGISTRY")
         local audio_port=$(jq -r ".\"$container_name\".ports.audio" "$CONTAINER_REGISTRY")
-        local pulse_port=$(jq -r ".\"$container_name\".ports.pulse" "$CONTAINER_REGISTRY")
-        
-        echo "$http_port:80,$ssh_port:22,$ttyd_port:7681,$audio_port:8080,$pulse_port:4713"
+
+        echo "$http_port:80,$ssh_port:22,$ttyd_port:7681,$audio_port:8080"
         return
     fi
     
@@ -162,7 +160,6 @@ get_container_ports() {
     local ssh_port=$(find_available_port $BASE_SSH_PORT)
     local ttyd_port=$(find_available_port $BASE_TTYD_PORT)
     local audio_port=$(find_available_port $BASE_AUDIO_PORT)
-    local pulse_port=$(find_available_port $BASE_PULSE_PORT)
     
     # Store in registry
     local temp_file=$(mktemp)
@@ -172,14 +169,13 @@ get_container_ports() {
             \"http\": $http_port,
             \"ssh\": $ssh_port,
             \"ttyd\": $ttyd_port,
-            \"audio\": $audio_port,
-            \"pulse\": $pulse_port
+            \"audio\": $audio_port
         },
         \"created\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",
         \"status\": \"assigned\"
     }" "$CONTAINER_REGISTRY" > "$temp_file" && mv "$temp_file" "$CONTAINER_REGISTRY"
     
-    echo "$http_port:80,$ssh_port:22,$ttyd_port:7681,$audio_port:8080,$pulse_port:4713"
+    echo "$http_port:80,$ssh_port:22,$ttyd_port:7681,$audio_port:8080"
 }
 
 # Display help
@@ -507,7 +503,6 @@ create_named_compose() {
     local ssh_mapping=$(echo "$port_mappings" | cut -d',' -f2)
     local ttyd_mapping=$(echo "$port_mappings" | cut -d',' -f3)
     local audio_mapping=$(echo "$port_mappings" | cut -d',' -f4)
-    local pulse_mapping=$(echo "$port_mappings" | cut -d',' -f5)
     
     cat << EOF
 services:
@@ -524,7 +519,6 @@ services:
       - "$ssh_mapping"
       - "$ttyd_mapping"
       - "$audio_mapping"
-      - "$pulse_mapping"
     env_file:
       - .env
     volumes:
@@ -590,7 +584,7 @@ show_access_info() {
             echo "  🌐 noVNC (Web):        http://localhost:32768"
             echo "  🔒 SSH:                ssh developer@localhost -p 2222"
             echo "  💻 Web Terminal:       http://localhost:7681"
-            echo "  🔊 Audio Port:          4713"
+            echo "  🔊 WebRTC Bridge:      http://localhost:8080"
             ;;
         prod)
             echo "  🌐 Web Interface:      https://your-domain.com"
@@ -632,7 +626,6 @@ show_named_container_info() {
     local ssh_port=$(jq -r ".\"$container_name\".ports.ssh" "$CONTAINER_REGISTRY")
     local ttyd_port=$(jq -r ".\"$container_name\".ports.ttyd" "$CONTAINER_REGISTRY")
     local audio_port=$(jq -r ".\"$container_name\".ports.audio" "$CONTAINER_REGISTRY")
-    local pulse_port=$(jq -r ".\"$container_name\".ports.pulse" "$CONTAINER_REGISTRY")
     
     echo
     print_success "Container '$container_name' is running!"
@@ -641,8 +634,7 @@ show_named_container_info() {
     echo "  🌐 noVNC (Web):        http://localhost:$http_port"
     echo "  🔒 SSH:                ssh devuser@localhost -p $ssh_port"
     echo "  💻 Web Terminal:       http://localhost:$ttyd_port"
-    echo "  🔊 Audio Bridge:       http://localhost:$audio_port"
-    echo "  🎵 PulseAudio:         localhost:$pulse_port"
+    echo "  🔊 WebRTC Bridge:     http://localhost:$audio_port"
     echo
     echo -e "${YELLOW}Container Info:${NC}"
     echo "  📦 Name:               webtop-$container_name"

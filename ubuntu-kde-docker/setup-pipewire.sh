@@ -108,13 +108,6 @@ context.objects = [
         }
     }
 ]
-
-context.exec = [
-    { path = "pactl"
-        args = "load-module module-always-sink"
-        flags = [ nofail ]
-    }
-]
 EOF
 
 # Create user-specific PipeWire configuration (runtime only)

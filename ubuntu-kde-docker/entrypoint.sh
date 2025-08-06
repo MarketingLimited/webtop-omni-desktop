@@ -253,13 +253,13 @@ else
     echo "⚠️  TTYD setup script not found"
 fi
 
-# Set up desktop audio integration testing
-log_info "Setting up desktop audio integration..."
-if [ -f "/usr/local/bin/test-desktop-audio.sh" ]; then
-    chmod +x /usr/local/bin/test-desktop-audio.sh
-    echo "✅ Desktop audio integration testing setup completed"
+# Set up WebRTC audio integration testing
+log_info "Setting up WebRTC audio integration..."
+if [ -f "/usr/local/bin/test-webrtc-pipeline.sh" ]; then
+    chmod +x /usr/local/bin/test-webrtc-pipeline.sh
+    echo "✅ WebRTC audio integration testing setup completed"
 else
-    echo "⚠️  Desktop audio integration script not found"
+    echo "⚠️  WebRTC audio integration script not found"
 fi
 
 # Wine setup is handled later in the script.

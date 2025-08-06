@@ -5,7 +5,7 @@
 ### 🎵 Audio Issues
 
 #### "No output or input devices found" in KDE
-**Cause**: Virtual audio devices not created or PulseAudio misconfigured
+**Cause**: Virtual audio devices not created or PipeWire misconfigured
 
 **Solution**:
 ```bash
@@ -13,12 +13,12 @@
 docker exec webtop-kde /usr/local/bin/audio-validation.sh
 
 # If validation fails, restart audio system
-docker exec webtop-kde supervisorctl restart pulseaudio
+docker exec webtop-kde supervisorctl restart pipewire
 docker exec webtop-kde supervisorctl restart AudioValidation
 
-# Check PulseAudio status
-docker exec webtop-kde pactl info
-docker exec webtop-kde pactl list short sinks
+# Check PipeWire status
+docker exec webtop-kde pw-cli info
+docker exec webtop-kde pw-cli list-objects Node
 ```
 
 #### Audio not working in applications
@@ -27,11 +27,10 @@ docker exec webtop-kde pactl list short sinks
 **Solution**:
 ```bash
 # Set default audio device
-docker exec webtop-kde pactl set-default-sink virtual_speaker
-docker exec webtop-kde pactl set-default-source virtual_microphone
+docker exec webtop-kde /usr/local/bin/fix-pipewire-routing.sh
 
 # Test audio in desktop
-docker exec webtop-kde /usr/local/bin/test-desktop-audio.sh
+docker exec webtop-kde /usr/local/bin/test-webrtc-pipeline.sh
 ```
 
 ### 🖥️ Remote Desktop Issues
@@ -243,9 +242,9 @@ docker ps | grep webtop-build
 docker exec webtop-kde /usr/local/bin/audio-validation.sh
 docker exec webtop-kde /usr/local/bin/audio-monitor.sh check
 
-# PulseAudio details
-docker exec webtop-kde pactl info
-docker exec webtop-kde pactl list short sinks sources
+# PipeWire details
+docker exec webtop-kde pw-cli info
+docker exec webtop-kde pw-cli list-objects Node
 ```
 
 #### Desktop Diagnostics
@@ -280,7 +279,7 @@ docker exec webtop-kde supervisorctl clear all
 # Start services in order
 docker exec webtop-kde supervisorctl start Xvfb dbus
 sleep 5
-docker exec webtop-kde supervisorctl start pulseaudio
+docker exec webtop-kde supervisorctl start pipewire
 sleep 5
 docker exec webtop-kde supervisorctl start KDE
 sleep 10
@@ -291,10 +290,10 @@ docker exec webtop-kde supervisorctl start SystemValidation
 
 ### Audio System Reset
 ```bash
-# Reset PulseAudio
-docker exec webtop-kde supervisorctl stop pulseaudio AudioValidation AudioMonitor
-docker exec webtop-kde killall pulseaudio 2>/dev/null || true
-docker exec webtop-kde supervisorctl start pulseaudio
+# Reset PipeWire
+docker exec webtop-kde supervisorctl stop pipewire AudioValidation AudioMonitor
+docker exec webtop-kde killall pipewire 2>/dev/null || true
+docker exec webtop-kde supervisorctl start pipewire
 sleep 3
 docker exec webtop-kde supervisorctl start AudioValidation AudioMonitor
 
@@ -351,8 +350,8 @@ docker exec webtop-kde top -b -n1 | head -20
 
 ### Service Optimization
 ```bash
-# Reduce audio buffer for better performance
-docker exec webtop-kde pactl list short modules | grep module-null-sink
+# Inspect virtual audio nodes
+docker exec webtop-kde pw-cli list-objects Node | grep virtual_speaker
 
 # Optimize display settings
 docker exec webtop-kde xrandr --output VNC-0 --mode 1024x768

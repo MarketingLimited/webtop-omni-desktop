@@ -41,31 +41,23 @@ A comprehensive Docker environment featuring Ubuntu with KDE Plasma desktop, spe
 - Modern web browser
 
 ### Host Audio Setup
-The Docker image installs `pulseaudio`, `pavucontrol`, and `alsa-utils` and adds the `root` user to the `audio` group. To output
-real audio instead of only virtual sinks, the host must run PulseAudio and share its socket and sound devices with the
-container.
+The Docker image uses PipeWire for audio. For real audio output instead of only virtual sinks, ensure the host exposes sound
+devices to the container.
 
 ```bash
-apt update && apt install pulseaudio alsa-utils -y
-pulseaudio --start
-pactl list short sinks   # verify a real sink is available
+apt update && apt install pipewire alsa-utils -y
 ```
 
 The provided Docker Compose files already configure the required mounts and environment variables:
 
 ```yaml
-environment:
-  - PULSE_SERVER=unix:/run/user/0/pulse/native
 volumes:
-  - /run/user/0/pulse:/run/user/0/pulse
-  - /root/.config/pulse/cookie:/root/.config/pulse/cookie
   - /tmp/.X11-unix:/tmp/.X11-unix
 devices:
   - /dev/snd
 ```
 
-Ensure `/tmp/.X11-unix` is writable on the host (`chmod 1777 /tmp/.X11-unix`) and that `pactl list short sinks` reports a
-hardware sink before starting the container.
+Ensure `/tmp/.X11-unix` is writable on the host (`chmod 1777 /tmp/.X11-unix`) before starting the container.
 
 ### 1. Clone & Configure
 ```bash
@@ -182,8 +174,8 @@ docker exec webtop-kde /usr/local/bin/service-health.sh status
 The system includes a container-compatible audio setup:
 
 1. **Virtual Audio Devices**: Software-based virtual speakers and microphones
-2. **PulseAudio Server**: Runs with container-compatible dummy/null sinks
-3. **Audio Forwarding**: Routes audio through VNC remote access
+2. **PipeWire Server**: Runs with container-compatible virtual sinks
+3. **Audio Forwarding**: Streams audio via WebRTC bridge
 4. **KDE Integration**: Virtual devices appear in KDE System Settings
 
 ### Audio Management Commands
@@ -191,17 +183,17 @@ The system includes a container-compatible audio setup:
 # Comprehensive audio validation
 docker exec webtop-kde /usr/local/bin/audio-validation.sh
 
-# Desktop audio integration test
-docker exec webtop-kde /usr/local/bin/test-desktop-audio.sh
+# WebRTC audio pipeline test
+docker exec webtop-kde /usr/local/bin/test-webrtc-pipeline.sh
 
 # Continuous audio monitoring
 docker exec webtop-kde /usr/local/bin/audio-monitor.sh monitor
 
-# Check PulseAudio status
-docker exec webtop-kde pactl list short sinks
+# Check PipeWire status
+docker exec webtop-kde pw-cli info
 
 # Manual audio restart (if needed)
-docker exec webtop-kde supervisorctl restart pulseaudio
+docker exec webtop-kde supervisorctl restart pipewire
 ```
 
 ## 📦 Application Categories
@@ -337,9 +329,8 @@ Modify `setup-desktop.sh` to customize:
 - Application categories
 
 ### Audio Customization
-Edit `setup-audio.sh` to modify:
+Edit `setup-pipewire.sh` to modify:
 - Audio device configuration
-- PulseAudio modules
 - Audio quality settings
 - Virtual device names
 

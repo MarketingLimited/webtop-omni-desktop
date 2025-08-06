@@ -171,7 +171,7 @@ COPY setup-waydroid.sh /usr/local/bin/setup-waydroid.sh
 COPY setup-video-editing.sh /usr/local/bin/setup-video-editing.sh
 COPY setup-ttyd.sh /usr/local/bin/setup-ttyd.sh
 COPY service-health.sh /usr/local/bin/service-health.sh
-COPY test-desktop-audio.sh /usr/local/bin/test-desktop-audio.sh
+COPY test-webrtc-pipeline.sh /usr/local/bin/test-webrtc-pipeline.sh
 COPY audio-validation.sh /usr/local/bin/audio-validation.sh
 COPY system-validation.sh /usr/local/bin/system-validation.sh
 COPY audio-monitor.sh /usr/local/bin/audio-monitor.sh
@@ -183,7 +183,7 @@ COPY fix-pipewire-routing.sh /usr/local/bin/fix-pipewire-routing.sh
 COPY setup-universal-audio.sh /usr/local/bin/setup-universal-audio.sh
 RUN chmod +x /usr/local/bin/setup-*.sh \
     /usr/local/bin/service-health.sh \
-    /usr/local/bin/test-desktop-audio.sh \
+    /usr/local/bin/test-webrtc-pipeline.sh \
     /usr/local/bin/audio-monitor.sh \
     /usr/local/bin/audio-validation.sh \
     /usr/local/bin/health-check.sh \
@@ -212,7 +212,7 @@ RUN chmod +x /usr/local/bin/setup-webrtc-bridge.sh && \
 RUN echo "Validating script dependencies..." && \
     ls -la /usr/local/bin/setup-*.sh \
     /usr/local/bin/service-health.sh \
-    /usr/local/bin/test-desktop-audio.sh \
+    /usr/local/bin/test-webrtc-pipeline.sh \
     /usr/local/bin/audio-monitor.sh \
     /usr/local/bin/audio-validation.sh
 

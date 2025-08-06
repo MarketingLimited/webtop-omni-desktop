@@ -16,8 +16,8 @@ The container runs automatic validation through the `SystemValidation` service i
 ### Validation Components
 
 #### 🎵 Audio System
-- **Virtual device creation**: Tests `virtual_speaker` and `virtual_microphone` 
-- **PulseAudio integration**: Validates container-compatible audio setup
+- **Virtual device creation**: Tests `virtual_speaker` and `virtual_microphone`
+- **PipeWire integration**: Validates container-compatible audio setup
 - **KDE visibility**: Confirms devices appear in System Settings
 - **Audio forwarding**: Tests remote access audio routing
 
@@ -111,12 +111,12 @@ ls -la templates/marketing-template/              # Check template files
 ```bash
 # Audio validation for named containers
 docker exec client1 /usr/local/bin/audio-validation.sh
-docker exec team-alpha /usr/local/bin/test-desktop-audio.sh
+docker exec team-alpha /usr/local/bin/test-webrtc-pipeline.sh
 docker exec client2 /usr/local/bin/audio-monitor.sh monitor
 
 # Traditional single container audio validation
 docker exec webtop-kde /usr/local/bin/audio-validation.sh
-docker exec webtop-kde /usr/local/bin/test-desktop-audio.sh
+docker exec webtop-kde /usr/local/bin/test-webrtc-pipeline.sh
 docker exec webtop-kde /usr/local/bin/audio-monitor.sh monitor
 ```
 
@@ -170,11 +170,11 @@ docker exec client1-test ls -la /home/devuser/     # Verify restored data
 #### Audio Issues
 ```bash
 # Reset audio system
-docker exec webtop-kde supervisorctl restart pulseaudio
+docker exec webtop-kde supervisorctl restart pipewire
 docker exec webtop-kde /usr/local/bin/audio-validation.sh
 
-# Check PulseAudio status
-docker exec webtop-kde pactl info
+# Check PipeWire status
+docker exec webtop-kde pw-cli info
 ```
 
 #### Service Issues  
@@ -200,7 +200,7 @@ docker exec webtop-kde curl -s http://localhost:7681
 
 ### Container Startup Sequence
 1. **Core Services** → Xvfb, D-Bus (Priority 10-20)
-2. **Audio Setup** → PulseAudio, Virtual devices (Priority 25-30)  
+2. **Audio Setup** → PipeWire, Virtual devices (Priority 25-30)
 3. **Desktop Environment** → KDE Plasma (Priority 35)
 4. **Remote Access** → VNC, noVNC, SSH, TTYD (Priority 40-50)
 5. **Validation** → System validation and health monitoring (Priority 60)

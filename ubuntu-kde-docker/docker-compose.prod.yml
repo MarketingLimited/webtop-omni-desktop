@@ -11,13 +11,9 @@ services:
       - "2222:22"     # SSH
     env_file:
       - .env.production
-    environment:
-      - PULSE_SERVER=unix:/run/user/0/pulse/native
     volumes:
       - /data/ubuntu-kde-docker_webtop/config:/config
       - /data/ubuntu-kde-docker_webtop/var/log/supervisor:/var/log/supervisor
-      - /run/user/0/pulse:/run/user/0/pulse
-      - /root/.config/pulse/cookie:/root/.config/pulse/cookie
       - /tmp/.X11-unix:/tmp/.X11-unix
       - /etc/ssl/certs:/etc/ssl/certs:ro
     devices:
