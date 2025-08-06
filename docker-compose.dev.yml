@@ -12,6 +12,7 @@ services:
       - "2222:22"       # SSH
       - "7681:7681"     # ttyd terminal
       - "8080:8080"     # WebRTC audio bridge
+      - "8081:8081"     # WebRTC signaling WebSocket
     env_file:
       - .env
     volumes:

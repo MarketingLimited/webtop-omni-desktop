@@ -9,6 +9,7 @@ services:
       - "80:80"       # noVNC (behind reverse proxy)
       - "443:443"     # HTTPS (behind reverse proxy)
       - "2222:22"     # SSH
+      - "8081:8081"   # WebRTC signaling WebSocket
     env_file:
       - .env.production
     volumes:
