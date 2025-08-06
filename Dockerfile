@@ -182,6 +182,7 @@ COPY create-virtual-pipewire-devices.sh /usr/local/bin/create-virtual-pipewire-d
 COPY fix-pipewire-routing.sh /usr/local/bin/fix-pipewire-routing.sh
 COPY setup-universal-audio.sh /usr/local/bin/setup-universal-audio.sh
 COPY wait-for-service.sh /usr/local/bin/wait-for-service.sh
+COPY supervisord-audio-fix.conf /etc/supervisor/conf.d/pipewire.conf
 RUN chmod +x /usr/local/bin/setup-*.sh \
     /usr/local/bin/wait-for-service.sh \
     /usr/local/bin/service-health.sh \
