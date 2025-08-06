@@ -15,6 +15,13 @@ echo "🔊 Creating persistent virtual audio devices..."
 export XDG_RUNTIME_DIR="/run/user/${DEV_UID}"
 export PULSE_RUNTIME_PATH="/run/user/${DEV_UID}/pulse"
 
+# Run pactl with fallback to TCP server if local socket is unavailable
+run_pactl() {
+    local cmd="$1"
+    su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl $cmd" 2>/dev/null || \
+    su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl -s tcp:localhost:4713 $cmd" 2>/dev/null
+}
+
 # Wait for PulseAudio to be ready
 wait_for_pulseaudio() {
     local timeout=60
@@ -62,26 +69,10 @@ wait_for_pulseaudio() {
 # Create virtual audio devices
 create_virtual_devices() {
     echo "🔧 Creating virtual audio devices..."
-    
-    # Function to run pactl with fallback servers and proper output
-    run_pactl() {
-        local cmd="$1"
-        local check_output="${2:-false}"
-        
-        # Try local socket first, then TCP fallback
-        if su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl $cmd" 2>/dev/null; then
-            return 0
-        elif su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl -s tcp:localhost:4713 $cmd" 2>/dev/null; then
-            return 0
-        else
-            echo "❌ Failed to execute pactl command: $cmd"
-            return 1
-        fi
-    }
-    
+
     # Check current sinks and create virtual speaker if needed
     local current_sinks
-    current_sinks=$(run_pactl "list short sinks" "true" 2>/dev/null || echo "")
+    current_sinks=$(run_pactl "list short sinks" || echo "")
     
     if ! echo "$current_sinks" | grep -q virtual_speaker; then
         echo "Creating virtual speaker..."
@@ -163,8 +154,14 @@ verify_devices() {
     local sink_count
     local source_count
     
-    sink_count=$(su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl list short sinks | wc -l")
-    source_count=$(su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl list short sources | wc -l")
+    local sink_output
+    local source_output
+
+    sink_output=$(run_pactl "list short sinks" || echo "")
+    source_output=$(run_pactl "list short sources" || echo "")
+
+    sink_count=$(echo "$sink_output" | wc -l)
+    source_count=$(echo "$source_output" | wc -l)
     
     echo "Found $sink_count sinks and $source_count sources"
     
@@ -173,10 +170,10 @@ verify_devices() {
         
         # List devices for confirmation
         echo "Available sinks:"
-        su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl list short sinks"
-        
+        echo "$sink_output"
+
         echo "Available sources:"
-        su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl list short sources"
+        echo "$source_output"
         
         return 0
     else

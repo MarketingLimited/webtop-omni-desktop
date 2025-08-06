@@ -100,8 +100,10 @@ echo "🎵 Testing audio system from desktop..."
 
 # Test PulseAudio connectivity
 echo "Testing PulseAudio connection..."
-if pactl info; then
-    echo "✅ PulseAudio connection successful"
+if pactl info >/dev/null 2>&1; then
+    echo "✅ PulseAudio connection successful (local)"
+elif pactl -s tcp:localhost:4713 info >/dev/null 2>&1; then
+    echo "✅ PulseAudio connection successful (TCP)"
 else
     echo "❌ PulseAudio connection failed"
     exit 1
@@ -110,11 +112,11 @@ fi
 # List available devices
 echo ""
 echo "Available audio sinks:"
-pactl list short sinks
+pactl list short sinks 2>/dev/null || pactl -s tcp:localhost:4713 list short sinks
 
 echo ""
 echo "Available audio sources:"
-pactl list short sources
+pactl list short sources 2>/dev/null || pactl -s tcp:localhost:4713 list short sources
 
 # Test audio generation
 echo ""
