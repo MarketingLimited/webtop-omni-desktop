@@ -88,7 +88,7 @@ test_virtual_devices() {
     else
         yellow "⚠️  Default sink is not virtual_speaker: $default_sink"
         echo "Fixing audio routing..."
-        /usr/local/bin/fix-audio-routing.sh
+        /usr/local/bin/fix-pipewire-routing.sh
     fi
 }
 
@@ -398,7 +398,7 @@ main() {
         echo "🔧 Troubleshooting steps:"
         echo "1. Check container audio device access"
         echo "2. Verify PulseAudio configuration"
-        echo "3. Test audio routing with: /usr/local/bin/fix-audio-routing.sh"
+        echo "3. Test audio routing with: /usr/local/bin/fix-pipewire-routing.sh"
         echo "4. Check audio bridge logs: supervisorctl status"
         echo "5. Debug pipeline: /usr/local/bin/debug-audio-pipeline.sh"
     else

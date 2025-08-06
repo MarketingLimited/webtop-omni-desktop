@@ -11,7 +11,7 @@ RECOVERY_STATE_FILE="/tmp/service-recovery-state.txt"
 # Service groups configuration
 declare -A SERVICE_GROUPS=(
     [core]="Xvfb dbus"
-    [audio]="pulseaudio AudioValidation CreateVirtualAudioDevices AudioMonitor AudioBridge"
+    [audio]="pipewire wireplumber AudioValidation CreateVirtualPipeWireDevices AudioMonitor WebRTCBridge"
     [desktop]="KDE"
     [remote]="X11VNC noVNC sshd ttyd"
     [monitoring]="ServiceHealth SystemValidation"

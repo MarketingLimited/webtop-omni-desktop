@@ -67,18 +67,18 @@ add_result() {
 validate_audio() {
     log_validation "Validating audio system..."
     
-    # Check if PulseAudio is running
-    if ! pgrep -x pulseaudio >/dev/null; then
-        add_result "Audio System" "FAIL" "PulseAudio daemon not running"
+    # Check if PipeWire is running
+    if ! pgrep -f pipewire >/dev/null; then
+        add_result "Audio System" "FAIL" "PipeWire daemon not running"
         return 1
     fi
-    
+
     # Check for virtual audio devices
-    local sink_count=$(runuser -l "$DEV_USERNAME" -c 'pactl list sinks short 2>/dev/null | wc -l' || echo "0")
-    local source_count=$(runuser -l "$DEV_USERNAME" -c 'pactl list sources short 2>/dev/null | wc -l' || echo "0")
-    
+    local sink_count=$(wpctl status 2>/dev/null | grep -A1 'Sinks' | grep -c '│' || echo "0")
+    local source_count=$(wpctl status 2>/dev/null | grep -A1 'Sources' | grep -c '│' || echo "0")
+
     if [ "$sink_count" -gt 0 ] && [ "$source_count" -gt 0 ]; then
-        add_result "Audio System" "PASS" "PulseAudio running with $sink_count sinks and $source_count sources"
+        add_result "Audio System" "PASS" "PipeWire running with $sink_count sinks and $source_count sources"
         return 0
     else
         add_result "Audio System" "FAIL" "No audio devices found (sinks: $sink_count, sources: $source_count)"
