@@ -9,9 +9,12 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Enable 32-bit architecture for Wine support
 RUN dpkg --add-architecture i386
 
-# Install core audio packages and allow root to access audio devices
+# Install PipeWire audio system and WebRTC tools
 RUN apt-get update && \
-    apt-get install -y pulseaudio pavucontrol alsa-utils && \
+    apt-get install -y pipewire pipewire-pulse pipewire-alsa wireplumber pipewire-audio-client-libraries \
+    gstreamer1.0-pipewire libpipewire-0.3-modules gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav \
+    gstreamer1.0-tools gstreamer1.0-rtsp && \
     rm -rf /var/lib/apt/lists/*
 RUN usermod -aG audio root
 
@@ -66,8 +69,8 @@ RUN apt-get update && apt-get install -y \
     mesa-utils libgl1-mesa-dri libglx-mesa0 libosmesa6 libglu1-mesa \
     gnome-terminal lxterminal terminator accountsservice policykit-1 \
     openssh-server ttyd libcap2-bin polkit-kde-agent-1 \
-    alsa-utils alsa-oss pulseaudio pulseaudio-utils pavucontrol paprefs \
-    sox ffmpeg gstreamer1.0-tools gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
+    alsa-utils alsa-oss \
+    sox ffmpeg \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Add repositories for Chrome, Opera, Brave, VS Code
@@ -159,8 +162,8 @@ RUN mkdir -p /var/run/sshd /root/.vnc /tmp/.X11-unix && \
 # Desktop and Flatpak setup scripts
 COPY setup-flatpak-apps.sh /usr/local/bin/setup-flatpak-apps.sh
 COPY setup-desktop.sh /usr/local/bin/setup-desktop.sh
-COPY setup-audio.sh /usr/local/bin/setup-audio.sh
-COPY fix-audio-startup.sh /usr/local/bin/fix-audio-startup.sh
+COPY setup-pipewire.sh /usr/local/bin/setup-pipewire.sh
+COPY fix-pipewire-startup.sh /usr/local/bin/fix-pipewire-startup.sh
 COPY setup-marketing-shortcuts.sh /usr/local/bin/setup-marketing-shortcuts.sh
 COPY setup-development.sh /usr/local/bin/setup-development.sh
 COPY setup-wine.sh /usr/local/bin/setup-wine.sh
@@ -175,8 +178,8 @@ COPY audio-monitor.sh /usr/local/bin/audio-monitor.sh
 COPY health-check.sh /usr/local/bin/health-check.sh
 COPY fix-permissions.sh /usr/local/bin/fix-permissions.sh
 COPY test-polkit.sh /usr/local/bin/test-polkit.sh
-COPY create-virtual-audio-devices.sh /usr/local/bin/create-virtual-audio-devices.sh
-COPY fix-audio-routing.sh /usr/local/bin/fix-audio-routing.sh
+COPY create-virtual-pipewire-devices.sh /usr/local/bin/create-virtual-pipewire-devices.sh
+COPY fix-pipewire-routing.sh /usr/local/bin/fix-pipewire-routing.sh
 COPY setup-universal-audio.sh /usr/local/bin/setup-universal-audio.sh
 RUN chmod +x /usr/local/bin/setup-*.sh \
     /usr/local/bin/service-health.sh \
@@ -190,20 +193,20 @@ RUN chmod +x /usr/local/bin/setup-*.sh \
     /usr/local/bin/create-virtual-audio-devices.sh \
     /usr/local/bin/fix-audio-routing.sh
 
-# Initialize audio system during build
-RUN /usr/local/bin/setup-audio.sh && \
-    /usr/local/bin/fix-audio-startup.sh
+# Initialize PipeWire system during build
+RUN /usr/local/bin/setup-pipewire.sh && \
+    /usr/local/bin/fix-pipewire-startup.sh
 
 # Run TTYD setup to create wrapper script
 RUN /usr/local/bin/setup-ttyd.sh
 
-# Setup audio bridge
-COPY setup-audio-bridge.sh /usr/local/bin/
-COPY integrate-audio-ui.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/setup-audio-bridge.sh && \
-    chmod +x /usr/local/bin/integrate-audio-ui.sh && \
-    /usr/local/bin/setup-audio-bridge.sh && \
-    /usr/local/bin/integrate-audio-ui.sh
+# Setup WebRTC audio bridge
+COPY setup-webrtc-bridge.sh /usr/local/bin/
+COPY integrate-webrtc-ui.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/setup-webrtc-bridge.sh && \
+    chmod +x /usr/local/bin/integrate-webrtc-ui.sh && \
+    /usr/local/bin/setup-webrtc-bridge.sh && \
+    /usr/local/bin/integrate-webrtc-ui.sh
 
 # Validate all scripts are present and executable
 RUN echo "Validating script dependencies..." && \
