@@ -54,41 +54,31 @@ wait_for_pipewire() {
     local restart_attempted=false
     
     echo "🔄 Waiting for PipeWire to be ready..."
-    
     while [ $count -lt $timeout ]; do
         if run_pw_cli "info" >/dev/null 2>&1; then
             echo "✅ PipeWire is ready"
             return 0
         fi
-        
-        # Try restart after 20 seconds if not attempted yet
         if [ $count -eq 20 ] && [ "$restart_attempted" = false ]; then
             echo "⚠️  PipeWire not ready after 20 seconds, attempting restart..."
             restart_attempted=true
-            
-            # Kill existing PipeWire processes
             pkill -f pipewire || true
             pkill -f wireplumber || true
             sleep 3
-            
-            # Ensure runtime directory exists
             mkdir -p "/run/user/${DEV_UID}/pipewire"
             chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/run/user/${DEV_UID}"
-            
-            # Restart PipeWire as user
             su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; nohup pipewire > /dev/null 2>&1 &" || true
-            sleep 5
-            
-            # Restart WirePlumber as user
             su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; nohup wireplumber > /dev/null 2>&1 &" || true
             sleep 5
+            echo "[ERROR] PipeWire restart attempted. Check supervisor logs if not ready."
         fi
-        
         sleep 1
         count=$((count + 1))
     done
-    
-    echo "❌ Timeout waiting for PipeWire after $timeout seconds"
+    echo "[FATAL] PipeWire did not become ready after $timeout seconds. Check supervisor logs, permissions, and user existence."
+    id "$DEV_USERNAME" || echo "[FATAL] User $DEV_USERNAME does not exist."
+    ls -ld "/run/user/${DEV_UID}" || echo "[FATAL] /run/user/${DEV_UID} missing or wrong permissions."
+    ls -l /usr/bin/pipewire /usr/bin/wireplumber || echo "[FATAL] PipeWire or WirePlumber binaries missing."
     return 1
 }
 
