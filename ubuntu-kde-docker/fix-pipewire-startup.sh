@@ -65,7 +65,7 @@ context.properties = {
 EOF
 
     # Create WirePlumber configuration
-    cat <<EOF > "/home/${DEV_USERNAME}/.config/wireplumber/main.lua.d/99-virtual-devices.lua"
+    cat <<'EOF' > "/home/${DEV_USERNAME}/.config/wireplumber/main.lua.d/99-virtual-devices.lua"
 -- Virtual device configuration for container environment
 virtual_speaker_rule = {
   matches = {
@@ -103,8 +103,10 @@ virtual_microphone_rule = {
   },
 }
 
-table.insert(alsa_monitor.rules, virtual_speaker_rule)
-table.insert(alsa_monitor.rules, virtual_microphone_rule)
+if alsa_monitor and alsa_monitor.rules then
+  table.insert(alsa_monitor.rules, virtual_speaker_rule)
+  table.insert(alsa_monitor.rules, virtual_microphone_rule)
+end
 EOF
 
     chown "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/.config/pipewire/client.conf"
