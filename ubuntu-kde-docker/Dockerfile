@@ -181,7 +181,9 @@ COPY test-polkit.sh /usr/local/bin/test-polkit.sh
 COPY create-virtual-pipewire-devices.sh /usr/local/bin/create-virtual-pipewire-devices.sh
 COPY fix-pipewire-routing.sh /usr/local/bin/fix-pipewire-routing.sh
 COPY setup-universal-audio.sh /usr/local/bin/setup-universal-audio.sh
+COPY wait-for-service.sh /usr/local/bin/wait-for-service.sh
 RUN chmod +x /usr/local/bin/setup-*.sh \
+    /usr/local/bin/wait-for-service.sh \
     /usr/local/bin/service-health.sh \
     /usr/local/bin/test-webrtc-pipeline.sh \
     /usr/local/bin/audio-monitor.sh \
