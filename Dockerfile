@@ -105,7 +105,8 @@ RUN wget -O /usr/share/keyrings/element-io-archive-keyring.gpg https://packages.
 # Install signal-desktop
 RUN wget -O- https://updates.signal.org/desktop/apt/keys.asc | gpg --dearmor > /usr/share/keyrings/signal-desktop-keyring.gpg \
     && echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/signal-desktop-keyring.gpg] https://updates.signal.org/desktop/apt xenial main' > /etc/apt/sources.list.d/signal-xenial.list \
-    && apt-get update && apt-get install -y signal-desktop && apt-get clean && rm -rf /var/lib/apt/lists/*
+    && apt-get -o Acquire::CompressionTypes::Order::=xz update \
+    && apt-get install -y signal-desktop && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install browsers and editors
 RUN mkdir -p /etc/apt/keyrings \
