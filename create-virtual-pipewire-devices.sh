@@ -3,11 +3,6 @@
 set -euo pipefail
 
 DEV_USERNAME="${DEV_USERNAME:-devuser}"
-DEV_UID="${DEV_UID:-$(id -u "$DEV_USERNAME" 2>/dev/null || echo 1000)}"
-
-# Export environment variables for PipeWire
-export XDG_RUNTIME_DIR="/run/user/${DEV_UID}"
-export HOME="/home/${DEV_USERNAME}"
 
 # Color output functions
 red() { echo -e "\033[31m$*\033[0m"; }
@@ -15,9 +10,28 @@ green() { echo -e "\033[32m$*\033[0m"; }
 yellow() { echo -e "\033[33m$*\033[0m"; }
 blue() { echo -e "\033[34m$*\033[0m"; }
 
+# Determine effective user and environment
+if id "$DEV_USERNAME" >/dev/null 2>&1; then
+    DEV_UID="${DEV_UID:-$(id -u "$DEV_USERNAME")}" 
+    HOME_DIR="$(getent passwd "$DEV_USERNAME" | cut -d: -f6)"
+else
+    yellow "⚠️  User '$DEV_USERNAME' not found. Using 'root'."
+    DEV_USERNAME="root"
+    DEV_UID=0
+    HOME_DIR="/root"
+fi
+
+# Export environment variables for PipeWire
+export XDG_RUNTIME_DIR="/run/user/${DEV_UID}"
+export HOME="${HOME_DIR}"
+
 # Function to execute PipeWire commands
 run_pw_cli() {
-    su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pw-cli $*"
+    if [ "$DEV_USERNAME" = "root" ]; then
+        pw-cli "$@"
+    else
+        su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pw-cli $*"
+    fi
 }
 
 # Function to create a virtual audio device

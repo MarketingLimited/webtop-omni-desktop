@@ -32,8 +32,9 @@ main() {
     blue "🔧 Initializing PipeWire startup sequence..."
 
     if ! id "$DEV_USERNAME" >/dev/null 2>&1; then
-        red "❌ User '$DEV_USERNAME' does not exist. Aborting."
-        exit 1
+        yellow "⚠️  User '$DEV_USERNAME' does not exist. Using 'root' instead."
+        DEV_USERNAME="root"
+        DEV_UID=0
     fi
 
     # 1. Ensure runtime directories exist
@@ -45,7 +46,9 @@ main() {
     if [ -d "/dev/snd" ]; then
         chown -R root:audio /dev/snd
         chmod -R g+rw /dev/snd
-        usermod -a -G audio "${DEV_USERNAME}" 2>/dev/null || true
+        if [ "$DEV_USERNAME" != "root" ]; then
+            usermod -a -G audio "${DEV_USERNAME}" 2>/dev/null || true
+        fi
     fi
 
     # 3. Start PipeWire and WirePlumber services
