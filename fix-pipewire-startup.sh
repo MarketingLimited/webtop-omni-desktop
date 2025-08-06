@@ -36,6 +36,7 @@ main() {
         DEV_USERNAME="root"
         DEV_UID=0
     fi
+    export DEV_USERNAME DEV_UID
 
     # 1. Ensure runtime directories exist
     mkdir -p "/run/user/${DEV_UID}/pipewire"
