@@ -2,6 +2,8 @@
 # PipeWire diagnostic and fix script for WebTop container
 set -euo pipefail
 
+DEV_USERNAME="${DEV_USERNAME:-devuser}"
+DEV_UID="${DEV_UID:-$(id -u "$DEV_USERNAME" 2>/dev/null || echo 1000)}"
 LOG_FILE="${LOG_FILE:-/tmp/audio_diagnostic.log}"
 : >"$LOG_FILE"
 
@@ -25,7 +27,19 @@ log INFO "Starting audio diagnostic..."
 # 1. Check PipeWire status
 log INFO "Checking PipeWire status..."
 if ! pw-cli info >/dev/null 2>&1; then
-  log ERROR "PipeWire is not running"
+  log WARN "PipeWire is not running. Attempting to start..."
+  su - "$DEV_USERNAME" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pipewire >/tmp/pipewire.log 2>&1 &" || true
+  for i in {1..10}; do
+    sleep 1
+    if pw-cli info >/dev/null 2>&1; then
+      log INFO "PipeWire started successfully."
+      break
+    fi
+    if [ "$i" -eq 10 ]; then
+      log ERROR "PipeWire failed to start"
+      exit 1
+    fi
+  done
 else
   log INFO "PipeWire is running."
 fi
@@ -38,7 +52,8 @@ DEFAULT_SINK="virtual_speaker"
 
 # 3. Ensure virtual_speaker exists
 if ! pw-cli list-objects Node | grep -q "$DEFAULT_SINK"; then
-  log WARN "$DEFAULT_SINK not found."
+  log WARN "$DEFAULT_SINK not found. Creating..."
+  /usr/local/bin/create-virtual-pipewire-devices.sh >>"$LOG_FILE" 2>&1 || true
 else
   log INFO "$DEFAULT_SINK exists."
 fi
@@ -55,4 +70,4 @@ else
   log WARN "Could not determine ID for $DEFAULT_SINK"
 fi
 
-log INFO "Audio diagnostic completed."
+log INFO "Audio diagnostic and fix completed."

@@ -1,6 +1,6 @@
 # Audio System for Ubuntu KDE WebTop
 
-This WebTop includes a comprehensive PipeWire-based audio system with WebRTC streaming capabilities, optimized for container environments.
+This WebTop includes a comprehensive PipeWire-based audio system with WebRTC streaming capabilities, optimized for container environments. PulseAudio has been fully removed in favor of a pure PipeWire pipeline.
 
 ## Features
 
