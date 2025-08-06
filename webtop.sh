@@ -1471,11 +1471,25 @@ main() {
         video-setup)
             video_setup
             ;;
+
         monitor)
             monitor_resources
             ;;
         health)
             health_check
+            ;;
+        android-status)
+            print_status "Android subsystem status:" 
+            docker exec -it webtop-kde bash -c '[ -x /usr/local/bin/android-debug ] && /usr/local/bin/android-debug || echo "No android-debug tool found"'
+            ;;
+        system-optimize)
+            print_status "System optimization tips:"
+            echo "- Ensure only required containers/services are running."
+            echo "- Use 'docker stats' to monitor resource usage."
+            echo "- For best performance, allocate sufficient CPU/RAM to Docker."
+            echo "- Use SSD storage for Docker volumes."
+            echo "- Review and tune supervisord.conf for unnecessary delays."
+            echo "- Use 'webtop.sh monitor' to check live resource usage."
             ;;
         clean)
             clean_system

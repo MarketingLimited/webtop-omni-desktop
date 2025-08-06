@@ -319,16 +319,22 @@ else
     log_warn "Wine setup script not found"
 fi
 
+
+# --- Phase 4: System Optimization & Android status summary ---
 # Setup Android subsystem (Waydroid/Anbox)
 log_info "Setting up Android subsystem..."
+ANDROID_STATUS="unknown"
 if [ -f "/usr/local/bin/setup-waydroid.sh" ]; then
     if /usr/local/bin/setup-waydroid.sh; then
         log_info "Android subsystem setup completed"
+        ANDROID_STATUS="ready"
     else
         log_warn "Android subsystem setup failed"
+        ANDROID_STATUS="failed"
     fi
 else
     log_warn "Android subsystem setup script not found"
+    ANDROID_STATUS="notfound"
 fi
 
 # Ensure binder/ashmem are available for Waydroid (optional, may fail in containers)
@@ -336,7 +342,7 @@ log_info "Setting up Android kernel support (optional)..."
 if command -v modprobe >/dev/null 2>&1; then
     modprobe binder_linux 2>/dev/null || log_warn "Could not load binder_linux module (container limitation)"
     modprobe ashmem_linux 2>/dev/null || log_warn "Could not load ashmem_linux module (container limitation)"
-fi
+fi &
 mkdir -p /dev/binderfs
 if ! mountpoint -q /dev/binderfs; then
     mount -t binder binder /dev/binderfs 2>/dev/null || log_warn "Could not mount binderfs (container limitation)"
@@ -348,20 +354,40 @@ fi
 # Setup service monitoring and recovery
 log_info "Setting up service monitoring..."
 mkdir -p /var/log/supervisor /var/run/supervisor
-
-# The monitor-services.sh is copied via the Dockerfile and is managed by supervisord.
-# The custom script generation below is removed, and the separate monitor is disabled.
 chmod +x /usr/local/bin/monitor-services.sh
-# /usr/local/bin/monitor-services.sh &
 
 # Set up service health monitoring
 log_info "Setting up service health monitoring..."
 if [ -f "/usr/local/bin/service-health.sh" ]; then
     chmod +x /usr/local/bin/service-health.sh
-    echo "✅ Service health monitoring setup completed"
+    echo "\u2705 Service health monitoring setup completed"
 else
-    echo "⚠️  Service health monitoring script not found"
+    echo "\u26a0\ufe0f  Service health monitoring script not found"
 fi
+
+# --- System resource usage summary ---
+log_info "System resource usage at startup:"
+free -h || true
+df -h || true
+uptime || true
+log_info "Running processes (top 10 by memory):"
+ps aux --sort=-%mem | head -n 11 || true
+
+# --- Android subsystem status summary ---
+case "$ANDROID_STATUS" in
+    ready)
+        log_info "Android subsystem is ready. Waydroid or Anbox is available."
+        ;;
+    failed)
+        log_warn "Android subsystem failed to initialize. See logs above."
+        ;;
+    notfound)
+        log_warn "Android setup script not found. Android support unavailable."
+        ;;
+    *)
+        log_warn "Android subsystem status unknown."
+        ;;
+esac
 
 log_info "Starting supervisor daemon..."
 

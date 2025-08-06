@@ -5,82 +5,106 @@ DEV_USERNAME="${DEV_USERNAME:-devuser}"
 DEV_HOME="/home/${DEV_USERNAME}"
 # Determine the UID of the development user for runtime directory paths
 DEV_UID="${DEV_UID:-$(id -u "$DEV_USERNAME" 2>/dev/null || echo 1000)}"
-ANDROID_SOLUTION="none"
 
-# Logging function
-log_info() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') [ANDROID] $*"
-}
-
-log_warn() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') [ANDROID WARN] $*" >&2
-}
-
-log_error() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') [ANDROID ERROR] $*" >&2
-}
-
-log_info "Setting up Android subsystem (Waydroid/Anbox)..."
-
-# Function to setup container-compatible Waydroid
-setup_waydroid_container() {
-    log_info "Setting up container-compatible Waydroid..."
-    
-    # Create Waydroid data directory
-    mkdir -p "${DEV_HOME}/.local/share/waydroid"
-    
-    # Configure Waydroid for container environment
-    cat > "${DEV_HOME}/.local/share/waydroid/waydroid.cfg" << 'EOF'
-[properties]
-waydroid.host_data_path=/home/devuser/.local/share/waydroid/data
-waydroid.rootfs_path=/home/devuser/.local/share/waydroid/rootfs
-waydroid.overlay_rw=true
-waydroid.mount_overlays=true
-
-[waydroid]
-arch=x86_64
-images_path=/home/devuser/.local/share/waydroid/images
-vendor_type=MAINLINE
-system_type=VANILLA
-xdg_runtime_dir=/run/user/${DEV_UID}
-wayland_display=wayland-0
-
-[session]
-user_manager=true
-multi_windows=true
-emu_gl=false
-emu_virgl=false
-EOF
-
-    # Try to initialize Waydroid with container-specific settings
-    export WAYDROID_LOG=true
-    export XDG_RUNTIME_DIR="/run/user/${DEV_UID}"
-    export WAYLAND_DISPLAY="wayland-0"
-    
-    # Initialize without hardware requirements
-    if su - "${DEV_USERNAME}" -c "waydroid init -s GAPPS -f" 2>/dev/null; then
-        log_info "Waydroid initialized successfully"
-        return 0
-    else
-        log_warn "Waydroid initialization failed, trying basic init..."
-        if su - "${DEV_USERNAME}" -c "waydroid init" 2>/dev/null; then
-            log_info "Waydroid basic initialization completed"
-            return 0
-        else
-            log_warn "Waydroid initialization failed completely"
-            return 1
-        fi
-    fi
-}
-
-# Main Android setup logic
+# --- Phase 3: Improved Android subsystem detection and fallback ---
 log_info "Checking for Android subsystem requirements..."
 
-# Waydroid requires binder_linux and ashmem_linux kernel modules on the host.
-if ! lsmod | grep -q "binder_linux" || ! lsmod | grep -q "ashmem_linux"; then
+missing_modules=()
+for mod in binder_linux ashmem_linux; do
+    if ! lsmod | grep -q "$mod"; then
+        missing_modules+=("$mod")
+    fi
+done
+
+if [ ${#missing_modules[@]} -gt 0 ]; then
     log_warn "================================================================================"
-    log_warn "ANDROID SUPPORT DISABLED: Host kernel modules are missing."
+    log_warn "ANDROID SUPPORT DISABLED: Host kernel modules missing: ${missing_modules[*]}"
     log_warn "================================================================================"
+    log_warn "The container host is missing the following required modules: ${missing_modules[*]}"
+    log_warn "These are required by Waydroid to provide Android app support."
+    log_warn ""
+    log_warn "HOW-TO FIX:"
+    log_warn "1. On your DOCKER HOST machine (not inside the container), run:"
+    for mod in "${missing_modules[@]}"; do
+        log_warn "   sudo modprobe $mod"
+    done
+    log_warn "2. To make this permanent, add the modules to /etc/modules."
+    log_warn "3. Restart the Docker container."
+    log_warn "================================================================================"
+    log_warn "Waydroid installation will be skipped."
+
+    # Create a placeholder explaining the issue
+    mkdir -p "${DEV_HOME}/Desktop/Android Apps"
+    cat > "${DEV_HOME}/Desktop/Android Apps/android-unavailable.txt" << EOF
+Android Support Unavailable
+
+The host system does not have the required kernel modules (${missing_modules[*]}) loaded.
+These are necessary for Waydroid to function.
+
+To enable Android support, please ensure these modules are loaded on your Docker host system.
+EOF
+    chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "${DEV_HOME}/Desktop"
+
+    # Attempt Anbox fallback if available
+    if [ -x "$(dirname "$0")/setup-anbox.sh" ]; then
+        log_info "Attempting Anbox fallback..."
+        if "$(dirname "$0")/setup-anbox.sh"; then
+            ANDROID_SOLUTION="anbox"
+        else
+            log_warn "Anbox fallback failed"
+        fi
+    else
+        log_warn "No Anbox fallback script found."
+    fi
+
+else
+    log_info "All Android requirements met. Proceeding with Waydroid setup..."
+    ANDROID_SOLUTION="waydroid"
+    # Check if Waydroid is available
+    if command -v waydroid >/dev/null 2>&1; then
+        log_info "Waydroid found, attempting container setup..."
+
+        if setup_waydroid_container; then
+            log_info "Waydroid setup successful"
+            # Create desktop shortcuts
+            mkdir -p "${DEV_HOME}/.local/share/applications"
+            mkdir -p "${DEV_HOME}/Desktop/Android Apps"
+            cat > "${DEV_HOME}/.local/share/applications/waydroid.desktop" << 'EOF'
+[Desktop Entry]
+Name=Waydroid (Android Apps)
+Comment=Android container for running Android apps
+Exec=waydroid show-full-ui
+Icon=android
+Terminal=false
+Type=Application
+Categories=System;Emulator;
+EOF
+            cp "${DEV_HOME}/.local/share/applications/waydroid.desktop" "${DEV_HOME}/Desktop/Android Apps/"
+            chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "${DEV_HOME}"
+            echo "\u2705 Waydroid setup complete (container-optimized)"
+        else
+            log_error "Waydroid setup failed even with kernel modules present."
+            log_warn "There might be an issue with the Waydroid installation or configuration."
+        fi
+    else
+        log_warn "Waydroid command not found, skipping Android setup."
+        ANDROID_SOLUTION="none"
+    fi
+fi
+
+# Print summary for user clarity
+log_info "Android subsystem setup summary:"
+case "$ANDROID_SOLUTION" in
+    "waydroid")
+        log_info "Waydroid is set up and ready."
+        ;;
+    "anbox")
+        log_info "Anbox fallback is active. Some features may be limited."
+        ;;
+    "none")
+        log_warn "No Android solution available. See instructions above."
+        ;;
+esac
     log_warn "The container host is missing the 'binder_linux' and/or 'ashmem_linux' modules."
     log_warn "These are required by Waydroid to provide Android app support."
     log_warn ""

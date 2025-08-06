@@ -30,26 +30,29 @@ apt-get install -y \
     android-tools-adb \
     android-tools-fastboot
 
+
 # Install Anbox via snap (if snap is available)
 if command -v snap >/dev/null 2>&1; then
     log_info "Installing Anbox via snap..."
-    snap install --devmode anbox 2>/dev/null || {
+    if ! snap install --devmode anbox 2>/dev/null; then
         log_warn "Snap installation failed, trying alternative..."
-    }
+    fi
+else
+    log_warn "snapd not available, skipping snap install."
 fi
 
 # Alternative: Install Anbox from PPA
 if ! command -v anbox >/dev/null 2>&1; then
     log_info "Installing Anbox from PPA..."
-    
     # Add Anbox PPA
-    add-apt-repository -y ppa:morphis/anbox-support 2>/dev/null || true
+    if ! add-apt-repository -y ppa:morphis/anbox-support 2>/dev/null; then
+        log_warn "Failed to add Anbox PPA."
+    fi
     apt-get update
-    
     # Install Anbox
-    apt-get install -y anbox-modules-dkms anbox || {
-        log_warn "PPA installation failed"
-    }
+    if ! apt-get install -y anbox-modules-dkms anbox; then
+        log_warn "PPA installation failed. Anbox may not be available."
+    fi
 fi
 
 # Create Anbox configuration directory
@@ -89,8 +92,10 @@ chmod +x "${DEV_HOME}/.local/bin/anbox-start"
 # Set ownership
 chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "${DEV_HOME}"
 
+
 if command -v anbox >/dev/null 2>&1; then
-    echo "✅ Anbox installation complete"
+    log_info "✅ Anbox installation complete. You can launch Anbox from the Applications menu or with anbox-start."
 else
-    echo "⚠️  Anbox installation may have failed"
+    log_warn "⚠️  Anbox installation may have failed. Please check logs and ensure your system supports Anbox."
+    log_warn "See https://anbox.io/ for troubleshooting."
 fi
