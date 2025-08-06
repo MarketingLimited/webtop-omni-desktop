@@ -1,157 +1,116 @@
-# Ubuntu KDE Marketing Agency Docker Environment
+# Ubuntu KDE Docker for Marketing Agency
+## Enhanced Development, Video Editing & Multi-Platform Suite
 
-> A comprehensive Docker-based development and creative workspace designed specifically for marketing agencies, featuring professional tools for web development, video editing, and multi-platform app support.
+A comprehensive Docker environment featuring Ubuntu with KDE Plasma desktop, specifically configured for marketing agencies with professional tools, full audio support, web development capabilities, video editing suite, Windows app compatibility (Wine), and Android app support (Waydroid).
 
 ## 🚀 Features
 
-### **Professional Development Suite**
-- **Web & App Development**: Node.js, PHP, Python, Ruby, TypeScript, React, Vue, Angular
-- **IDEs & Editors**: VS Code, JetBrains Suite (WebStorm, PyCharm), Sublime Text
-- **Database Tools**: PostgreSQL, MongoDB, Redis clients with GUI management
-- **API Development**: Postman, Insomnia, Thunder Client for API testing
-- **Version Control**: Git, GitKraken, GitHub Desktop with advanced features
-- **Container Tools**: Docker Desktop UI, Portainer, Kubernetes management
+### 🎨 Marketing & Creative Suite
+- **Complete KDE Plasma Desktop** - Full desktop environment accessible via web browser
+- **Marketing-Focused Applications** - Design, social media, analytics, and productivity tools
+- **Professional Video Editing** - Kdenlive, OpenShot, Blender, OBS Studio, Audacity
+- **Graphics & Design** - GIMP, Inkscape, Krita with marketing templates
 
-### **Creative & Video Production**
-- **Video Editing**: Kdenlive, DaVinci Resolve, Lightworks, OpenShot
-- **Motion Graphics**: Blender, Natron, OpenToonz for 2D/3D animation
-- **Audio Production**: Ardour, Reaper, OBS Studio with professional plugins
-- **Design Tools**: GIMP, Inkscape, Krita, Scribus for creative workflows
-- **Screen Recording**: Advanced OBS setup, SimpleScreenRecorder
+### 💻 Development Environment
+- **Full Stack Development** - Node.js, Python, PHP, Ruby, Go
+- **Modern IDEs** - VS Code, development tools, and frameworks
+- **Database Tools** - PostgreSQL, MySQL, MongoDB, Redis clients
+- **Container Support** - Docker-in-Docker, Kubernetes tools
 
-### **Multi-Platform Support**
-- **Windows Apps (Wine)**: Adobe Creative Suite alternatives, MS Office, marketing tools
-- **Android Apps (Waydroid)**: Instagram Creator Studio, TikTok Business, mobile analytics
-- **Cross-Platform**: Seamless file sharing and workflow integration
+### 🎵 Audio & Multimedia
+- **Virtual Audio Devices** - Full audio support for content creation
+- **Professional Audio** - Ardour, Reaper, Jack Audio, advanced audio tools
+- **Screen Recording** - OBS Studio, Kazam, SimpleScreenRecorder
+- **Streaming Support** - Complete streaming and broadcasting setup
 
-### **Remote Access & Collaboration**
-- **Browser-Based Access**: noVNC and Xpra web interfaces
-- **Audio Support**: PipeWire + WebRTC audio streaming with virtual devices
-- **SSH Access**: Secure terminal access for advanced users
-- **Resource Monitoring**: Real-time performance dashboards
+### 🖥️ Multi-Platform Support
+- **Windows Apps** - Wine integration with automated setup
+- **Android Apps** - Waydroid for native Android app support
+- **Cross-Platform** - ARM64 and AMD64 architecture support
 
-## 🛠 Quick Start
+### 🌐 Remote Access & Infrastructure
+- **Multiple Access Methods** - noVNC, SSH, web terminal
+- **Performance Monitoring** - Resource usage, health checks
+- **CI/CD Ready** - GitHub Actions, automated builds, multi-environment support
+
+## 🚀 Quick Start
 
 ### Prerequisites
-- **Docker & Docker Compose**: Version 20.10+ with Compose v2
-- **System Requirements**: 8GB+ RAM (16GB recommended), 50GB+ disk space
-- **Operating System**: Linux, macOS, or Windows with WSL2
-- **Browser**: Modern web browser (Chrome, Firefox, Safari)
-- **jq**: For container management (auto-installed if missing)
+- Docker & Docker Compose
+- 4GB+ RAM recommended
+- Modern web browser
 
-### Automated Installation (Recommended)
+### Host Audio Setup
+The Docker image uses PipeWire for audio. For real audio output instead of only virtual sinks, ensure the host exposes sound
+devices to the container.
 
-1. **Clone the repository**
-   ```bash
-   git clone <YOUR_GIT_URL>
-   cd <YOUR_PROJECT_NAME>/ubuntu-kde-docker
-   ```
+```bash
+apt update && apt install pipewire alsa-utils -y
+```
 
-2. **Run automated installer**
-   ```bash
-   chmod +x install.sh
-   ./install.sh
-   ```
-   The installer will:
-   - Check system requirements and Docker installation
-   - Set up proper file permissions
-   - Create environment configuration
-   - Initialize enhanced volume management
-   - Validate Docker Compose files
+The provided Docker Compose files already configure the required mounts and environment variables:
 
-3. **Build and start the environment**
-   ```bash
-   # Single container (traditional)
-   ./webtop.sh build
-   ./webtop.sh up
-   
-   # Multi-container with auto port discovery
-   ./webtop.sh up --name client1 --auth   # Auto-assigns available ports
-   ./webtop.sh up --name team-alpha        # Creates isolated environment
-   
-   # Template-based container creation
-   ./webtop.sh up --name client2 --template marketing
-   ```
+```yaml
+volumes:
+  - /tmp/.X11-unix:/tmp/.X11-unix
+devices:
+  - /dev/snd
+```
 
-4. **Enhanced Volume Management**
-   ```bash
-   # Initialize volume management (auto-run during install)
-   ./setup-volumes.sh
-   
-   # One-click backup and restore
-   ./webtop.sh backup client1
-   ./webtop.sh restore client1 backup-20240131
-   
-   # Clone existing containers
-   ./webtop.sh clone client1 client1-backup
-   ```
+Ensure `/tmp/.X11-unix` is writable on the host (`chmod 1777 /tmp/.X11-unix`) before starting the container.
 
-5. **Background Building (Optional)**
-   ```bash
-   # For large builds, use background building
-   ./webtop.sh build-bg --dev    # Development build in background
-   ./webtop.sh build-status      # Monitor build progress
-   ./webtop.sh build-logs        # View build logs
-   ```
+### 1. Clone & Configure
+```bash
+git clone <repository>
+cd ubuntu-kde-docker
+cp .env.example .env
+# Edit .env with your credentials
+```
 
-### Manual Installation
+### 2. Choose Your Environment
 
-1. **System checks**
-   ```bash
-   # Verify Docker installation
-   docker --version
-   docker compose version
-   
-   # Check available resources
-   free -h  # RAM
-   df -h    # Disk space
-   ```
+**Multi-Container with Enhanced Volume Management (Recommended):**
+```bash
+# Initialize enhanced volume management
+./setup-volumes.sh
 
-2. **Setup environment**
-   ```bash
-   cd ubuntu-kde-docker
-   
-   # Set permissions
-   chmod +x *.sh
-   find . -name "*.sh" -exec chmod +x {} \;
-   
-   # Configure environment
-   cp .env.example .env
-   # Edit .env with your preferences
-   ```
+# Create named containers with auto port assignment
+./webtop.sh up --name client1 --auth
+./webtop.sh up --name team-alpha
+./webtop.sh up --name client2 --template marketing
 
-3. **Build and start**
-   ```bash
-   # Default environment
-   ./webtop.sh build
-   ./webtop.sh up
-   
-   # Development environment (recommended for development work)
-   ./webtop.sh build --dev
-   ./webtop.sh up --dev
-   
-   # Production environment
-   ./webtop.sh build --prod
-   ./webtop.sh up --prod
-   ```
+# List all containers
+./webtop.sh list
+```
 
-### Access Your Workspace
+**Traditional Single Container:**
+```bash
+# Development (Full Features)
+./webtop.sh build
+docker compose -f docker-compose.dev.yml up -d
 
-- **VNC Desktop**: http://localhost:32768 ✨ **Recommended**
-- **Web Terminal**: http://localhost:7681
-- **SSH Access**: `ssh devuser@localhost -p 2222`
+# Production (Optimized)  
+docker compose -f docker-compose.prod.yml up -d
 
-**Default Credentials**: 
-- Username: `devuser`
-- Password: `DevPassw0rd!`
+# Basic (Original)
+./webtop.sh up
+```
 
-> **Note**: First build may take 20-30 minutes depending on internet speed.
+### 3. Access Services
 
-## 📱 Management Commands
+| Service | URL | Description | Status Check |
+|---------|-----|-------------|--------------|
+
+| 🖥️ **VNC Desktop** | `http://localhost:80` | Desktop via noVNC | Auto-validated |
+| 💻 **Terminal** | `http://localhost:7681` | Web terminal (TTYD) | Auto-validated |
+| 🔐 **SSH** | `ssh user@localhost -p 2222` | Direct SSH access | Auto-validated |
+| 🎵 **Audio** | KDE System Settings | Virtual audio devices | Auto-validated |
+
+## 🛠️ Management Scripts
 
 ### **Multi-Container Management**
 ```bash
-# Create and manage named containers
+# Create and manage named containers  
 ./webtop.sh up --name client1                    # Create isolated container
 ./webtop.sh up --name team-alpha --auth          # With authentication
 ./webtop.sh list                                 # List all containers
@@ -163,267 +122,322 @@
 ### **Enhanced Volume & Backup Management**
 ```bash
 # One-click backup and restore
-./webtop.sh backup client1                       # Backup container
+./webtop.sh backup client1                       # Backup container volumes
 ./webtop.sh restore client1 backup-20240131      # Restore from backup
 ./webtop.sh clone client1 client2                # Clone container setup
 
 # Template system for rapid deployment
 ./webtop.sh template save client1 marketing-template    # Save as template
 ./webtop.sh template create client3 marketing-template  # Create from template
-./webtop.sh template list                               # List templates
+./webtop.sh template list                               # List available templates
 
-# Volume management
+# Volume management utilities
 ./webtop.sh volumes list                         # List all volumes
 ./webtop.sh volumes backup-all                   # Backup all containers
 ./webtop.sh volumes cleanup                      # Clean unused volumes
 ```
 
-### **Traditional Container Operations**
+### **Traditional WebTop Control**
 ```bash
-# Container management
-./webtop.sh up [--dev|--prod]     # Start containers
-./webtop.sh down                  # Stop containers
-./webtop.sh restart               # Restart containers
-./webtop.sh logs                  # View logs
-
-# Building & deployment
 ./webtop.sh build [--background]  # Build container (optionally in background)
+./webtop.sh up        # Start services
+./webtop.sh down      # Stop services
+./webtop.sh restart   # Rebuild and restart
+./webtop.sh status    # Check status
+./webtop.sh logs      # View logs
+./webtop.sh shell     # Open shell
+```
+
+### **Background Building**
+```bash
 ./webtop.sh build-bg [--dev|--prod] # Start background build
-./webtop.sh build-status          # Check background build progress
-./webtop.sh build-logs            # View build logs
-./webtop.sh build-stop            # Stop background build
-./webtop.sh build-cleanup         # Clean up build files
-
-# System setup
-./webtop.sh dev-setup            # Configure development tools
-./webtop.sh wine-setup           # Setup Windows applications
-./webtop.sh android-setup        # Configure Android environment
-./webtop.sh video-setup          # Install video editing tools
-
-# Monitoring & maintenance
-./webtop.sh status               # Check container status
-./webtop.sh health               # Run health checks
-./webtop.sh monitor              # View resource usage
-./webtop.sh clean                # Clean unused resources
-./webtop.sh update               # Update and rebuild
+./webtop.sh build-status           # Check build progress
+./webtop.sh build-logs             # View build logs
+./webtop.sh build-stop             # Stop background build
+./webtop.sh build-cleanup          # Clean up build files
 ```
 
-## 🎯 Marketing Agency Workflows
-
-### **Multi-Client Management**
-1. **Isolated Environments**: Each client gets dedicated container (`client1`, `client2`)
-2. **Template-Based Setup**: Quick deployment with `marketing-template`
-3. **Team Collaboration**: Shared containers for team projects (`team-alpha`)
-4. **Data Isolation**: Complete separation of client data and configurations
-
-### **Content Creation Pipeline**
-1. **Design**: GIMP, Inkscape, Krita for graphics
-2. **Video Production**: Kdenlive, Blender for content creation
-3. **Social Media**: Native mobile apps via Waydroid
-4. **Analytics**: Integrated analytics tools and dashboards
-5. **Backup & Recovery**: Automated daily backups of all work
-
-### **Development Workflow**
-1. **Web Development**: Full-stack development environment with persistent projects
-2. **Testing**: Cross-platform testing with Windows/Android apps
-3. **Deployment**: CI/CD tools and cloud integration
-4. **Environment Cloning**: Clone dev environments for testing
-
-### **Client Collaboration & Handoff**
-1. **Template Creation**: Save configured environments as reusable templates
-2. **Quick Setup**: Deploy client environments in minutes
-3. **Data Migration**: Easy backup/restore for client handoffs
-4. **Disaster Recovery**: One-click restore from any backup point
-
-## 🛡 Security & Performance
-
-- **Container Security**: Isolated environment with controlled access per client
-- **Data Protection**: Encrypted volumes and secure networking with complete data isolation
-- **Performance Optimization**: GPU acceleration and resource management
-- **Enterprise Backup**: Automated daily backups with one-click restore capabilities
-- **Multi-Container Isolation**: Complete separation between client environments
-- **Template Security**: Secure template creation and deployment
-
-## 🔧 Troubleshooting
-
-### Common Issues
-
-#### Permission Denied Error
+### **System Validation**
 ```bash
-# Fix: Set executable permissions
-chmod +x webtop.sh install.sh
-find . -name "*.sh" -exec chmod +x {} \;
+# Comprehensive system validation for named containers
+docker exec client1 /usr/local/bin/system-validation.sh
+docker exec team-alpha /usr/local/bin/health-check.sh
+
+# Traditional single container validation
+docker exec webtop-kde /usr/local/bin/system-validation.sh
+docker exec webtop-kde /usr/local/bin/health-check.sh
+docker exec webtop-kde /usr/local/bin/service-health.sh status
 ```
 
-#### Docker Build Fails
+## 🎵 Audio Configuration
+
+The system includes a container-compatible audio setup:
+
+1. **Virtual Audio Devices**: Software-based virtual speakers and microphones
+2. **PipeWire Server**: Runs with container-compatible virtual sinks
+3. **Audio Forwarding**: Streams audio via WebRTC bridge
+4. **KDE Integration**: Virtual devices appear in KDE System Settings
+
+### Audio Management Commands
 ```bash
-# Check Docker installation
-docker --version
-docker compose version
+# Comprehensive audio validation
+docker exec webtop-kde /usr/local/bin/audio-validation.sh
 
-# Verify Docker daemon is running
-docker info
+# WebRTC audio pipeline test
+docker exec webtop-kde /usr/local/bin/test-webrtc-pipeline.sh
 
-# Clean Docker system if needed
-docker system prune -f
+# Continuous audio monitoring
+docker exec webtop-kde /usr/local/bin/audio-monitor.sh monitor
 
-# For background builds, check build status
+# Check PipeWire status
+docker exec webtop-kde pw-cli info
+
+# Manual audio restart (if needed)
+docker exec webtop-kde supervisorctl restart pipewire
+```
+
+## 📦 Application Categories
+
+### 🎨 Design & Creative
+- GIMP, Inkscape, Krita, Blender
+- Figma (web app), Canva (web app)
+- Font management with marketing fonts
+
+### 🎬 Video Production
+- Kdenlive, OpenShot, Shotcut
+- OBS Studio for streaming/recording
+- Audacity for audio editing
+
+### 📱 Social Media
+- Buffer, Hootsuite, Later (web apps)
+- Social media platform shortcuts
+- Content scheduling tools
+
+### 📊 Analytics & SEO
+- Google Analytics, Google Ads
+- SEMrush, Ahrefs (web apps)
+- Performance monitoring tools
+
+### 💼 Project Management
+- Trello, Asana, Notion
+- Time tracking tools
+- Client management systems
+
+## 🏗️ Background Building Guide
+
+### Overview
+Background building allows you to start Docker builds without blocking your terminal, perfect for large container builds that take time.
+
+### Starting Background Builds
+```bash
+# Development environment background build
+./webtop.sh build-bg --dev
+
+# Production environment background build  
+./webtop.sh build-bg --prod
+
+# Basic background build
+./webtop.sh build-bg
+```
+
+### Monitoring Build Progress
+```bash
+# Check current build status
 ./webtop.sh build-status
+
+# View real-time build logs
 ./webtop.sh build-logs
+
+# Follow build progress continuously
+./webtop.sh build-logs -f
 ```
 
-#### Background Build Issues
+### Managing Background Builds
 ```bash
-# Check if build is running
-./webtop.sh build-status
-
-# View build logs for errors
-./webtop.sh build-logs
-
-# Stop stuck builds
+# Stop current background build
 ./webtop.sh build-stop
 
-# Clean up and restart
+# Clean up build artifacts and logs
 ./webtop.sh build-cleanup
+
+# Check for any running builds
+docker ps | grep webtop-build
+```
+
+### Build Management Workflows
+
+#### Development Workflow
+```bash
+# Start development build in background
 ./webtop.sh build-bg --dev
+
+# Continue working while monitoring progress
+./webtop.sh build-status
+
+# When ready, start services
+./webtop.sh up --dev
 ```
 
-#### Container Won't Start
+#### Production Deployment
 ```bash
-# Check logs for errors
-./webtop.sh logs
+# Background production build with monitoring
+./webtop.sh build-bg --prod
+watch ./webtop.sh build-status
 
-# Verify Docker Compose configuration
-docker compose -f docker-compose.yml config
-
-# Monitor resource usage
-./webtop.sh monitor
+# Deploy when build completes
+./webtop.sh up --prod
 ```
 
-#### Performance Issues
-- **Increase shared memory**: Edit `shm_size: "4gb"` to `"8gb"` in docker-compose.yml
-- **Add more RAM**: Adjust Docker Desktop memory limits to 8GB+
-- **Check disk space**: Ensure 50GB+ available space
-- **Monitor resources**: Use `./webtop.sh monitor` command
-
-#### Audio Not Working
+#### CI/CD Integration
 ```bash
-# Verify audio device mapping
-ls -la /dev/snd/
-
-# Check PipeWire in container
-./webtop.sh shell
-pw-cli info
-pw-cli list-objects Node | grep virtual_speaker
+# Automated background build with status check
+./webtop.sh build-bg --prod
+while [ "$(./webtop.sh build-status)" != "completed" ]; do
+  sleep 30
+  echo "Build in progress..."
+done
+echo "Build completed successfully!"
 ```
 
-#### Network Access Problems
+### Best Practices
+- **Monitor Progress**: Always check build status during long builds
+- **Resource Management**: Use `build-cleanup` to free disk space
+- **Log Analysis**: Use `build-logs` to troubleshoot build failures
+- **Background vs Foreground**: Use background builds for large projects, foreground for quick testing
+
+## 🔧 Customization
+
+### Adding Applications
+Edit `setup-flatpak-apps.sh` or `setup-marketing-shortcuts.sh`:
 ```bash
-# Check if ports are available
-netstat -tlnp | grep -E ':(32768|14500|2222|7681)'
+# Add Flatpak app
+flatpak install -y flathub com.example.App
 
-# Verify firewall settings
-sudo ufw status
+# Add web app shortcut
+cat <<EOF > app.desktop
+[Desktop Entry]
+Name=App Name
+Exec=google-chrome --app=https://example.com --no-sandbox
+EOF
 ```
 
-### Development Environment Issues
+### Custom Desktop Environment
+Modify `setup-desktop.sh` to customize:
+- Desktop shortcuts
+- Autostart applications
+- Desktop wallpaper
+- Application categories
 
-```bash
-# If development setup fails
-./webtop.sh dev-setup
+### Audio Customization
+Edit `setup-pipewire.sh` to modify:
+- Audio device configuration
+- Audio quality settings
+- Virtual device names
 
-# Verify Node.js installation
-./webtop.sh shell
-node --version
-npm --version
-```
+## 🐳 Docker Architecture
 
-### Wine/Windows Applications
+### Multi-Stage Builds
+- **Development**: Full feature set for development
+- **Production**: Optimized size for deployment
+- **Multi-Architecture**: AMD64 and ARM64 support
 
-```bash
-# Configure Wine environment
-./webtop.sh wine-setup
+### Container Profiles
+- **Development**: Enhanced debugging, full tools
+- **Production**: Optimized, monitoring, reverse proxy
+- **Basic**: Simple single-container setup
 
-# Check Wine status
-./webtop.sh shell
-wine --version
-```
+## 🔐 Security Features
 
-### Android/Waydroid Issues
+### Access Control
+- Multi-user support with role-based access
+- Configurable user credentials
+- PolicyKit integration for desktop privileges
 
-```bash
-# Setup Android environment
-./webtop.sh android-setup
+### Data Protection
+- Encrypted volumes for sensitive data
+- Secure client data handling
+- Session management and timeouts
 
-# Check Waydroid status
-./webtop.sh shell
-waydroid status
-```
+### Monitoring
+- Health checks and status monitoring
+- Audit logging for client work
+- Resource usage tracking
 
-### Getting Help
+## 🔄 CI/CD Pipeline
 
-1. **Run health check**: `./webtop.sh health`
-2. **Check system status**: `./webtop.sh status`
-3. **View logs**: `./webtop.sh logs`
-4. **Access container shell**: `./webtop.sh shell`
+Automated GitHub Actions workflow:
+- **Testing**: Configuration validation
+- **Building**: Multi-architecture images
+- **Security**: Vulnerability scanning
+- **Deployment**: Automated production deployment
 
-**For persistent issues**, create a GitHub issue with:
-- Operating system and Docker version
-- Complete error messages
-- Output from `./webtop.sh health`
-- Docker system info: `docker system info`
+### Build Status
+[![Docker CI/CD](../../actions/workflows/docker-ci.yml/badge.svg)](../../actions/workflows/docker-ci.yml)
 
-## 📚 Documentation
+## 📈 Monitoring & Analytics
 
-- **Application List**: 50+ pre-installed marketing applications
-- **Health Monitoring**: Built-in health checks and monitoring
-- **Backup & Restore**: Container data management
-- **Customization**: Adding applications and configurations
+### Production Monitoring
+- Prometheus metrics collection
+- Grafana dashboards
+- Container health checks
+- Resource usage alerts
 
-## 🔧 Technology Stack
-
-**Frontend Development**
-- Vite, TypeScript, React, shadcn-ui, Tailwind CSS
-
-**Backend & Infrastructure**
-- Docker, Docker Compose, Ubuntu 22.04 LTS, KDE Plasma
-- Supabase integration for database and authentication
-
-**Creative Tools**
-- Professional video editing and graphic design suite
-- Audio production and streaming capabilities
-
-## 🚀 Deployment
-
-### Local Development
-```bash
-npm install
-npm run dev
-```
-
-### Production Deployment
-- **Lovable Platform**: Click Share → Publish in [Lovable](https://lovable.dev/projects/c4d2e059-80bc-40ad-b3b1-0ab89b6f5e9b)
-- **Custom Domain**: Configure in Project → Settings → Domains
-- **Docker Production**: Use `./webtop.sh up --prod` for production containers
+### Performance Optimization
+- Resource limits and reservations
+- Caching strategies
+- Image size optimization
+- Service startup optimization
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+2. Create feature branch: `git checkout -b feature/marketing-tool`
+3. Make changes and test thoroughly
+4. Submit pull request with detailed description
+
+### Development Setup
+```bash
+# Development environment
+docker compose -f docker-compose.dev.yml up -d
+
+# Run tests
+./scripts/test-audio.sh
+./scripts/test-apps.sh
+```
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
+## 📚 Documentation
+
+- **[Validation Guide](VALIDATION.md)**: Comprehensive system validation and testing
+- **[Troubleshooting Guide](TROUBLESHOOTING.md)**: Advanced troubleshooting and recovery
+- **[Service Architecture](SERVICES.md)**: Detailed service documentation and management
+- **[Audio Configuration](#-audio-configuration)**: Container-compatible audio setup
+
 ## 🆘 Support
 
-- **Documentation**: [Lovable Docs](https://docs.lovable.dev)
-- **Community**: GitHub Issues and Discussions
-- **Professional Support**: Available for enterprise deployments
+- **System Validation**: Run `/usr/local/bin/system-validation.sh` for complete diagnostics
+- **Health Check**: Run `/usr/local/bin/health-check.sh` for quick status
+- **Issues**: Create GitHub issues for bugs/features
+- **Discussions**: Use GitHub Discussions for questions
+
+## 🎯 Marketing Agency Optimizations
+
+This WebTop is specifically optimized for marketing agencies with:
+
+- **Multi-Client Support**: Isolated containers for each client with complete data separation
+- **Template-Based Deployment**: Rapid setup with pre-configured marketing environments
+- **Enterprise Backup**: Automated daily backups with one-click restore capabilities
+- **Client-Ready Environment**: Professional desktop for client presentations
+- **Collaborative Tools**: Team containers for collaborative project work
+- **Creative Workflow**: Optimized for design-to-delivery workflows with persistent project storage
+- **Performance**: Tuned for marketing application performance with smart resource management
+- **Security**: Client data protection, access controls, and complete environment isolation
+- **Disaster Recovery**: Complete backup/restore system for business continuity
+- **Scalability**: Easy scaling from single user to multi-client agency operations
 
 ---
 
-**Built with ❤️ for Marketing Agencies** | Powered by Docker + KDE + React
+**Ready to transform your marketing agency's digital workspace? Start with `./webtop.sh up` and access your new environment at `http://localhost:32768`!** 🚀
