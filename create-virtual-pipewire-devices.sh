@@ -1,8 +1,6 @@
 #!/bin/bash
-set -euo pipefail
-
 # Create Virtual PipeWire Audio Devices Script
-# Sets up persistent virtual audio devices (speaker and microphone) for a containerized environment
+set -euo pipefail
 
 DEV_USERNAME="${DEV_USERNAME:-devuser}"
 DEV_UID="${DEV_UID:-$(id -u "$DEV_USERNAME" 2>/dev/null || echo 1000)}"
@@ -11,243 +9,44 @@ DEV_UID="${DEV_UID:-$(id -u "$DEV_USERNAME" 2>/dev/null || echo 1000)}"
 export XDG_RUNTIME_DIR="/run/user/${DEV_UID}"
 export HOME="/home/${DEV_USERNAME}"
 
-echo "🔊 Creating virtual PipeWire audio devices..."
+# Color output functions
+red() { echo -e "\033[31m$*\033[0m"; }
+green() { echo -e "\033[32m$*\033[0m"; }
+yellow() { echo -e "\033[33m$*\033[0m"; }
+blue() { echo -e "\033[34m$*\033[0m"; }
 
-# Function to execute PipeWire commands with fallback
+# Function to execute PipeWire commands
 run_pw_cli() {
-    local cmd="$1"
-    
-    # Try as the user first
-    if su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pw-cli $cmd" 2>/dev/null; then
-        return 0
-    fi
-    
-    # Fallback: try direct execution
-    if pw-cli "$cmd" 2>/dev/null; then
-        return 0
-    fi
-    
-    return 1
+    su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pw-cli $*"
 }
 
-# Function to execute WirePlumber commands
-run_wpctl() {
-    local cmd="$1"
-    
-    # Try as the user first
-    if su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; wpctl $cmd" 2>/dev/null; then
-        return 0
-    fi
-    
-    # Fallback: try direct execution
-    if wpctl "$cmd" 2>/dev/null; then
-        return 0
-    fi
-    
-    return 1
-}
+# Function to create a virtual audio device
+create_virtual_device() {
+    local device_name="$1"
+    local description="$2"
 
-# Wait for PipeWire to be ready
-wait_for_pipewire() {
-    local timeout=45
-    local count=0
-    local restart_attempted=false
-    
-    echo "🔄 Waiting for PipeWire to be ready..."
-    while [ $count -lt $timeout ]; do
-        if run_pw_cli "info" >/dev/null 2>&1; then
-            echo "✅ PipeWire is ready"
-            return 0
-        fi
-        if [ $count -eq 20 ] && [ "$restart_attempted" = false ]; then
-            echo "⚠️  PipeWire not ready after 20 seconds, attempting restart..."
-            restart_attempted=true
-            pkill -f pipewire || true
-            pkill -f wireplumber || true
-            sleep 3
-            mkdir -p "/run/user/${DEV_UID}/pipewire"
-            chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/run/user/${DEV_UID}"
-            su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; nohup pipewire > /dev/null 2>&1 &" || true
-            su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; nohup wireplumber > /dev/null 2>&1 &" || true
-            sleep 5
-            echo "[ERROR] PipeWire restart attempted. Check supervisor logs if not ready."
-        fi
-        sleep 1
-        count=$((count + 1))
-    done
-    echo "[FATAL] PipeWire did not become ready after $timeout seconds. Check supervisor logs, permissions, and user existence."
-    id "$DEV_USERNAME" || echo "[FATAL] User $DEV_USERNAME does not exist."
-    ls -ld "/run/user/${DEV_UID}" || echo "[FATAL] /run/user/${DEV_UID} missing or wrong permissions."
-    ls -l /usr/bin/pipewire /usr/bin/wireplumber || echo "[FATAL] PipeWire or WirePlumber binaries missing."
-    return 1
-}
+    if run_pw_cli list-objects | grep -q "$device_name"; then
+        green "✅ Virtual device '$device_name' already exists."
+        return 0
+    fi
 
-# Create virtual audio devices
-create_virtual_devices() {
-    echo "🎧 Creating virtual audio devices..."
-    local speaker_created=false
-    local microphone_created=false
-    
-    # Method 1: Try pw-cli create-node
-    echo "Attempting Method 1: pw-cli create-node..."
-    if run_pw_cli "create-node adapter" \
-        "factory.name=support.null-audio-sink" \
-        "node.name=virtual_speaker" \
-        "node.description=\"Virtual Marketing Speaker\"" \
-        "media.class=Audio/Sink" \
-        "audio.channels=2" \
-        "audio.position=FL,FR" \
-        "monitor.channel-volumes=true"; then
-        speaker_created=true
-        echo "✅ Virtual speaker created via pw-cli"
-    fi
-    
-    if run_pw_cli "create-node adapter" \
-        "factory.name=support.null-audio-sink" \
-        "node.name=virtual_microphone" \
-        "node.description=\"Virtual Marketing Microphone\"" \
-        "media.class=Audio/Sink" \
-        "audio.channels=2" \
-        "audio.position=FL,FR"; then
-        microphone_created=true
-        echo "✅ Virtual microphone created via pw-cli"
-    fi
-    
-    # Method 2: Try GStreamer fallback if pw-cli failed
-    if [ "$speaker_created" = false ]; then
-        echo "⚠️  Trying Method 2: GStreamer for virtual_speaker..."
-        if command -v gst-launch-1.0 >/dev/null 2>&1; then
-            timeout 8 gst-launch-1.0 audiotestsrc freq=0 volume=0 ! \
-                audioconvert ! pipewiresink node-name=virtual_speaker &
-            sleep 3
-            pkill gst-launch-1.0 || true
-            sleep 2
-            if run_pw_cli "list-objects" | grep -q "virtual_speaker"; then
-                speaker_created=true
-                echo "✅ Virtual speaker created via GStreamer"
-            fi
-        fi
-    fi
-    
-    if [ "$microphone_created" = false ]; then
-        echo "⚠️  Trying Method 2: GStreamer for virtual_microphone..."
-        if command -v gst-launch-1.0 >/dev/null 2>&1; then
-            timeout 8 gst-launch-1.0 audiotestsrc freq=0 volume=0 ! \
-                audioconvert ! pipewiresink node-name=virtual_microphone &
-            sleep 3
-            pkill gst-launch-1.0 || true
-            sleep 2
-            if run_pw_cli "list-objects" | grep -q "virtual_microphone"; then
-                microphone_created=true
-                echo "✅ Virtual microphone created via GStreamer"
-            fi
-        fi
-    fi
-    
-    # Method 3: Try pactl fallback if available
-    if [ "$speaker_created" = false ] && command -v pactl >/dev/null 2>&1; then
-        echo "⚠️  Trying Method 3: pactl for virtual_speaker..."
-        if pactl load-module module-null-sink sink_name=virtual_speaker sink_properties=device.description="Virtual Marketing Speaker" >/dev/null 2>&1; then
-            speaker_created=true
-            echo "✅ Virtual speaker created via pactl"
-        fi
-    fi
-    
-    if [ "$microphone_created" = false ] && command -v pactl >/dev/null 2>&1; then
-        echo "⚠️  Trying Method 3: pactl for virtual_microphone..."
-        if pactl load-module module-null-sink sink_name=virtual_microphone sink_properties=device.description="Virtual Marketing Microphone" >/dev/null 2>&1; then
-            microphone_created=true
-            echo "✅ Virtual microphone created via pactl"
-        fi
-    fi
-    
-    # Wait for devices to be fully initialized
-    sleep 5
-    
-    # Configure default devices if WirePlumber is available
-    if command -v wpctl >/dev/null 2>&1 && run_wpctl "status" >/dev/null 2>&1; then
-        echo "🔧 Configuring default audio devices..."
-        
-        # Set virtual speaker as default sink
-        if run_wpctl "status" | grep -q "virtual_speaker"; then
-            local speaker_id=$(run_wpctl "status" | grep "virtual_speaker" | head -1 | awk '{print $2}' | sed 's/[^0-9]//g')
-            if [ -n "$speaker_id" ]; then
-                run_wpctl "set-default $speaker_id" && echo "✅ Set virtual_speaker as default sink" || echo "⚠️  Failed to set default sink"
-            fi
-        fi
-        
-        # Set virtual microphone monitor as default source
-        if run_wpctl "status" | grep -q "virtual_microphone"; then
-            local mic_id=$(run_wpctl "status" | grep "virtual_microphone" | head -1 | awk '{print $2}' | sed 's/[^0-9]//g')
-            if [ -n "$mic_id" ]; then
-                # Try to find monitor source
-                local monitor_id=$(run_wpctl "status" | grep -A5 "Sources:" | grep "monitor" | head -1 | awk '{print $2}' | sed 's/[^0-9]//g')
-                if [ -n "$monitor_id" ]; then
-                    run_wpctl "set-default $monitor_id" && echo "✅ Set virtual_microphone monitor as default source" || echo "⚠️  Failed to set default source"
-                fi
-            fi
-        fi
-        
-        # Set reasonable volume levels (50% = 0.5 in PipeWire)
-        run_wpctl "set-volume @DEFAULT_AUDIO_SINK@ 0.5" || true
-        run_wpctl "set-volume @DEFAULT_AUDIO_SOURCE@ 0.5" || true
-    fi
-    
-    # Report results
-    if [ "$speaker_created" = true ] && [ "$microphone_created" = true ]; then
-        echo "✅ Virtual audio devices created and configured successfully"
-        return 0
-    elif [ "$speaker_created" = true ] || [ "$microphone_created" = true ]; then
-        echo "⚠️  Partial success: Some virtual devices created"
-        return 0
+    yellow "⚠️  Virtual device '$device_name' not found. Creating..."
+    if run_pw_cli create-node adapter factory.name=support.null-audio-sink node.name="$device_name" node.description="$description" media.class=Audio/Sink audio.channels=2 audio.position=FL,FR; then
+        green "✅ Virtual device '$device_name' created successfully."
     else
-        echo "❌ Failed to create virtual audio devices"
+        red "❌ Failed to create virtual device '$device_name'."
         return 1
     fi
 }
 
-# Verify devices were created successfully
-verify_devices() {
-    echo "🔍 Verifying virtual audio devices..."
-    
-    if run_pw_cli "list-objects" | grep -q "virtual_speaker"; then
-        echo "✅ virtual_speaker created successfully"
-    else
-        echo "❌ virtual_speaker not found"
-        return 1
-    fi
-    
-    if run_pw_cli "list-objects" | grep -q "virtual_microphone"; then
-        echo "✅ virtual_microphone created successfully"
-    else
-        echo "❌ virtual_microphone not found"
-        return 1
-    fi
-    
-    echo "🎉 All virtual devices verified successfully!"
-    return 0
-}
-
-# Main execution
+# Main function
 main() {
-    echo "🚀 Starting virtual PipeWire device creation..."
-    
-    # Check if user exists
-    if ! id "$DEV_USERNAME" >/dev/null 2>&1; then
-        echo "❌ User $DEV_USERNAME does not exist"
-        exit 1
-    fi
-    
-    # Ensure runtime directory exists
-    mkdir -p "/run/user/${DEV_UID}/pipewire"
-    chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/run/user/${DEV_UID}"
-    
-    # Execute the setup
-    wait_for_pipewire || exit 1
-    create_virtual_devices || exit 1
-    verify_devices || exit 1
-    
-    echo "✅ Virtual PipeWire audio device creation completed successfully!"
+    blue "🎧 Creating virtual audio devices..."
+
+    create_virtual_device "virtual_speaker" "Virtual Marketing Speaker"
+    create_virtual_device "virtual_microphone" "Virtual Marketing Microphone"
+
+    green "✅ Virtual audio device setup completed."
 }
 
 main "$@"

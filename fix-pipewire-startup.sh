@@ -1,11 +1,9 @@
 #!/bin/bash
-# PipeWire Startup Fix Script - Run during container initialization
+# PipeWire Startup and Configuration Script
 set -euo pipefail
 
 DEV_USERNAME="${DEV_USERNAME:-devuser}"
 DEV_UID="${DEV_UID:-$(id -u "$DEV_USERNAME" 2>/dev/null || echo 1000)}"
-
-echo "🔧 Fixing PipeWire system startup configuration..."
 
 # Color output functions
 red() { echo -e "\033[31m$*\033[0m"; }
@@ -13,156 +11,55 @@ green() { echo -e "\033[32m$*\033[0m"; }
 yellow() { echo -e "\033[33m$*\033[0m"; }
 blue() { echo -e "\033[34m$*\033[0m"; }
 
-# Check if we're running during build (user doesn't exist yet) or runtime
-if id "$DEV_USERNAME" >/dev/null 2>&1; then
-    IS_RUNTIME=true
-    blue "🔧 Runtime mode: Setting user-specific permissions"
-else
-    IS_RUNTIME=false
-    blue "🔧 Build mode: Skipping user-specific operations"
-fi
+# Function to wait for the PipeWire socket
+wait_for_pipewire_socket() {
+    blue "🔄 Waiting for PipeWire socket..."
+    local retries=30
+    while [ $retries -gt 0 ] && [ ! -S "/run/user/${DEV_UID}/pipewire-0" ]; do
+        sleep 1
+        retries=$((retries - 1))
+    done
 
-# Ensure runtime directories exist (build-safe)
-mkdir -p "/run/user/${DEV_UID}"
-mkdir -p "/run/user/${DEV_UID}/pipewire"
-if [ "$IS_RUNTIME" = true ]; then
+    if [ ! -S "/run/user/${DEV_UID}/pipewire-0" ]; then
+        red "❌ PipeWire socket not found after 30 seconds. Aborting."
+        exit 1
+    fi
+    green "✅ PipeWire socket is available."
+}
+
+# Main function
+main() {
+    blue "🔧 Initializing PipeWire startup sequence..."
+
+    if ! id "$DEV_USERNAME" >/dev/null 2>&1; then
+        red "❌ User '$DEV_USERNAME' does not exist. Aborting."
+        exit 1
+    fi
+
+    # 1. Ensure runtime directories exist
+    mkdir -p "/run/user/${DEV_UID}/pipewire"
     chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/run/user/${DEV_UID}"
     chmod 700 "/run/user/${DEV_UID}"
-fi
 
-# Create systemd-style runtime directory structure
-mkdir -p "/run/user/${DEV_UID}/systemd"
-if [ "$IS_RUNTIME" = true ]; then
-    chown "${DEV_USERNAME}:${DEV_USERNAME}" "/run/user/${DEV_UID}/systemd"
-
-    # Ensure PipeWire config directory exists
-    mkdir -p "/home/${DEV_USERNAME}/.config/pipewire"
-    mkdir -p "/home/${DEV_USERNAME}/.config/wireplumber/main.lua.d"
-    chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/.config"
-fi
-
-# Create optimized PipeWire client configuration (runtime only)
-if [ "$IS_RUNTIME" = true ]; then
-    cat <<EOF > "/home/${DEV_USERNAME}/.config/pipewire/client.conf"
-# Container-optimized PipeWire client configuration
-stream.properties = {
-    node.latency             = 1024/44100
-    resample.quality         = 4
-    channelmix.normalize     = false
-    channelmix.mix-lfe       = false
-    audio.channels           = 2
-    audio.rate               = 44100
-    audio.format             = S16LE
-}
-
-context.properties = {
-    log.level               = 2
-    mem.warn-mlock          = false
-    mem.allow-mlock         = false
-    settings.check-quantum  = false
-    settings.check-rate     = false
-}
-EOF
-
-    # Create WirePlumber configuration
-    cat <<'EOF' > "/home/${DEV_USERNAME}/.config/wireplumber/main.lua.d/99-virtual-devices.lua"
--- Virtual device configuration for container environment
--- Ensure virtual devices are properly managed by WirePlumber
-
--- Rule for virtual speaker
-virtual_speaker_rule = {
-  matches = {
-    {
-      { "node.name", "equals", "virtual_speaker" },
-    },
-  },
-  apply_properties = {
-    ["audio.channels"] = 2,
-    ["audio.rate"] = 44100,
-    ["audio.format"] = "S16LE",
-    ["node.description"] = "Virtual Marketing Speaker",
-    ["device.class"] = "sound",
-    ["media.class"] = "Audio/Sink",
-    ["priority.driver"] = 1000,
-    ["priority.session"] = 1000,
-    ["node.pause-on-idle"] = false,
-    ["session.suspend-timeout-seconds"] = 0,
-  },
-}
-
--- Rule for virtual microphone
-virtual_microphone_rule = {
-  matches = {
-    {
-      { "node.name", "equals", "virtual_microphone" },
-    },
-  },
-  apply_properties = {
-    ["audio.channels"] = 2,
-    ["audio.rate"] = 44100,
-    ["audio.format"] = "S16LE",
-    ["node.description"] = "Virtual Marketing Microphone",
-    ["device.class"] = "sound",
-    ["media.class"] = "Audio/Sink",
-    ["priority.driver"] = 1000,
-    ["priority.session"] = 1000,
-    ["node.pause-on-idle"] = false,
-    ["session.suspend-timeout-seconds"] = 0,
-  },
-}
-
--- Apply rules to appropriate monitors
-if alsa_monitor and alsa_monitor.rules then
-  table.insert(alsa_monitor.rules, virtual_speaker_rule)
-  table.insert(alsa_monitor.rules, virtual_microphone_rule)
-end
-
--- Also apply to default monitor if available
-if default_access and default_access.rules then
-  table.insert(default_access.rules, virtual_speaker_rule)
-  table.insert(default_access.rules, virtual_microphone_rule)
-end
-
--- Container-specific settings
-container_settings = {
-  ["log.level"] = 2,
-  ["wireplumber.export-core"] = true,
-  ["support.dbus"] = false,
-}
-
--- Apply container settings
-for key, value in pairs(container_settings) do
-  if context and context.properties then
-    context.properties[key] = value
-  end
-end
-EOF
-
-    chown "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/.config/pipewire/client.conf"
-    chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/.config/wireplumber"
-fi
-
-# Set proper permissions for audio devices if they exist (runtime only)
-if [ "$IS_RUNTIME" = true ] && [ -d "/dev/snd" ]; then
-    chown -R root:audio /dev/snd
-    chmod -R g+rw /dev/snd
-    usermod -a -G audio "${DEV_USERNAME}" 2>/dev/null || true
-fi
-
-# Ensure virtual audio device creation (runtime only)
-if [ "$IS_RUNTIME" = true ]; then
-    green "🔊 Ensuring virtual audio devices are ready..."
-    
-    # Wait briefly for PipeWire to initialize
-    sleep 2
-    
-    # Verify and create virtual devices if needed
-    if ! su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pw-cli list-objects" 2>/dev/null | grep -q virtual_speaker; then
-        yellow "⚠️  Virtual speaker not found, triggering device creation..."
-        /usr/local/bin/create-virtual-pipewire-devices.sh &
-    else
-        green "✅ Virtual audio devices already present"
+    # 2. Set permissions for audio devices
+    if [ -d "/dev/snd" ]; then
+        chown -R root:audio /dev/snd
+        chmod -R g+rw /dev/snd
+        usermod -a -G audio "${DEV_USERNAME}" 2>/dev/null || true
     fi
-fi
 
-green "✅ PipeWire system startup configuration completed"
+    # 3. Start PipeWire and WirePlumber services
+    blue "🚀 Starting PipeWire and WirePlumber services..."
+    supervisord -c /etc/supervisor/conf.d/pipewire.conf
+
+    # 4. Wait for the PipeWire socket to be available
+    wait_for_pipewire_socket
+
+    # 5. Create virtual audio devices
+    blue "🎧 Creating virtual audio devices..."
+    /usr/local/bin/create-virtual-pipewire-devices.sh
+
+    green "✅ PipeWire startup and configuration completed successfully."
+}
+
+main "$@"
