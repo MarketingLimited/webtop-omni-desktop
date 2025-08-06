@@ -3,7 +3,6 @@
 set -euo pipefail
 
 DEV_USERNAME="${DEV_USERNAME:-devuser}"
-DEV_UID="${DEV_UID:-$(id -u "$DEV_USERNAME" 2>/dev/null || echo 1000)}"
 LOG_FILE="${LOG_FILE:-/tmp/audio_diagnostic.log}"
 : >"$LOG_FILE"
 
@@ -13,6 +12,15 @@ log() {
   timestamp="$(date '+%Y-%m-%d %H:%M:%S')"
   echo "[$timestamp] [$level] $*" | tee -a "$LOG_FILE"
 }
+
+# Determine UID and ensure user exists; fall back to current user if not
+if id -u "$DEV_USERNAME" >/dev/null 2>&1; then
+  DEV_UID="${DEV_UID:-$(id -u "$DEV_USERNAME")}" 
+else
+  log WARN "User $DEV_USERNAME not found. Using current user $(whoami)"
+  DEV_USERNAME="$(whoami)"
+  DEV_UID="$(id -u)"
+fi
 
 # Ensure required commands exist
 for cmd in pw-cli wpctl pgrep pkill; do
@@ -28,7 +36,22 @@ log INFO "Starting audio diagnostic..."
 log INFO "Checking PipeWire status..."
 if ! pw-cli info >/dev/null 2>&1; then
   log WARN "PipeWire is not running. Attempting to start..."
-  su - "$DEV_USERNAME" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pipewire >/tmp/pipewire.log 2>&1 &" || true
+  if [ "$DEV_USERNAME" = "$(whoami)" ]; then
+    old_runtime_dir="${XDG_RUNTIME_DIR-}"
+    runtime_dir_set=0
+    if [ "${XDG_RUNTIME_DIR+x}" ]; then
+      runtime_dir_set=1
+    fi
+    export XDG_RUNTIME_DIR="/run/user/${DEV_UID}"
+    pipewire >/tmp/pipewire.log 2>&1 &
+    if [ "$runtime_dir_set" -eq 1 ]; then
+      export XDG_RUNTIME_DIR="$old_runtime_dir"
+    else
+      unset XDG_RUNTIME_DIR
+    fi
+  else
+    su - "$DEV_USERNAME" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pipewire >/tmp/pipewire.log 2>&1 &" || true
+  fi
   for i in {1..10}; do
     sleep 1
     if pw-cli info >/dev/null 2>&1; then
