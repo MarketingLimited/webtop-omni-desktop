@@ -96,6 +96,24 @@ if [ ! -f /usr/share/novnc/package.json ]; then
 EOF
 fi
 
+# Create noVNC homepage and audio control page
+log_info "Creating noVNC homepage and audio control page..."
+if [ -f "/usr/local/bin/create-novnc-homepage.sh" ]; then
+    /usr/local/bin/create-novnc-homepage.sh
+    echo "✅ noVNC homepage and audio control page created successfully"
+else
+    echo "⚠️  create-novnc-homepage.sh script not found"
+fi
+
+# Copy universal-webrtc.js to noVNC directory
+log_info "Copying universal-webrtc.js to noVNC directory..."
+if [ -f "/usr/local/bin/universal-webrtc.js" ]; then
+    cp /usr/local/bin/universal-webrtc.js /usr/share/novnc/universal-webrtc.js
+    echo "✅ universal-webrtc.js copied successfully"
+else
+    echo "⚠️  universal-webrtc.js not found"
+fi
+
 # Initialize system directories
 mkdir -p /var/run/dbus /tmp/.ICE-unix /tmp/.X11-unix
 # Ensure world-writable permissions for X11 and ICE sockets
@@ -216,33 +234,7 @@ mkdir -p /run/dbus
 echo "✅ D-Bus directories prepared"
 
 # Set up audio system before other services
-log_info "Setting up audio system..."
-if [ -f "/usr/local/bin/setup-pipewire.sh" ]; then
-    /usr/local/bin/setup-pipewire.sh
-    echo "✅ PipeWire audio system setup completed"
 
-    # Apply runtime audio fixes after user creation
-    if [ -f "/usr/local/bin/fix-pipewire-startup.sh" ]; then
-        /usr/local/bin/fix-pipewire-startup.sh
-        echo "✅ PipeWire startup configuration completed"
-    fi
-
-    # Schedule audio validation and routing fix after services start
-    if [ -f "/usr/local/bin/audio-validation.sh" ]; then
-        chmod +x /usr/local/bin/audio-validation.sh
-        echo "✅ Audio validation scheduled"
-    fi
-
-    # Make audio debug and routing scripts executable
-    chmod +x /usr/local/bin/debug-audio-pipeline.sh 2>/dev/null || true
-    chmod +x /usr/local/bin/fix-pipewire-routing.sh 2>/dev/null || true
-
-    # Schedule audio routing fix after a brief delay to allow services to start
-    echo "🎯 Scheduling PipeWire audio routing fix..."
-    (sleep 10 && /usr/local/bin/fix-pipewire-routing.sh >/dev/null 2>&1) &
-else
-    echo "⚠️  PipeWire setup script not found"
-fi
 
 # Set up TTYD terminal service
 log_info "Setting up TTYD terminal service..."
