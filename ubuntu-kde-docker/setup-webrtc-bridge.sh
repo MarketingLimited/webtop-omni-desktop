@@ -27,7 +27,7 @@ cat > package.json << 'EOF'
   "dependencies": {
     "express": "^4.18.2",
     "ws": "^8.14.2",
-    "node-webrtc": "^0.4.7",
+    "wrtc": "^0.4.7",
     "uuid": "^9.0.0"
   }
 }
@@ -40,7 +40,7 @@ npm install
 cat > server.js << 'EOF'
 const express = require('express');
 const WebSocket = require('ws');
-const { RTCPeerConnection, RTCSessionDescription, RTCIceCandidate } = require('node-webrtc');
+const { RTCPeerConnection, RTCSessionDescription, RTCIceCandidate } = require('wrtc');
 const { spawn, execSync } = require('child_process');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
