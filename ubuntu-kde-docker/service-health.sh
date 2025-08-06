@@ -59,8 +59,8 @@ check_novnc() {
 }
 
 
-check_pulseaudio() {
-    pgrep -f "pulseaudio.*daemon" > /dev/null
+check_pipewire() {
+    pgrep -f "pipewire" >/dev/null 2>&1
 }
 
 check_ttyd() {
@@ -83,7 +83,7 @@ check_service_dependencies() {
     wait_for_service "KDE Plasma" "check_kde" 60
     
     # Stage 3: Audio system
-    wait_for_service "PulseAudio" "check_pulseaudio" 30
+    wait_for_service "PipeWire" "check_pipewire" 30
     
     # Stage 4: Remote access services
     wait_for_service "VNC" "check_vnc" 30
@@ -111,7 +111,7 @@ generate_status_report() {
         "Xvfb:check_xvfb"
         "D-Bus:check_dbus"
         "KDE:check_kde"
-        "PulseAudio:check_pulseaudio"
+        "PipeWire:check_pipewire"
         "VNC:check_vnc"
         "noVNC:check_novnc"
         "TTYD:check_ttyd"
@@ -139,7 +139,8 @@ check_port_status() {
         "5901:VNC Server"
         "7681:TTYD Web Terminal"
         "22:SSH Server"
-        "4713:PulseAudio TCP"
+        "8080:WebRTC Bridge"
+        "8081:WebRTC Signaling"
     )
     
     for port_info in "${ports[@]}"; do
@@ -194,7 +195,7 @@ generate_service_state_hash() {
         "Xvfb:check_xvfb"
         "D-Bus:check_dbus"
         "KDE:check_kde"
-        "PulseAudio:check_pulseaudio"
+        "PipeWire:check_pipewire"
         "VNC:check_vnc"
         "noVNC:check_novnc"
         "TTYD:check_ttyd"

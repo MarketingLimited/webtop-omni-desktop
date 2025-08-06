@@ -81,7 +81,7 @@ Desktop Apps → PulseAudio → Virtual Sink → Audio Bridge → WebSocket → 
 1. Check that audio bridge is running: `docker logs webtop-kde | grep "Audio bridge"`
 2. Verify WebSocket connection in browser console
 3. Try disconnecting and reconnecting audio
-4. Confirm PulseAudio's default sink is set to `virtual_speaker`. The system now automatically resets it, or run `/usr/local/bin/fix-audio-routing.sh` manually
+4. Confirm PipeWire's default sink is set to `virtual_speaker`. The system now automatically resets it, or run `/usr/local/bin/fix-pipewire-routing.sh` manually
 
 ### Audio Bridge Not Starting
 1. Check container logs: `docker logs webtop-kde`

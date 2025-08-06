@@ -43,7 +43,8 @@ done
 echo ""
 echo "🔧 Checking Optional Services..."
 OPTIONAL_SERVICES=(
-    "pulseaudio"
+    "pipewire"
+    "wireplumber"
     "polkitd"
     "sshd"
     "ttyd"
@@ -68,7 +69,8 @@ ESSENTIAL_PORTS=(
 OPTIONAL_PORTS=(
     "22:SSH"
     "7681:ttyd"
-    "4713:PulseAudio"
+    "8080:WebRTC"
+    "8081:WebRTC-WS"
 )
 
 for port_info in "${ESSENTIAL_PORTS[@]}"; do

@@ -189,9 +189,9 @@ RUN chmod +x /usr/local/bin/setup-*.sh \
     /usr/local/bin/health-check.sh \
     /usr/local/bin/fix-permissions.sh \
     /usr/local/bin/test-polkit.sh \
-    /usr/local/bin/fix-audio-startup.sh \
-    /usr/local/bin/create-virtual-audio-devices.sh \
-    /usr/local/bin/fix-audio-routing.sh
+    /usr/local/bin/fix-pipewire-startup.sh \
+    /usr/local/bin/create-virtual-pipewire-devices.sh \
+    /usr/local/bin/fix-pipewire-routing.sh
 
 # Initialize PipeWire system during build
 RUN /usr/local/bin/setup-pipewire.sh && \

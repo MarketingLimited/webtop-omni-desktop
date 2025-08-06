@@ -174,10 +174,11 @@ if ! id -u "$DEV_USERNAME" > /dev/null 2>&1; then
 fi
 
 echo "${DEV_USERNAME}:${DEV_PASSWORD}" | chpasswd
-if ! getent group pulse-access >/dev/null; then
-    groupadd -r pulse-access
+# Ensure required groups exist
+if ! getent group audio >/dev/null; then
+    groupadd -r audio
 fi
-usermod -aG sudo,ssl-cert,pulse-access,video "$DEV_USERNAME"
+usermod -aG sudo,ssl-cert,audio,video "$DEV_USERNAME"
 
 # Ensure runtime variables match the actual user IDs
 DEV_UID="$(id -u "$DEV_USERNAME")"
@@ -216,31 +217,31 @@ echo "✅ D-Bus directories prepared"
 
 # Set up audio system before other services
 log_info "Setting up audio system..."
-if [ -f "/usr/local/bin/setup-audio.sh" ]; then
-    /usr/local/bin/setup-audio.sh
-    echo "✅ Audio system setup completed"
-    
+if [ -f "/usr/local/bin/setup-pipewire.sh" ]; then
+    /usr/local/bin/setup-pipewire.sh
+    echo "✅ PipeWire audio system setup completed"
+
     # Apply runtime audio fixes after user creation
-    if [ -f "/usr/local/bin/fix-audio-startup.sh" ]; then
-        /usr/local/bin/fix-audio-startup.sh
-        echo "✅ Audio startup configuration completed"
+    if [ -f "/usr/local/bin/fix-pipewire-startup.sh" ]; then
+        /usr/local/bin/fix-pipewire-startup.sh
+        echo "✅ PipeWire startup configuration completed"
     fi
-    
+
     # Schedule audio validation and routing fix after services start
     if [ -f "/usr/local/bin/audio-validation.sh" ]; then
         chmod +x /usr/local/bin/audio-validation.sh
         echo "✅ Audio validation scheduled"
     fi
-    
+
     # Make audio debug and routing scripts executable
     chmod +x /usr/local/bin/debug-audio-pipeline.sh 2>/dev/null || true
-    chmod +x /usr/local/bin/fix-audio-routing.sh 2>/dev/null || true
-    
+    chmod +x /usr/local/bin/fix-pipewire-routing.sh 2>/dev/null || true
+
     # Schedule audio routing fix after a brief delay to allow services to start
-    echo "🎯 Scheduling audio routing fix..."
-    (sleep 10 && /usr/local/bin/fix-audio-routing.sh >/dev/null 2>&1) &
+    echo "🎯 Scheduling PipeWire audio routing fix..."
+    (sleep 10 && /usr/local/bin/fix-pipewire-routing.sh >/dev/null 2>&1) &
 else
-    echo "⚠️  Audio setup script not found"
+    echo "⚠️  PipeWire setup script not found"
 fi
 
 # Set up TTYD terminal service
