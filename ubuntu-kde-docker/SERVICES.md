@@ -25,22 +25,22 @@ Services that other components depend on.
 ### Audio System (Priority 25-30)
 Container-compatible audio infrastructure.
 
-#### PulseAudio (Priority 25)
+#### PipeWire (Priority 25)
 - **Purpose**: Audio server with virtual devices
-- **Port**: 4713 (TCP)
+- **Port**: 8080 (WebRTC bridge)
 - **Dependencies**: Xvfb, D-Bus
 - **Configuration**: Uses virtual sinks for container compatibility
 - **Critical**: Yes - Required for audio functionality
 
 #### AudioValidation (Priority 28)
 - **Purpose**: Creates and validates virtual audio devices
-- **Dependencies**: PulseAudio
+- **Dependencies**: PipeWire
 - **Status**: Runs once, then exits
 - **Critical**: Yes - Sets up `virtual_speaker` and `virtual_microphone`
 
 #### AudioMonitor (Priority 30)
 - **Purpose**: Continuous audio system monitoring
-- **Dependencies**: PulseAudio, AudioValidation
+- **Dependencies**: PipeWire, AudioValidation
 - **Status**: Continuous monitoring
 - **Critical**: No - Monitoring only
 
@@ -49,7 +49,7 @@ KDE Plasma desktop session.
 
 #### KDE (Priority 35)
 - **Purpose**: Full KDE Plasma desktop environment
-- **Dependencies**: Xvfb, D-Bus, PulseAudio
+- **Dependencies**: Xvfb, D-Bus, PipeWire
 - **User**: devuser
 - **Display**: :1
 - **Critical**: Yes - Main desktop interface
@@ -113,7 +113,7 @@ System validation and health monitoring.
 
 ```mermaid
 graph TD
-    A[Xvfb] --> C[PulseAudio]
+    A[Xvfb] --> C[PipeWire]
     B[D-Bus] --> C
     C --> D[AudioValidation]
     D --> E[KDE]
@@ -122,7 +122,7 @@ graph TD
     B --> E
     E --> F[X11VNC]
     F --> G[noVNC]
-    
+
     C --> H
     E --> I[ServiceHealth]
     F --> I
@@ -134,7 +134,7 @@ graph TD
 
 ### Startup Sequence
 1. **Infrastructure**: Xvfb, D-Bus start first
-2. **Audio**: PulseAudio with virtual device setup
+2. **Audio**: PipeWire with virtual device setup
 3. **Desktop**: KDE Plasma desktop environment
 4. **Remote Access**: VNC, SSH, TTYD services
 5. **Validation**: Health monitoring and system validation
@@ -153,7 +153,7 @@ graph TD
 | 5901 | X11VNC | VNC | VNC server |
 | 7681 | TTYD | HTTP | Web terminal |
 
-| 4713 | PulseAudio | TCP | Audio server |
+| 8080 | WebRTC Bridge | HTTP | Audio server |
 
 ## Service Management
 
@@ -180,10 +180,10 @@ docker exec webtop-kde supervisorctl clear <service>
 #### Audio Services
 ```bash
 # Restart audio system
-docker exec webtop-kde supervisorctl restart pulseaudio AudioValidation
+docker exec webtop-kde supervisorctl restart pipewire AudioValidation
 
 # Check audio devices
-docker exec webtop-kde pactl list short sinks
+docker exec webtop-kde pw-cli list-objects Node
 ```
 
 #### Desktop Services
@@ -270,7 +270,7 @@ netstat -tlnp | grep -E "(80|5901|7681|22)"
 docker exec webtop-kde supervisorctl stop all
 
 # Start core services first
-docker exec webtop-kde supervisorctl start Xvfb dbus pulseaudio
+docker exec webtop-kde supervisorctl start Xvfb dbus pipewire
 
 # Wait for stability
 sleep 10
@@ -291,7 +291,7 @@ docker exec webtop-kde supervisorctl start ServiceHealth SystemValidation
 #### Selective Service Restart
 ```bash
 # Restart audio chain
-docker exec webtop-kde supervisorctl restart pulseaudio AudioValidation AudioMonitor
+docker exec webtop-kde supervisorctl restart pipewire AudioValidation AudioMonitor
 
 # Restart remote access chain
 docker exec webtop-kde supervisorctl restart X11VNC noVNC

@@ -311,10 +311,10 @@ docker compose -f docker-compose.yml config
 # Verify audio device mapping
 ls -la /dev/snd/
 
-# Check PulseAudio in container
+# Check PipeWire in container
 ./webtop.sh shell
-pulseaudio --check -v
-pactl list short sinks
+pw-cli info
+pw-cli list-objects Node | grep virtual_speaker
 ```
 
 #### Network Access Problems

@@ -82,7 +82,7 @@ The multi-container feature allows you to:
 | noVNC   | 32768   | 32769       | 32769:80        |
 | SSH     | 2222    | 2223        | 2223:22         |
 | ttyd    | 7681    | 7682        | 7682:7681       |
-| Audio   | 4713    | 4714        | 4714:4713       |
+| Audio   | 8080    | 8081        | 8081:8080       |
 
 ### Automatic Port Assignment
 
