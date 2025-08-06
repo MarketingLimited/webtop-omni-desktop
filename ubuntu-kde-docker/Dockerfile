@@ -11,7 +11,7 @@ RUN dpkg --add-architecture i386
 
 # Install PipeWire audio system and WebRTC tools
 RUN apt-get update && \
-    apt-get install -y pipewire pipewire-pulse pipewire-alsa wireplumber pipewire-audio-client-libraries \
+    apt-get install -y pipewire pipewire-alsa wireplumber pipewire-audio-client-libraries \
     gstreamer1.0-pipewire libpipewire-0.3-modules gstreamer1.0-plugins-good \
     gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav \
     gstreamer1.0-tools gstreamer1.0-rtsp && \

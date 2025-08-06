@@ -26,7 +26,7 @@
 
 ### **Remote Access & Collaboration**
 - **Browser-Based Access**: noVNC and Xpra web interfaces
-- **Audio Support**: Full audio streaming with virtual devices
+- **Audio Support**: PipeWire + WebRTC audio streaming with virtual devices
 - **SSH Access**: Secure terminal access for advanced users
 - **Resource Monitoring**: Real-time performance dashboards
 
