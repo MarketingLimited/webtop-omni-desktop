@@ -236,7 +236,20 @@ mkdir -p /run/dbus
 echo "✅ D-Bus directories prepared"
 
 # Set up audio system before other services
+# Initialize PipeWire and apply startup fixes
+log_info "Setting up PipeWire audio system..."
+if [ -f "/usr/local/bin/setup-pipewire.sh" ]; then
+    /usr/local/bin/setup-pipewire.sh
+else
+    log_warn "setup-pipewire.sh script not found"
+fi
 
+log_info "Applying PipeWire startup fixes..."
+if [ -f "/usr/local/bin/fix-pipewire-startup.sh" ]; then
+    /usr/local/bin/fix-pipewire-startup.sh
+else
+    log_warn "fix-pipewire-startup.sh script not found"
+fi
 
 # Set up TTYD terminal service
 log_info "Setting up TTYD terminal service..."

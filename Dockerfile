@@ -198,9 +198,6 @@ RUN chmod +x /usr/local/bin/setup-*.sh \
     /usr/local/bin/fix-pipewire-routing.sh \
     /usr/local/bin/create-novnc-homepage.sh
 
-# Initialize PipeWire system during build
-RUN /usr/local/bin/setup-pipewire.sh && \
-    /usr/local/bin/fix-pipewire-startup.sh
 
 # Run TTYD setup to create wrapper script
 RUN /usr/local/bin/setup-ttyd.sh
