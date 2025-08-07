@@ -266,6 +266,27 @@ docker exec webtop-kde curl -I http://localhost:80
 docker exec webtop-kde curl -I http://localhost:7681
 ```
 
+### 🤖 Android Support Issues
+
+#### Waydroid skipped due to missing kernel modules
+**Cause**: The Docker host is missing the `binder_linux` and `ashmem_linux` kernel modules required by Waydroid.
+
+**Solution**:
+```bash
+# Load required modules on the Docker host
+sudo modprobe binder_linux
+sudo modprobe ashmem_linux
+
+# Ensure modules load at boot
+echo binder_linux | sudo tee -a /etc/modules
+echo ashmem_linux | sudo tee -a /etc/modules
+
+# Restart the container to allow Waydroid setup
+./webtop.sh restart
+```
+
+Without these modules, Android support is skipped and the setup may fall back to Anbox.
+
 ## Recovery Procedures
 
 ### Complete Service Reset
