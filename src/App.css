@@ -1,0 +1,99 @@
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+.App {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.App-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 40px;
+  color: white;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+.App-header h1 {
+  margin: 0 0 30px 0;
+  font-size: 2.5em;
+  font-weight: 600;
+}
+
+.status-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  margin-top: 30px;
+}
+
+.status-card {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 15px;
+  padding: 25px;
+  text-align: left;
+  transition: transform 0.3s ease;
+}
+
+.status-card:hover {
+  transform: translateY(-5px);
+}
+
+.status-card h2 {
+  margin: 0 0 15px 0;
+  font-size: 1.4em;
+  color: #fff;
+}
+
+.status-card p {
+  margin: 8px 0;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.status-card code {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+  display: block;
+  margin: 10px 0;
+  word-break: break-all;
+}
+
+.system-info {
+  background: rgba(0, 0, 0, 0.2);
+  padding: 15px;
+  border-radius: 10px;
+  margin-top: 15px;
+}
+
+.system-info p {
+  margin: 5px 0;
+  font-family: monospace;
+  font-size: 0.9em;
+}
+
+@media (max-width: 768px) {
+  .status-container {
+    grid-template-columns: 1fr;
+  }
+  
+  .App-header h1 {
+    font-size: 2em;
+  }
+  
+  .status-card {
+    padding: 20px;
+  }
+}
