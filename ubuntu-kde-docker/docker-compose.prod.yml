@@ -9,6 +9,9 @@ services:
       - "80:80"       # noVNC (behind reverse proxy)
       - "443:443"     # HTTPS (behind reverse proxy)
       - "2222:22"     # SSH
+      - "8080:8080"   # Audio Bridge / WebRTC
+      - "3478:3478"   # STUN/TURN
+      - "5901:5901"   # VNC
     env_file:
       - .env.production
     volumes:

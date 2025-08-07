@@ -13,8 +13,10 @@ services:
       - "32768:80"      # noVNC
       - "2222:22"       # SSH
       - "7681:7681"     # ttyd terminal
-      - "8080:8080"     # Audio Bridge
+      - "8080:8080"     # Audio Bridge / WebRTC
       - "4713:4713"     # PulseAudio
+      - "3478:3478"     # STUN/TURN
+      - "5901:5901"     # VNC
     env_file:
       - .env
     volumes:
