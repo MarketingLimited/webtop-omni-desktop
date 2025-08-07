@@ -30,6 +30,9 @@ cat > package.json << 'EOF'
 }
 EOF
 
+# Ensure node-pre-gyp is available for building native modules
+npm install node-pre-gyp
+
 # Install dependencies
 npm install
 
