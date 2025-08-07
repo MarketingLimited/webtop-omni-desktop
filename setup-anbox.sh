@@ -59,10 +59,10 @@ fi
 mkdir -p "${DEV_HOME}/.config/anbox"
 
 # Configure Anbox for container environment
-cat > "${DEV_HOME}/.config/anbox/config" << 'EOF'
+cat > "${DEV_HOME}/.config/anbox/config" <<EOF
 [core]
 use_system_dbus=false
-data_path=/home/devuser/.local/share/anbox
+data_path=${DEV_HOME}/.local/share/anbox
 socket_path=/run/user/${DEV_UID}/anbox_bridge
 
 [graphics]
@@ -75,7 +75,7 @@ EOF
 
 # Create Anbox startup script
 mkdir -p "${DEV_HOME}/.local/bin"
-cat > "${DEV_HOME}/.local/bin/anbox-start" << 'EOF'
+cat > "${DEV_HOME}/.local/bin/anbox-start" <<EOF
 #!/bin/bash
 export ANBOX_LOG_LEVEL=info
 export XDG_RUNTIME_DIR="/run/user/${DEV_UID}"
