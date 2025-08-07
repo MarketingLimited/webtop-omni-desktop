@@ -573,6 +573,11 @@ cat > "$NOVNC_DIR/audio-env.js" <<'EOF'
 window.AUDIO_HOST = window.AUDIO_HOST || window.location.hostname;
 window.AUDIO_PORT = window.AUDIO_PORT || 8080;
 window.AUDIO_WS_SCHEME = window.AUDIO_WS_SCHEME || '';
+window.WEBRTC_PORT = window.WEBRTC_PORT || window.AUDIO_PORT || 8080;
+window.WEBRTC_STUN_SERVER = window.WEBRTC_STUN_SERVER || '';
+window.WEBRTC_TURN_SERVER = window.WEBRTC_TURN_SERVER || '';
+window.WEBRTC_TURN_USERNAME = window.WEBRTC_TURN_USERNAME || '';
+window.WEBRTC_TURN_PASSWORD = window.WEBRTC_TURN_PASSWORD || '';
 EOF
 
 # Create standalone audio player for testing

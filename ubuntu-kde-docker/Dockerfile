@@ -78,6 +78,10 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y nodejs \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# Packages required for WebRTC audio bridge
+RUN apt-get update && apt-get install -y libnice10 \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
 # Install dbeaver
 RUN wget -O /usr/share/keyrings/dbeaver.gpg.key https://dbeaver.io/debs/dbeaver.gpg.key \
     && echo "deb [signed-by=/usr/share/keyrings/dbeaver.gpg.key] https://dbeaver.io/debs/dbeaver-ce /" > /etc/apt/sources.list.d/dbeaver.list \
@@ -145,6 +149,11 @@ ENV LANGUAGE=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
 ENV TTYD_USER=terminal
 ENV TTYD_PASSWORD=terminal
+ENV WEBRTC_STUN_SERVER=""
+ENV WEBRTC_TURN_SERVER=""
+ENV WEBRTC_TURN_USERNAME=""
+ENV WEBRTC_TURN_PASSWORD=""
+ENV WEBRTC_PORT=8080
 # Create directories and VNC setup for x11vnc
 RUN mkdir -p /var/run/sshd /root/.vnc /tmp/.X11-unix && \
     chmod 1777 /tmp/.X11-unix
@@ -190,7 +199,7 @@ RUN /usr/local/bin/setup-audio.sh && \
 RUN /usr/local/bin/setup-ttyd.sh
 
 # Setup audio bridge
-COPY setup-audio-bridge.sh /usr/local/bin/
+COPY setup-audio-bridge.sh webrtc-audio-server.cjs /usr/local/bin/
 COPY integrate-audio-ui.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/setup-audio-bridge.sh && \
     chmod +x /usr/local/bin/integrate-audio-ui.sh && \
@@ -250,6 +259,6 @@ RUN test -x /usr/local/bin/diagnostic-and-fix.sh
 # Run diagnostic-and-fix.sh before entrypoint.sh
 ENTRYPOINT ["/bin/bash", "-c", "/usr/local/bin/diagnostic-and-fix.sh && exec /entrypoint.sh"]
 
-EXPOSE 22 80 5901 7681
+EXPOSE 22 80 8080 3478 5901 7681
 
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf", "-n"]
