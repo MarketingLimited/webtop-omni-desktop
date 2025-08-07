@@ -15,35 +15,31 @@ echo "🔊 Creating virtual PipeWire audio devices..."
 
 # Function to execute PipeWire commands with fallback
 run_pw_cli() {
-    local cmd="$1"
-    
     # Try as the user first
-    if su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pw-cli $cmd" 2>/dev/null; then
+    if su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pw-cli $(printf '%q ' "$@")" 2>/dev/null; then
         return 0
     fi
-    
+
     # Fallback: try direct execution
-    if pw-cli "$cmd" 2>/dev/null; then
+    if pw-cli "${@}" 2>/dev/null; then
         return 0
     fi
-    
+
     return 1
 }
 
 # Function to execute WirePlumber commands
 run_wpctl() {
-    local cmd="$1"
-    
     # Try as the user first
-    if su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; wpctl $cmd" 2>/dev/null; then
+    if su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; wpctl $(printf '%q ' "$@")" 2>/dev/null; then
         return 0
     fi
-    
+
     # Fallback: try direct execution
-    if wpctl "$cmd" 2>/dev/null; then
+    if wpctl "${@}" 2>/dev/null; then
         return 0
     fi
-    
+
     return 1
 }
 

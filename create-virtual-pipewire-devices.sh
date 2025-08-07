@@ -29,18 +29,22 @@ PIPEWIRE_WAIT_TIMEOUT="${PIPEWIRE_WAIT_TIMEOUT:-30}"
 # Function to execute PipeWire commands
 run_pw_cli() {
     if [ "$DEV_USERNAME" = "root" ]; then
-        pw-cli "$@"
+        pw-cli "${@}"
     else
-        su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pw-cli $*"
+        local cmd
+        cmd="export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pw-cli $(printf '%q ' "$@")"
+        su - "${DEV_USERNAME}" -c "$cmd"
     fi
 }
 
 # Function to execute wpctl commands
 run_wpctl() {
     if [ "$DEV_USERNAME" = "root" ]; then
-        wpctl "$@"
+        wpctl "${@}"
     else
-        su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; wpctl $*"
+        local cmd
+        cmd="export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; wpctl $(printf '%q ' "$@")"
+        su - "${DEV_USERNAME}" -c "$cmd"
     fi
 }
 
