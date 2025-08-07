@@ -240,7 +240,6 @@ echo "✅ D-Bus directories prepared"
 log_info "Setting up TTYD terminal service..."
 if [ -f "/usr/local/bin/setup-ttyd.sh" ]; then
     /usr/local/bin/setup-ttyd.sh
-    echo "✅ TTYD setup completed"
 else
     echo "⚠️  TTYD setup script not found"
 fi
