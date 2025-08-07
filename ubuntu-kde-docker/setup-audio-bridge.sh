@@ -7,10 +7,6 @@ set -e
 
 echo "Setting up PulseAudio Web Audio Bridge..."
 
-# Install Node.js and npm for the audio bridge
-curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
-apt-get install -y nodejs
-
 # Create audio bridge directory
 mkdir -p /opt/audio-bridge
 cd /opt/audio-bridge
