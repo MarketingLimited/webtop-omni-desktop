@@ -5,7 +5,8 @@ set -euo pipefail
 echo "🔊 Setting up universal audio integration..."
 
 NOVNC_DIR="/usr/share/novnc"
-UNIVERSAL_AUDIO_SCRIPT="/opt/audio-bridge/universal-audio.js"
+UNIVERSAL_WEBRTC_SCRIPT="/usr/local/bin/universal-webrtc.js"
+HTML_FILES=("$NOVNC_DIR/index.html" "$NOVNC_DIR/vnc.html")
 
 # Wait for noVNC to be ready
 check_novnc_ready() {
@@ -25,20 +26,37 @@ check_novnc_ready() {
     return 1
 }
 
-# Copy universal audio script
-if [ -f "$UNIVERSAL_AUDIO_SCRIPT" ] && check_novnc_ready; then
-    echo "🔧 Copying universal audio script..."
-    cp "$UNIVERSAL_AUDIO_SCRIPT" "$NOVNC_DIR/" 2>/dev/null || {
-        echo "⚠️  Could not copy audio script, continuing..."
+# Copy universal WebRTC script and inject references
+if [ -f "$UNIVERSAL_WEBRTC_SCRIPT" ] && check_novnc_ready; then
+    echo "🔧 Copying universal WebRTC script..."
+    cp "$UNIVERSAL_WEBRTC_SCRIPT" "$NOVNC_DIR/" 2>/dev/null || {
+        echo "⚠️  Could not copy WebRTC script, continuing..."
     }
-    
+
     # Set permissions
     chmod 644 "$NOVNC_DIR"/*.js 2>/dev/null || true
     chmod 644 "$NOVNC_DIR"/*.html 2>/dev/null || true
-    
+
+    # Inject script tags into noVNC HTML files (idempotent)
+    for html in "${HTML_FILES[@]}"; do
+        [ -f "$html" ] || continue
+
+        if ! grep -q 'audio-env.js' "$html"; then
+            if grep -q 'universal-webrtc.js' "$html"; then
+                sed -i '/universal-webrtc.js/i\\    <script src="audio-env.js"></script>' "$html"
+            else
+                sed -i '/<\/body>/i\\    <script src="audio-env.js"></script>' "$html"
+            fi
+        fi
+
+        if ! grep -q 'universal-webrtc.js' "$html"; then
+            sed -i '/<\/body>/i\\    <script src="universal-webrtc.js"></script>' "$html"
+        fi
+    done
+
     echo "✅ Universal audio integration setup completed"
 else
-    echo "⚠️  Universal audio script not found or noVNC not ready, skipping"
+    echo "⚠️  Universal WebRTC script not found or noVNC not ready, skipping"
 fi
 
 exit 0
