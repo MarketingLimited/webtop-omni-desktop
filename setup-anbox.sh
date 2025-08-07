@@ -21,9 +21,27 @@ log_error() {
 
 log_info "Installing Anbox as Android fallback solution..."
 
+# Track package list updates to avoid repeated apt-get update calls
+APT_UPDATED=0
+apt_update_once() {
+    if [[ "${APT_UPDATED}" -eq 0 ]]; then
+        if apt-get update; then
+            APT_UPDATED=1
+        else
+            log_warn "apt-get update failed"
+        fi
+    fi
+}
+
+apt_install() {
+    apt_update_once
+    if ! apt-get install -y "$@"; then
+        log_warn "apt-get install failed for: $*"
+    fi
+}
+
 # Install Anbox dependencies
-apt-get update
-apt-get install -y \
+apt_install \
     snapd \
     squashfuse \
     fuse \
@@ -41,17 +59,15 @@ else
     log_warn "snapd not available, skipping snap install."
 fi
 
-# Alternative: Install Anbox from PPA
+# Alternative: Install Anbox from community-maintained PPA
 if ! command -v anbox >/dev/null 2>&1; then
-    log_info "Installing Anbox from PPA..."
-    # Add Anbox PPA
-    if ! add-apt-repository -y ppa:morphis/anbox-support 2>/dev/null; then
+    log_info "Installing Anbox from community-maintained PPA..."
+    # Add Anbox PPA maintained by the community (replaces deprecated morphis/anbox-support)
+    if add-apt-repository -y ppa:apandada1/anbox-support 2>/dev/null; then
+        APT_UPDATED=0
+        apt_install anbox-modules-dkms anbox
+    else
         log_warn "Failed to add Anbox PPA."
-    fi
-    apt-get update
-    # Install Anbox
-    if ! apt-get install -y anbox-modules-dkms anbox; then
-        log_warn "PPA installation failed. Anbox may not be available."
     fi
 fi
 
