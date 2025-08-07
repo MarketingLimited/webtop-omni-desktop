@@ -17,6 +17,9 @@ services:
       - "8081:8081"     # WebRTC signaling WebSocket
     env_file:
       - .env
+    environment:
+      PIPEWIRE_RUNTIME_DIR: /run/user/${DEV_UID}
+      XDG_RUNTIME_DIR: /run/user/${DEV_UID}
     volumes:
       - /data/ubuntu-kde-docker_webtop/config:/config
       - /data/ubuntu-kde-docker_webtop/var/log/supervisor:/var/log/supervisor
