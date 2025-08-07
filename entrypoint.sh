@@ -381,6 +381,14 @@ case "$ANDROID_STATUS" in
         ;;
 esac
 
+# Ensure runtime directory for the development user exists
+if [ ! -d "/run/user/${DEV_UID}" ]; then
+    log_info "Creating XDG_RUNTIME_DIR for ${DEV_USERNAME}"
+    mkdir -p "/run/user/${DEV_UID}"
+    chown "${DEV_UID}:${DEV_GID}" "/run/user/${DEV_UID}"
+    chmod 700 "/run/user/${DEV_UID}"
+fi
+
 log_info "Starting supervisor daemon..."
 
 exec env \
