@@ -108,7 +108,7 @@ RUN mkdir -p /etc/apt/keyrings \
     && wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor | tee /etc/apt/keyrings/google-chrome.gpg > /dev/null \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
     && wget -q -O - https://deb.opera.com/archive.key | gpg --dearmor | tee /etc/apt/keyrings/opera.gpg > /dev/null \
-    && echo "deb [signed-by=/etc/apt/keyrings/opera.gpg] https://deb.opera.com/opera-stable/ stable non-free" > /etc/apt/sources.list.d/opera-stable.list \
+    && echo "deb [signed-by=/etc/apt/keyrings/opera.gpg] https://deb.opera.com/opera-stable/ stable non-free" > /etc/apt/sources.list.d/opera.list \
     && apt-get update \
     && apt-get install -y \
         google-chrome-stable brave-browser opera-stable code \

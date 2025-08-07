@@ -431,44 +431,6 @@ if [ ! -d "/run/user/${DEV_UID}" ]; then
     chmod 700 "/run/user/${DEV_UID}"
 fi
 
-# Register user desktop sessions and align WebSocket port
-log_info "Registering desktop sessions..."
-/usr/local/bin/add-user-session.sh "$DEV_USERNAME"
-
-# Register admin session if configured
-if id -u "$ADMIN_USERNAME" >/dev/null 2>&1; then
-    /usr/local/bin/add-user-session.sh "$ADMIN_USERNAME"
-fi
-
-# Register sessions for any extra users
-if [ -n "${EXTRA_USERS:-}" ]; then
-    IFS=',' read -ra EXTRA_USER_LIST <<< "$EXTRA_USERS"
-    for USER_PAIR in "${EXTRA_USER_LIST[@]}"; do
-        IFS=':' read -r EXTRA_USER _ <<< "$USER_PAIR"
-        [ -n "$EXTRA_USER" ] && /usr/local/bin/add-user-session.sh "$EXTRA_USER"
-    done
-fi
-
-# Ensure exposed port matches the default user's WebSocket port
-MAP_FILE="/var/log/webtop/user_ports.csv"
-EXPOSED_PORT="${WEB_PORT:-80}"
-if [ -f "$MAP_FILE" ]; then
-    DEV_LINE=$(grep "^$DEV_USERNAME," "$MAP_FILE" || true)
-    if [ -n "$DEV_LINE" ]; then
-        CURRENT_WS_PORT=$(echo "$DEV_LINE" | cut -d',' -f4)
-        if [ "$CURRENT_WS_PORT" != "$EXPOSED_PORT" ]; then
-            log_info "Adjusting $DEV_USERNAME websockify port to $EXPOSED_PORT to match exposed port"
-            CONF_FILE="/etc/supervisor/conf.d/user-$DEV_USERNAME.conf"
-            if [ -f "$CONF_FILE" ]; then
-                sed -E -i "s/(websockify[^ ]* )${CURRENT_WS_PORT}( localhost)/\1${EXPOSED_PORT}\2/" "$CONF_FILE"
-                sed -E -i "s/^(${DEV_USERNAME},[^,]*,[^,]*,).*/\1${EXPOSED_PORT}/" "$MAP_FILE"
-            else
-                log_warn "Supervisor config for $DEV_USERNAME not found; port adjustment skipped"
-            fi
-        fi
-    fi
-fi
-
 log_info "Starting supervisor daemon..."
 
 exec env \
