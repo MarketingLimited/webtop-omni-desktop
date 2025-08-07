@@ -77,7 +77,11 @@ add_user() {
         htpasswd -b "$HTPASSWD_FILE" "$username" "$password"
     else
         print_status "Adding new user: $username"
-        htpasswd -bc "$HTPASSWD_FILE" "$username" "$password" 2>/dev/null || htpasswd -b "$HTPASSWD_FILE" "$username" "$password"
+        if [[ -s "$HTPASSWD_FILE" ]]; then
+            htpasswd -b "$HTPASSWD_FILE" "$username" "$password"
+        else
+            htpasswd -bc "$HTPASSWD_FILE" "$username" "$password"
+        fi
     fi
     
     print_success "User $username configured successfully"
@@ -156,6 +160,17 @@ generate_auth_from_env() {
             if [[ "$user_pass" == *":"* ]]; then
                 local user="${user_pass%%:*}"
                 local pass="${user_pass#*:}"
+                add_user "$user" "$pass"
+            fi
+        done
+    fi
+
+    # Add extra users if defined
+    if [[ -n "$EXTRA_USERS" ]]; then
+        IFS=',' read -ra USERS <<< "$EXTRA_USERS"
+        for user_pass in "${USERS[@]}"; do
+            IFS=':' read -r user pass <<< "$user_pass"
+            if [[ -n "$user" && -n "$pass" ]]; then
                 add_user "$user" "$pass"
             fi
         done
