@@ -8,6 +8,7 @@
     // Allow runtime override of audio service location
     const audioHost = window.AUDIO_HOST || window.location.hostname;
     const audioPort = window.AUDIO_PORT || 8080;
+    const webrtcPort = window.WEBRTC_PORT || audioPort;
 
     // Prevent multiple instances
     if (window.UniversalAudioManager) return;
@@ -382,7 +383,7 @@
                     this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
                     this.gainNode = this.audioContext.createGain();
                     this.gainNode.connect(this.audioContext.destination);
-                    
+
                     const savedVolume = localStorage.getItem('audio-volume') || '50';
                     this.setVolume(savedVolume);
                 }
@@ -391,13 +392,78 @@
                     await this.audioContext.resume();
                 }
 
-                await this.attemptConnection();
-                
+                try {
+                    await this.connectWebRTC();
+                } catch (err) {
+                    console.warn('WebRTC connection failed, falling back to WebSocket:', err);
+                    await this.attemptConnection();
+                }
+
             } catch (error) {
                 console.error('Audio connection failed:', error);
                 this.updateStatus('Connection failed', 'error');
                 this.scheduleRetry();
             }
+        }
+
+        getIceServers() {
+            const servers = [];
+            if (window.WEBRTC_STUN_SERVER) {
+                servers.push({ urls: window.WEBRTC_STUN_SERVER });
+            }
+            if (window.WEBRTC_TURN_SERVER) {
+                servers.push({
+                    urls: window.WEBRTC_TURN_SERVER,
+                    username: window.WEBRTC_TURN_USERNAME || undefined,
+                    credential: window.WEBRTC_TURN_PASSWORD || undefined
+                });
+            }
+            return servers;
+        }
+
+        async connectWebRTC() {
+            const pc = new RTCPeerConnection({ iceServers: this.getIceServers() });
+            this.peerConnection = pc;
+
+            pc.ontrack = (event) => {
+                try {
+                    const stream = event.streams[0];
+                    const source = this.audioContext.createMediaStreamSource(stream);
+                    source.connect(this.gainNode);
+                } catch (e) {
+                    console.warn('Failed to attach WebRTC stream:', e);
+                }
+            };
+
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+
+            const response = await fetch(`http://${audioHost}:${webrtcPort}/offer`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(offer)
+            });
+            if (!response.ok) {
+                throw new Error('Failed to receive answer');
+            }
+            const answer = await response.json();
+            await pc.setRemoteDescription(answer);
+
+            await new Promise((resolve, reject) => {
+                const timer = setTimeout(() => reject(new Error('WebRTC connection timeout')), 5000);
+                pc.onconnectionstatechange = () => {
+                    if (pc.connectionState === 'connected') {
+                        clearTimeout(timer);
+                        this.isConnected = true;
+                        this.updateUI();
+                        this.updateStatus('Audio connected', 'connected');
+                        resolve();
+                    } else if (['failed', 'disconnected', 'closed'].includes(pc.connectionState)) {
+                        clearTimeout(timer);
+                        reject(new Error('WebRTC connection failed'));
+                    }
+                };
+            });
         }
 
         async attemptConnection() {
@@ -462,6 +528,10 @@
             if (this.websocket) {
                 this.websocket.close();
                 this.websocket = null;
+            }
+            if (this.peerConnection) {
+                this.peerConnection.close();
+                this.peerConnection = null;
             }
             this.isConnected = false;
             this.updateUI();

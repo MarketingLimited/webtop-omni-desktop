@@ -94,6 +94,19 @@
    ./webtop.sh build-logs        # View build logs
    ```
 
+### WebRTC Audio Configuration
+
+The audio bridge now supports WebRTC streaming. Configure STUN/TURN servers by
+setting the following environment variables when launching the container:
+
+- `WEBRTC_STUN_SERVER` – STUN server URL (e.g. `stun:stun.l.google.com:19302`)
+- `WEBRTC_TURN_SERVER` – TURN server URL
+- `WEBRTC_TURN_USERNAME` – TURN authentication username
+- `WEBRTC_TURN_PASSWORD` – TURN authentication password
+
+If negotiation fails, the client automatically falls back to the legacy
+WebSocket audio stream.
+
 ### Manual Installation
 
 1. **System checks**

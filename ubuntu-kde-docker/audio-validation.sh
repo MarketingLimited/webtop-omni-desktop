@@ -88,6 +88,39 @@ test_kde_audio_integration() {
     fi
 }
 
+# Verify WebRTC bridge is responding
+test_webrtc_bridge() {
+    echo "🔍 Testing WebRTC audio bridge..."
+    if command -v node >/dev/null 2>&1; then
+        if node <<'NODE'
+const { RTCPeerConnection } = require('/opt/audio-bridge/node_modules/wrtc');
+(async () => {
+  try {
+    const pc = new RTCPeerConnection();
+    pc.ontrack = () => { process.exit(0); };
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    const res = await fetch('http://localhost:8080/offer', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(offer)
+    });
+    const answer = await res.json();
+    await pc.setRemoteDescription(answer);
+    setTimeout(() => process.exit(1), 3000);
+  } catch (e) {
+    process.exit(1);
+  }
+})();
+NODE
+        then
+            green "✅ WebRTC bridge responding"
+        else
+            yellow "⚠️  WebRTC bridge test failed"
+        fi
+    else
+        yellow "⚠️  Node.js not available for WebRTC test"
+    fi
+}
+
 # Create desktop audio test file
 create_audio_test_script() {
     echo "🔧 Creating desktop audio test script..."
@@ -147,7 +180,8 @@ main() {
     sleep 5
     
     validate_pulseaudio
-    test_kde_audio_integration  
+    test_kde_audio_integration
+    test_webrtc_bridge
     create_audio_test_script
     
     echo ""

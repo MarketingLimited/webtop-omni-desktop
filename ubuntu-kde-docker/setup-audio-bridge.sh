@@ -24,13 +24,17 @@ cat > package.json << 'EOF'
   "main": "server.js",
   "dependencies": {
     "ws": "^8.14.2",
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "wrtc": "^0.4.7"
   }
 }
 EOF
 
 # Install dependencies
 npm install
+
+# Copy WebRTC audio server implementation
+cp /usr/local/bin/webrtc-audio-server.cjs ./webrtc-audio-server.cjs
 
 # Create the audio bridge server
 cat > server.js << 'EOF'
