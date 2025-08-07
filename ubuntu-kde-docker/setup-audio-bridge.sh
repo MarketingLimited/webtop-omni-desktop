@@ -32,9 +32,6 @@ npm install node-pre-gyp
 # Install dependencies
 npm install
 
-# Copy WebRTC audio server implementation
-cp /usr/local/bin/webrtc-audio-server.cjs ./webrtc-audio-server.cjs
-
 # Create the audio bridge server
 cat > server.js << 'EOF'
 const http = require('http');
@@ -42,6 +39,15 @@ const WebSocket = require('ws');
 const express = require('express');
 const { spawn, execSync } = require('child_process');
 const path = require('path');
+
+let wrtc;
+try {
+    wrtc = require('wrtc');
+    console.log('wrtc module loaded, WebRTC endpoint enabled');
+} catch (err) {
+    console.warn('wrtc module not available, falling back to WebSocket-only streaming:', err.message);
+    wrtc = null;
+}
 
 const app = express();
 const PORT = 8080;
@@ -57,6 +63,65 @@ app.get('/package.json', (req, res) => {
 app.get('/audio-player.html', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'audio-player.html'));
 });
+
+if (wrtc) {
+    app.use(express.json());
+    const { RTCPeerConnection, nonstandard: { RTCAudioSource } } = wrtc;
+
+    function buildIceServers() {
+        const servers = [];
+        if (process.env.WEBRTC_STUN_SERVER) {
+            servers.push({ urls: process.env.WEBRTC_STUN_SERVER });
+        }
+        if (process.env.WEBRTC_TURN_SERVER) {
+            servers.push({
+                urls: process.env.WEBRTC_TURN_SERVER,
+                username: process.env.WEBRTC_TURN_USERNAME,
+                credential: process.env.WEBRTC_TURN_PASSWORD
+            });
+        }
+        return servers;
+    }
+
+    app.post('/offer', async (req, res) => {
+        try {
+            const pc = new RTCPeerConnection({ iceServers: buildIceServers() });
+            const source = new RTCAudioSource();
+            const track = source.createTrack();
+            pc.addTrack(track);
+
+            const silenceInterval = setInterval(() => {
+                const silence = Buffer.alloc((48000 / 50) * 2);
+                source.onData({
+                    samples: silence,
+                    sampleRate: 48000,
+                    channelCount: 1,
+                    bitsPerSample: 16
+                });
+            }, 20);
+
+            await pc.setRemoteDescription(req.body);
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            res.json(pc.localDescription);
+
+            pc.onconnectionstatechange = () => {
+                if (['closed', 'failed', 'disconnected'].includes(pc.connectionState)) {
+                    clearInterval(silenceInterval);
+                    pc.close();
+                    track.stop();
+                }
+            };
+        } catch (err) {
+            console.error('WebRTC error:', err);
+            res.status(500).send(err.toString());
+        }
+    });
+} else {
+    app.post('/offer', (_req, res) => {
+        res.status(503).send('WebRTC module not available');
+    });
+}
 
 const server = http.createServer(app);
 
