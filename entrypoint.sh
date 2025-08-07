@@ -13,6 +13,7 @@ echo "🚀 Starting Ubuntu KDE Marketing Agency WebTop..."
 : "${ROOT_PASSWORD:=ComplexP@ssw0rd!}"
 : "${TTYD_USER:=terminal}"
 : "${TTYD_PASSWORD:=TerminalPassw0rd!}"
+: "${EXTRA_USERS:=}"
 
 # Logging function
 log_info() {
@@ -198,6 +199,22 @@ if ! getent group audio >/dev/null; then
 fi
 usermod -aG sudo,ssl-cert,audio,video "$DEV_USERNAME"
 
+# Populate /etc/skel with default configurations
+log_info "Populating /etc/skel with default configs..."
+mkdir -p /etc/skel/.vnc
+if [ -f /tmp/xstartup ]; then
+    cp /tmp/xstartup /etc/skel/.vnc/xstartup
+    chmod +x /etc/skel/.vnc/xstartup
+fi
+# Copy KDE defaults from dev user's home if available
+if [ -d "/home/${DEV_USERNAME}/.config" ]; then
+    cp -r /home/${DEV_USERNAME}/.config /etc/skel/ 2>/dev/null || true
+fi
+if [ -d "/home/${DEV_USERNAME}/.local" ]; then
+    cp -r /home/${DEV_USERNAME}/.local /etc/skel/ 2>/dev/null || true
+fi
+mkdir -p /etc/skel/Desktop /etc/skel/Documents /etc/skel/Downloads
+
 # Ensure runtime variables match the actual user IDs
 DEV_UID="$(id -u "$DEV_USERNAME")"
 DEV_GID="$(id -g "$DEV_USERNAME")"
@@ -212,14 +229,40 @@ usermod -aG sudo "$ADMIN_USERNAME"
 
 sed -i 's/^%sudo.*/%sudo ALL=(ALL) NOPASSWD:ALL/' /etc/sudoers
 
+# Create additional users specified in EXTRA_USERS
+if [ -n "${EXTRA_USERS:-}" ]; then
+    IFS=',' read -ra EXTRA_USER_LIST <<< "$EXTRA_USERS"
+    for USER_PAIR in "${EXTRA_USER_LIST[@]}"; do
+        IFS=':' read -r NEW_USER NEW_PASS <<< "$USER_PAIR"
+        if [ -z "$NEW_USER" ] || [ -z "$NEW_PASS" ]; then
+            log_warn "Invalid user specification in EXTRA_USERS: $USER_PAIR"
+            continue
+        fi
+        if ! id -u "$NEW_USER" > /dev/null 2>&1; then
+            useradd -m -s /bin/bash "$NEW_USER"
+        fi
+        echo "${NEW_USER}:${NEW_PASS}" | chpasswd
+        for grp in sudo audio video; do
+            getent group "$grp" >/dev/null || groupadd -r "$grp"
+        done
+        usermod -aG sudo,audio,video "$NEW_USER"
+        cp -r /etc/skel/. "/home/${NEW_USER}/"
+        chown -R "${NEW_USER}:${NEW_USER}" "/home/${NEW_USER}"
+    done
+fi
+
 # Prepare VNC startup script for dev user
 mkdir -p "/home/${DEV_USERNAME}/.vnc"
-cat <<'XEOF' > "/home/${DEV_USERNAME}/.vnc/xstartup"
+if [ -f /etc/skel/.vnc/xstartup ]; then
+    cp /etc/skel/.vnc/xstartup "/home/${DEV_USERNAME}/.vnc/xstartup"
+else
+    cat <<'XEOF' > "/home/${DEV_USERNAME}/.vnc/xstartup"
 #!/bin/sh
 export XKL_XMODMAP_DISABLE=1
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 exec dbus-launch --exit-with-session /usr/bin/startplasma-x11
 XEOF
+fi
 chown -R "${DEV_USERNAME}":"${DEV_USERNAME}" "/home/${DEV_USERNAME}/.vnc"
 chmod +x "/home/${DEV_USERNAME}/.vnc/xstartup"
 
