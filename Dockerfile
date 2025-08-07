@@ -178,6 +178,7 @@ COPY fix-permissions.sh /usr/local/bin/fix-permissions.sh
 COPY test-polkit.sh /usr/local/bin/test-polkit.sh
 COPY create-virtual-pipewire-devices.sh /usr/local/bin/create-virtual-pipewire-devices.sh
 COPY fix-pipewire-routing.sh /usr/local/bin/fix-pipewire-routing.sh
+COPY create-novnc-homepage.sh /usr/local/bin/create-novnc-homepage.sh
 COPY setup-universal-audio.sh /usr/local/bin/setup-universal-audio.sh
 COPY wait-for-service.sh /usr/local/bin/wait-for-service.sh
 COPY supervisord-audio-fix.conf /etc/supervisor/conf.d/pipewire.conf
@@ -192,7 +193,8 @@ RUN chmod +x /usr/local/bin/setup-*.sh \
     /usr/local/bin/test-polkit.sh \
     /usr/local/bin/fix-pipewire-startup.sh \
     /usr/local/bin/create-virtual-pipewire-devices.sh \
-    /usr/local/bin/fix-pipewire-routing.sh
+    /usr/local/bin/fix-pipewire-routing.sh \
+    /usr/local/bin/create-novnc-homepage.sh
 
 # Initialize PipeWire system during build
 RUN /usr/local/bin/setup-pipewire.sh && \
