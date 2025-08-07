@@ -1,76 +1,26 @@
 #!/bin/bash
 set -euo pipefail
 
+DEV_USERNAME="${DEV_USERNAME:-devuser}"
+DEV_UID="${DEV_UID:-$(id -u "$DEV_USERNAME" 2>/dev/null || echo 1000)}"
+
 echo "🔊 Setting up PipeWire audio system..."
 
-# Determine interactive users (UID >= 1000 and valid shell)
-mapfile -t INTERACTIVE_USERS < <(awk -F: '($3 >= 1000 && $7 !~ /(nologin|false)$/){print $1":"$3":"$6}' /etc/passwd)
-
-if [ "${#INTERACTIVE_USERS[@]}" -gt 0 ]; then
+# Check if we're running during build (user doesn't exist yet) or runtime
+if id "$DEV_USERNAME" >/dev/null 2>&1; then
     IS_RUNTIME=true
-    echo "🔧 Runtime mode: Configuring existing users"
+    echo "🔧 Runtime mode: Setting up user-specific PipeWire configuration"
 else
     IS_RUNTIME=false
-    echo "🔧 Build mode: Populating skeleton for future users"
+    echo "🔧 Build mode: Setting up system-wide PipeWire configuration only"
 fi
 
-# Generate user-specific PipeWire configuration
-generate_user_pipewire_conf() {
-    local uid="$1"
-    cat <<EOF
-# User-specific PipeWire configuration
-context.properties = {
-    default.clock.rate        = 44100
-    default.clock.quantum     = 1024
-    link.max-buffers         = 64
-    log.level                = 2
-    core.daemon              = true
-    core.name                = pipewire-\${uid}
-}
-
-context.spa-libs = {
-    audio.convert.* = audioconvert/libspa-audioconvert
-    api.alsa.*      = alsa/libspa-alsa
-    api.v4l2.*      = v4l2/libspa-v4l2
-    support.*       = support/libspa-support
-}
-
-context.modules = [
-    { name = libpipewire-module-rt }
-    { name = libpipewire-module-protocol-native }
-    { name = libpipewire-module-client-node }
-    { name = libpipewire-module-adapter }
-    { name = libpipewire-module-link-factory }
-]
-EOF
-}
-
-# Configure runtime environment for a given user
-configure_user() {
-    local user="$1" uid="$2" home="$3"
-
-    mkdir -p "/run/user/\${uid}/pipewire"
-    chown "\${user}:\${user}" "/run/user/\${uid}" "/run/user/\${uid}/pipewire"
-    chmod 700 "/run/user/\${uid}"
-
-    mkdir -p "\${home}/.config/pipewire"
-    generate_user_pipewire_conf "\${uid}" > "\${home}/.config/pipewire/pipewire.conf"
-    chown -R "\${user}:\${user}" "\${home}/.config"
-
-    cat <<EOF > "\${home}/.asoundrc"
-# User ALSA configuration for PipeWire
-pcm.!default {
-    type pipewire
-    playback_node virtual_speaker
-    capture_node virtual_microphone.monitor
-}
-
-ctl.!default {
-    type pipewire
-}
-EOF
-    chown "\${user}:\${user}" "\${home}/.asoundrc"
-}
+# Create runtime directories (build-safe)
+mkdir -p "/run/user/${DEV_UID}" "/run/user/${DEV_UID}/pipewire" || true
+if [ "$IS_RUNTIME" = true ]; then
+    chown "${DEV_USERNAME}:${DEV_USERNAME}" "/run/user/${DEV_UID}" "/run/user/${DEV_UID}/pipewire" || true
+    chmod 700 "/run/user/${DEV_UID}" || true
+fi
 
 # Create PipeWire system configuration
 mkdir -p /etc/pipewire
@@ -159,6 +109,41 @@ context.objects = [
 ]
 EOF
 
+# Create user-specific PipeWire configuration (runtime only)
+if [ "$IS_RUNTIME" = true ]; then
+    mkdir -p "/home/${DEV_USERNAME}/.config/pipewire"
+    cat <<EOF > "/home/${DEV_USERNAME}/.config/pipewire/pipewire.conf"
+# User-specific PipeWire configuration
+context.properties = {
+    default.clock.rate        = 44100
+    default.clock.quantum     = 1024
+    link.max-buffers         = 64
+    log.level                = 2
+    core.daemon              = true
+    core.name                = pipewire-${DEV_UID}
+}
+
+context.spa-libs = {
+    audio.convert.* = audioconvert/libspa-audioconvert
+    api.alsa.*      = alsa/libspa-alsa
+    api.v4l2.*      = v4l2/libspa-v4l2
+    support.*       = support/libspa-support
+}
+
+context.modules = [
+    { name = libpipewire-module-rt }
+    { name = libpipewire-module-protocol-native }
+    { name = libpipewire-module-client-node }
+    { name = libpipewire-module-adapter }
+    { name = libpipewire-module-link-factory }
+]
+EOF
+
+    # Set proper ownership (runtime only)
+    chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/.config"
+fi
+
+# Create ALSA configuration for PipeWire compatibility
 cat <<EOF > /etc/asound.conf
 # ALSA configuration for PipeWire
 pcm.!default {
@@ -195,15 +180,9 @@ pcm.marketing_microphone {
 }
 EOF
 
+# Create user-specific ALSA configuration (runtime only)
 if [ "$IS_RUNTIME" = true ]; then
-    for entry in "${INTERACTIVE_USERS[@]}"; do
-        IFS=: read -r user uid home <<< "$entry"
-        configure_user "$user" "$uid" "$home"
-    done
-else
-    mkdir -p /etc/skel/.config/pipewire
-    generate_user_pipewire_conf 1000 > /etc/skel/.config/pipewire/pipewire.conf
-    cat <<'EOF' > /etc/skel/.asoundrc
+    cat <<EOF > "/home/${DEV_USERNAME}/.asoundrc"
 # User ALSA configuration for PipeWire
 pcm.!default {
     type pipewire
@@ -215,6 +194,8 @@ ctl.!default {
     type pipewire
 }
 EOF
+
+    chown "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/.asoundrc"
 fi
 
 # Create PipeWire test script
