@@ -166,6 +166,7 @@ COPY setup-marketing-shortcuts.sh /usr/local/bin/setup-marketing-shortcuts.sh
 COPY setup-development.sh /usr/local/bin/setup-development.sh
 COPY setup-wine.sh /usr/local/bin/setup-wine.sh
 COPY setup-waydroid.sh /usr/local/bin/setup-waydroid.sh
+COPY setup-anbox.sh /usr/local/bin/setup-anbox.sh
 COPY setup-video-editing.sh /usr/local/bin/setup-video-editing.sh
 COPY setup-ttyd.sh /usr/local/bin/setup-ttyd.sh
 COPY service-health.sh /usr/local/bin/service-health.sh
@@ -183,6 +184,7 @@ COPY setup-universal-audio.sh /usr/local/bin/setup-universal-audio.sh
 COPY wait-for-service.sh /usr/local/bin/wait-for-service.sh
 COPY supervisord-audio-fix.conf /etc/supervisor/conf.d/pipewire.conf
 RUN chmod +x /usr/local/bin/setup-*.sh \
+    /usr/local/bin/setup-anbox.sh \
     /usr/local/bin/wait-for-service.sh \
     /usr/local/bin/service-health.sh \
     /usr/local/bin/test-webrtc-pipeline.sh \
