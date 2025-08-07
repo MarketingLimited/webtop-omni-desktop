@@ -225,6 +225,8 @@ RUN echo "Validating script dependencies..." && \
     /usr/local/bin/audio-validation.sh
 
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY nginx-supervisor.conf /etc/supervisor/conf.d/nginx.conf
 
 # Copy PolicyKit configuration files for Ubuntu 24.04 bug fix
 COPY polkit-localauthority.conf /tmp/polkit-localauthority.conf
