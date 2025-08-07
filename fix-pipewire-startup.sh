@@ -4,6 +4,7 @@ set -euo pipefail
 
 DEV_USERNAME="${DEV_USERNAME:-devuser}"
 DEV_UID="${DEV_UID:-$(id -u "$DEV_USERNAME" 2>/dev/null || echo 1000)}"
+DEV_HOME=""
 
 # Color output functions
 red() { echo -e "\033[31m$*\033[0m"; }
@@ -36,7 +37,9 @@ main() {
         DEV_USERNAME="root"
         DEV_UID=0
     fi
-    export DEV_USERNAME DEV_UID
+
+    DEV_HOME="$(getent passwd "$DEV_USERNAME" | cut -d: -f6 2>/dev/null || echo "/home/${DEV_USERNAME}")"
+    export DEV_USERNAME DEV_UID DEV_HOME
 
     # 1. Ensure runtime directories exist
     mkdir -p "/run/user/${DEV_UID}/pipewire"

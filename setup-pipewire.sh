@@ -3,6 +3,7 @@ set -euo pipefail
 
 DEV_USERNAME="${DEV_USERNAME:-devuser}"
 DEV_UID="${DEV_UID:-$(id -u "$DEV_USERNAME" 2>/dev/null || echo 1000)}"
+DEV_HOME="$(getent passwd "$DEV_USERNAME" | cut -d: -f6 2>/dev/null || echo "/home/${DEV_USERNAME}")"
 
 echo "🔊 Setting up PipeWire audio system..."
 
@@ -111,8 +112,8 @@ EOF
 
 # Create user-specific PipeWire configuration (runtime only)
 if [ "$IS_RUNTIME" = true ]; then
-    mkdir -p "/home/${DEV_USERNAME}/.config/pipewire"
-    cat <<EOF > "/home/${DEV_USERNAME}/.config/pipewire/pipewire.conf"
+    mkdir -p "${DEV_HOME}/.config/pipewire"
+    cat <<EOF > "${DEV_HOME}/.config/pipewire/pipewire.conf"
 # User-specific PipeWire configuration
 context.properties = {
     default.clock.rate        = 44100
@@ -140,7 +141,7 @@ context.modules = [
 EOF
 
     # Set proper ownership (runtime only)
-    chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/.config"
+    chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "${DEV_HOME}/.config"
 fi
 
 # Create ALSA configuration for PipeWire compatibility
@@ -182,7 +183,7 @@ EOF
 
 # Create user-specific ALSA configuration (runtime only)
 if [ "$IS_RUNTIME" = true ]; then
-    cat <<EOF > "/home/${DEV_USERNAME}/.asoundrc"
+    cat <<EOF > "${DEV_HOME}/.asoundrc"
 # User ALSA configuration for PipeWire
 pcm.!default {
     type pipewire
@@ -195,7 +196,7 @@ ctl.!default {
 }
 EOF
 
-    chown "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/.asoundrc"
+    chown "${DEV_USERNAME}:${DEV_USERNAME}" "${DEV_HOME}/.asoundrc"
 fi
 
 # Create PipeWire test script

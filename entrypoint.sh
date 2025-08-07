@@ -201,6 +201,7 @@ usermod -aG sudo,ssl-cert,audio,video "$DEV_USERNAME"
 # Ensure runtime variables match the actual user IDs
 DEV_UID="$(id -u "$DEV_USERNAME")"
 DEV_GID="$(id -g "$DEV_USERNAME")"
+DEV_HOME="$(getent passwd "$DEV_USERNAME" | cut -d: -f6)"
 
 # Admin user
 if ! id -u "$ADMIN_USERNAME" > /dev/null 2>&1; then
@@ -409,8 +410,9 @@ exec env \
     ENV_DEV_USERNAME="${DEV_USERNAME}" \
     ENV_DEV_UID="${DEV_UID}" \
     ENV_DEV_GID="${DEV_GID}" \
+    ENV_DEV_HOME="${DEV_HOME}" \
     ENV_TTYD_USER="${TTYD_USER}" \
     ENV_TTYD_PASSWORD="${TTYD_PASSWORD}" \
-    DEV_USERNAME="${DEV_USERNAME}" DEV_UID="${DEV_UID}" DEV_GID="${DEV_GID}" \
+    DEV_USERNAME="${DEV_USERNAME}" DEV_UID="${DEV_UID}" DEV_GID="${DEV_GID}" DEV_HOME="${DEV_HOME}" \
     TTYD_USER="${TTYD_USER}" TTYD_PASSWORD="${TTYD_PASSWORD}" \
     /usr/bin/supervisord -c /etc/supervisor/supervisord.conf -n
