@@ -82,6 +82,7 @@ if ! lsmod | grep -q "binder_linux" || ! lsmod | grep -q "ashmem_linux"; then
     log_warn "Android subsystem setup failed: Missing required kernel modules."
     log_warn "The host system is missing 'binder_linux' and/or 'ashmem_linux' kernel modules."
     log_warn "These modules must be loaded on the Docker host to enable Android support."
+    log_warn "See ubuntu-kde-docker/README.md#android-host-kernel-modules for instructions."
     log_warn "Waydroid installation will be skipped."
 
     # Create a placeholder explaining the issue

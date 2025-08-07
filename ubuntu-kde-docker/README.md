@@ -39,6 +39,24 @@ A comprehensive Docker environment featuring Ubuntu with KDE Plasma desktop, spe
 - Docker & Docker Compose
 - 4GB+ RAM recommended
 - Modern web browser
+- (For Android support) binder_linux and ashmem_linux kernel modules on the host
+
+### Android Host Kernel Modules
+To run Android apps with Waydroid, the Docker host must load two kernel modules:
+
+```bash
+sudo apt install -y linux-modules-extra-$(uname -r)
+sudo modprobe binder_linux
+sudo modprobe ashmem_linux
+```
+
+You can verify the modules are present using:
+
+```bash
+lsmod | grep -e binder_linux -e ashmem_linux
+```
+
+Run `./check-android-modules.sh` before starting the container to confirm readiness.
 
 ### 1. Clone & Configure
 ```bash
