@@ -13,6 +13,30 @@ if [[ -z "$USERNAME" ]]; then
     exit 1
 fi
 
+# Default credential variables
+: "${DEV_USERNAME:=devuser}"
+: "${DEV_PASSWORD:=DevPassw0rd!}"
+: "${ADMIN_USERNAME:=adminuser}"
+: "${ADMIN_PASSWORD:=AdminPassw0rd!}"
+: "${EXTRA_USERS:=}"
+
+# Resolve password for the requested user
+USER_PASS=""
+if [[ "$USERNAME" == "$DEV_USERNAME" && -n "${DEV_PASSWORD:-}" ]]; then
+    USER_PASS="$DEV_PASSWORD"
+elif [[ "$USERNAME" == "$ADMIN_USERNAME" && -n "${ADMIN_PASSWORD:-}" ]]; then
+    USER_PASS="$ADMIN_PASSWORD"
+elif [[ -n "$EXTRA_USERS" ]]; then
+    IFS=',' read -ra EXTRA_USER_LIST <<< "$EXTRA_USERS"
+    for USER_PAIR in "${EXTRA_USER_LIST[@]}"; do
+        IFS=':' read -r EXTRA_USER EXTRA_PASS <<< "$USER_PAIR"
+        if [[ "$EXTRA_USER" == "$USERNAME" ]]; then
+            USER_PASS="$EXTRA_PASS"
+            break
+        fi
+    done
+fi
+
 CONF_DIR="/etc/supervisor/conf.d"
 MAP_FILE="/var/log/webtop/user_ports.csv"
 
@@ -48,6 +72,12 @@ while true; do
     break
 done
 
+if [[ -n "$USER_PASS" ]]; then
+    WEBSOCKIFY_OPTS="--web=/usr/share/novnc/ --web-auth --auth-plugin=websockify.auth_plugins:BasicHTTPAuth --auth-source ${USERNAME}:${USER_PASS}"
+else
+    WEBSOCKIFY_OPTS="--web=/usr/share/novnc/"
+fi
+
 cat >"$CONF_DIR/user-$USERNAME.conf" <<EOF
 [program:Xvfb_$USERNAME]
 command=/usr/bin/Xvfb :$display -screen 0 1920x1080x24 -dpi 96 +extension GLX +render -noreset -ac
@@ -68,7 +98,7 @@ stdout_logfile=/var/log/supervisor/x11vnc_$USERNAME.log
 stderr_logfile=/var/log/supervisor/x11vnc_$USERNAME.log
 
 [program:noVNC_$USERNAME]
-command=/usr/bin/websockify --web=/usr/share/novnc/ $ws_port localhost:$vnc_port
+command=/usr/bin/websockify $WEBSOCKIFY_OPTS $ws_port localhost:$vnc_port
 priority=37
 autostart=true
 autorestart=true
