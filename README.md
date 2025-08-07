@@ -169,67 +169,32 @@ docker exec webtop-kde /usr/local/bin/health-check.sh
 docker exec webtop-kde /usr/local/bin/service-health.sh status
 ```
 
-## 🎵 Audio Configuration & Recovery
+## 🎵 Audio Configuration
 
-The system includes an enhanced container-compatible audio setup with comprehensive recovery capabilities:
+The system includes a container-compatible audio setup:
 
-### Core Audio Components
-1. **PipeWire**: Main audio server daemon with container optimizations
-2. **WirePlumber**: Session manager for PipeWire with proper startup sequence
-3. **Virtual Audio Devices**: virtual_speaker and virtual_microphone for WebRTC streaming
-4. **WebRTC Bridge**: Streams audio to web browsers via ports 8080/8081
-5. **Enhanced Recovery**: 8-phase recovery system for automatic audio repair
-
-### 🚨 Audio System Recovery (NEW)
-
-If you're experiencing audio issues with PipeWire failing (exit 145), WirePlumber errors (exit 69), or virtual device creation failures, use the enhanced recovery system:
-
-```bash
-# Run the comprehensive 8-phase audio recovery
-docker exec webtop-kde /usr/local/bin/enhanced-audio-recovery.sh
-
-# Quick status check
-docker exec webtop-kde supervisorctl status | grep -E "(pipewire|wireplumber|audio)"
-```
-
-### Audio Recovery Phases
-1. **Core Environment**: Fix runtime directories and permissions
-2. **Service Cleanup**: Stop failing services and clean stale processes  
-3. **PipeWire Startup**: Start PipeWire with proper environment
-4. **WirePlumber Launch**: Initialize session manager with dependencies
-5. **Virtual Devices**: Create virtual_speaker and virtual_microphone
-6. **Supervisor Integration**: Restart supervisor-managed services
-7. **System Testing**: Validate all components are working
-8. **Status Report**: Display comprehensive system status
+1. **Virtual Audio Devices**: Software-based virtual speakers and microphones
+2. **PipeWire Server**: Runs with container-compatible virtual sinks
+3. **Audio Forwarding**: Streams audio via WebRTC bridge
+4. **KDE Integration**: Virtual devices appear in KDE System Settings
 
 ### Audio Management Commands
 ```bash
-# Enhanced audio recovery (recommended for issues)
-docker exec webtop-kde /usr/local/bin/enhanced-audio-recovery.sh
-
-# Traditional audio validation
+# Comprehensive audio validation
 docker exec webtop-kde /usr/local/bin/audio-validation.sh
 
 # WebRTC audio pipeline test
 docker exec webtop-kde /usr/local/bin/test-webrtc-pipeline.sh
 
+# Continuous audio monitoring
+docker exec webtop-kde /usr/local/bin/audio-monitor.sh monitor
+
 # Check PipeWire status
 docker exec webtop-kde pw-cli info
 
-# Monitor audio services
-docker exec webtop-kde supervisorctl logs pipewire
-docker exec webtop-kde supervisorctl logs wireplumber
-
-# Manual service restart (if needed)
-docker exec webtop-kde supervisorctl restart audio:*
+# Manual audio restart (if needed)
+docker exec webtop-kde supervisorctl restart pipewire
 ```
-
-### Expected Recovery Output
-After running the recovery script, you should see:
-- ✅ PipeWire: Running  
-- ✅ WirePlumber: Running
-- ✅ Virtual Devices: 2+ devices found
-- ✅ WebRTC Bridge: Responding on port 8080
 
 ## 📦 Application Categories
 

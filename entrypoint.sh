@@ -431,9 +431,6 @@ if [ ! -d "/run/user/${DEV_UID}" ]; then
     chmod 700 "/run/user/${DEV_UID}"
 fi
 
-log_info "Creating VNC/noVNC session for \${DEV_USERNAME}..."
-/usr/local/bin/add-user-session.sh "\${DEV_USERNAME}"
-
 log_info "Starting supervisor daemon..."
 
 exec env \

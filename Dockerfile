@@ -108,9 +108,6 @@ RUN mkdir -p /etc/apt/keyrings \
     && wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor | tee /etc/apt/keyrings/google-chrome.gpg > /dev/null \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
     && wget -q -O - https://deb.opera.com/archive.key | gpg --dearmor | tee /etc/apt/keyrings/opera.gpg > /dev/null \
-    && if find /etc/apt/sources.list.d -maxdepth 1 -type f -name "*opera*" | grep -q .; then \
-        rm -f /etc/apt/sources.list.d/*opera*; \
-    fi \
     && echo "deb [signed-by=/etc/apt/keyrings/opera.gpg] https://deb.opera.com/opera-stable/ stable non-free" > /etc/apt/sources.list.d/opera.list \
     && apt-get update \
     && apt-get install -y \
@@ -185,7 +182,6 @@ COPY fix-pipewire-routing.sh /usr/local/bin/fix-pipewire-routing.sh
 COPY create-novnc-homepage.sh /usr/local/bin/create-novnc-homepage.sh
 COPY setup-universal-audio.sh /usr/local/bin/setup-universal-audio.sh
 COPY wait-for-service.sh /usr/local/bin/wait-for-service.sh
-COPY add-user-session.sh /usr/local/bin/add-user-session.sh
 COPY supervisord-audio-fix.conf /etc/supervisor/conf.d/pipewire.conf
 RUN chmod +x /usr/local/bin/setup-*.sh \
     /usr/local/bin/setup-anbox.sh \
@@ -200,8 +196,7 @@ RUN chmod +x /usr/local/bin/setup-*.sh \
     /usr/local/bin/fix-pipewire-startup.sh \
     /usr/local/bin/create-virtual-pipewire-devices.sh \
     /usr/local/bin/fix-pipewire-routing.sh \
-    /usr/local/bin/create-novnc-homepage.sh \
-    /usr/local/bin/add-user-session.sh
+    /usr/local/bin/create-novnc-homepage.sh
 
 # Initialize PipeWire system during build
 RUN /usr/local/bin/setup-pipewire.sh && \
@@ -227,8 +222,6 @@ RUN echo "Validating script dependencies..." && \
     /usr/local/bin/audio-validation.sh
 
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-COPY nginx.conf /etc/nginx/nginx.conf
-COPY nginx-supervisor.conf /etc/supervisor/conf.d/nginx.conf
 
 # Copy PolicyKit configuration files for Ubuntu 24.04 bug fix
 COPY polkit-localauthority.conf /tmp/polkit-localauthority.conf
