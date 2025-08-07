@@ -15,6 +15,12 @@ if [ ! -d "$NOVNC_DIR" ]; then
     exit 1
 fi
 
+# Copy audio player from audio bridge to noVNC directory
+if [ -f "/opt/audio-bridge/public/audio-player.html" ]; then
+    cp "/opt/audio-bridge/public/audio-player.html" "$NOVNC_DIR/"
+    echo "Copied audio player to noVNC directory"
+fi
+
 # Backup original vnc.html
 if [ -f "$NOVNC_DIR/vnc.html" ] && [ ! -f "$NOVNC_DIR/vnc.html.backup" ]; then
     cp "$NOVNC_DIR/vnc.html" "$NOVNC_DIR/vnc.html.backup"

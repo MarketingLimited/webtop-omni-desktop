@@ -1,18 +1,50 @@
+# Deploy WebRTC/WebSocket Audio Fix
+
+## Server Details
+- **IP**: 37.27.49.246
+- **Username**: deployer
+- **Password**: zx93YJnt
+- **Container**: webtop-kde
+
+## Step 1: Connect to Your Server
+
+```bash
+ssh deployer@37.27.49.246
+# Enter password: zx93YJnt
+```
+
+## Step 2: Create the WebRTC/WebSocket Fix Script
+
+```bash
+cat > /tmp/fix-webrtc-websocket-audio.sh << 'EOF'
 #!/bin/bash
+# Fix WebRTC and WebSocket Audio Streaming Issues
+# Addresses audio streaming problems at vnc_audio.html and audio-player.html
 
-# Audio Bridge Setup Script
-# Sets up web-based audio streaming from PulseAudio to browser
+set -euo pipefail
 
-set -e
+echo "🔧 Fixing WebRTC and WebSocket Audio Streaming..."
 
-echo "Setting up PulseAudio Web Audio Bridge..."
+DEV_USERNAME="${DEV_USERNAME:-devuser}"
+DEV_UID="${DEV_UID:-1000}"
 
-# Create audio bridge directory
-mkdir -p /opt/audio-bridge
-cd /opt/audio-bridge
+# Color output functions
+red() { echo -e "\033[31m$*\033[0m"; }
+green() { echo -e "\033[32m$*\033[0m"; }
+yellow() { echo -e "\033[33m$*\033[0m"; }
+blue() { echo -e "\033[34m$*\033[0m"; }
 
-# Create package.json for the audio bridge
-cat > package.json << 'EOF'
+# Step 1: Install required Node.js packages
+install_audio_dependencies() {
+    echo "📦 Installing audio streaming dependencies..."
+    
+    # Create audio bridge directory
+    mkdir -p /opt/audio-bridge
+    cd /opt/audio-bridge
+    
+    # Initialize package.json if it doesn't exist
+    if [ ! -f package.json ]; then
+        cat <<PACKAGE_EOF > package.json
 {
   "name": "webtop-audio-bridge",
   "version": "1.0.0",
@@ -27,30 +59,243 @@ cat > package.json << 'EOF'
     "start": "node webrtc-audio-server.cjs"
   }
 }
-EOF
-
-# Install dependencies with fallback for wrtc
-echo "Installing Node.js dependencies..."
-npm install express ws --production || {
-    echo "Failed to install basic dependencies, trying alternative approach..."
-    npm install --no-optional express ws
+PACKAGE_EOF
+    fi
+    
+    # Install dependencies
+    if command -v npm >/dev/null 2>&1; then
+        npm install --production --no-optional || npm install express ws --production
+        green "✅ Node.js dependencies installed"
+    else
+        yellow "⚠️ npm not available, attempting to install Node.js..."
+        curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+        apt-get install -y nodejs
+        npm install --production --no-optional || npm install express ws --production
+        green "✅ Node.js and dependencies installed"
+    fi
 }
 
-# Try to install wrtc, but don't fail if it doesn't work
-echo "Attempting to install WebRTC support..."
-npm install wrtc --production || {
-    echo "Warning: wrtc module failed to install, WebRTC will be disabled"
-    echo "WebSocket fallback will still work"
+# Step 2: Create improved WebRTC/WebSocket audio server
+create_improved_audio_server() {
+    echo "🌉 Creating improved audio bridge server..."
+    
+    cat <<'SERVER_EOF' > /opt/audio-bridge/webrtc-audio-server.cjs
+const http = require('http');
+const express = require('express');
+const WebSocket = require('ws');
+const { spawn } = require('child_process');
+const path = require('path');
+
+// Try to load wrtc, fallback gracefully if not available
+let RTCPeerConnection, RTCAudioSource;
+try {
+  const wrtc = require('wrtc');
+  RTCPeerConnection = wrtc.RTCPeerConnection;
+  RTCAudioSource = wrtc.nonstandard.RTCAudioSource;
+} catch (err) {
+  console.warn('wrtc not available, WebRTC disabled:', err.message);
 }
 
-# Copy the WebRTC audio server
-cp /usr/local/bin/webrtc-audio-server.cjs ./webrtc-audio-server.cjs
+const PORT = process.env.WEBRTC_PORT || process.env.AUDIO_PORT || 8080;
+const app = express();
 
-# Create public directory for web assets
-mkdir -p public
+// Enable CORS for all routes
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+  } else {
+    next();
+  }
+});
 
-# Create improved audio player web page
-cat > public/audio-player.html << 'EOF'
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    webrtc: !!RTCPeerConnection,
+    websocket: true,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Build ICE servers configuration
+function buildIceServers() {
+  const servers = [];
+  
+  // Add default STUN servers
+  servers.push({ urls: 'stun:stun.l.google.com:19302' });
+  servers.push({ urls: 'stun:stun1.l.google.com:19302' });
+  
+  // Add custom servers if configured
+  if (process.env.WEBRTC_STUN_SERVER) {
+    servers.push({ urls: process.env.WEBRTC_STUN_SERVER });
+  }
+  if (process.env.WEBRTC_TURN_SERVER) {
+    servers.push({
+      urls: process.env.WEBRTC_TURN_SERVER,
+      username: process.env.WEBRTC_TURN_USERNAME,
+      credential: process.env.WEBRTC_TURN_PASSWORD
+    });
+  }
+  return servers;
+}
+
+// WebRTC offer endpoint
+app.post('/offer', async (req, res) => {
+  if (!RTCPeerConnection || !RTCAudioSource) {
+    return res.status(503).json({ error: 'WebRTC not available, use WebSocket fallback' });
+  }
+
+  try {
+    const pc = new RTCPeerConnection({ iceServers: buildIceServers() });
+    const source = new RTCAudioSource();
+    const track = source.createTrack();
+    pc.addTrack(track);
+
+    // Create audio capture process
+    const audioProcess = spawn('parecord', [
+      '--device=virtual_speaker.monitor',
+      '--format=s16le',
+      '--rate=48000',
+      '--channels=1',
+      '--raw'
+    ]);
+
+    // Process audio data and send to WebRTC
+    audioProcess.stdout.on('data', (data) => {
+      try {
+        if (pc.connectionState === 'connected') {
+          source.onData({
+            samples: data,
+            sampleRate: 48000,
+            channelCount: 1,
+            bitsPerSample: 16
+          });
+        }
+      } catch (err) {
+        console.warn('Audio processing error:', err.message);
+      }
+    });
+
+    audioProcess.on('error', (err) => {
+      console.error('Audio capture error:', err.message);
+    });
+
+    await pc.setRemoteDescription(req.body);
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    res.json(pc.localDescription);
+
+    pc.onconnectionstatechange = () => {
+      console.log('WebRTC connection state:', pc.connectionState);
+      if (['closed', 'failed', 'disconnected'].includes(pc.connectionState)) {
+        audioProcess.kill();
+        pc.close();
+        track.stop();
+      }
+    };
+
+    // Cleanup after 5 minutes of inactivity
+    setTimeout(() => {
+      if (pc.connectionState !== 'closed') {
+        audioProcess.kill();
+        pc.close();
+        track.stop();
+      }
+    }, 300000);
+
+  } catch (err) {
+    console.error('WebRTC error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Create HTTP server
+const server = http.createServer(app);
+
+// WebSocket server for fallback audio streaming
+const wss = new WebSocket.Server({ 
+  server,
+  path: '/audio-stream'
+});
+
+wss.on('connection', (ws, req) => {
+  console.log('WebSocket audio connection established');
+  
+  // Create audio capture process for WebSocket
+  const recorder = spawn('parecord', [
+    '--device=virtual_speaker.monitor',
+    '--format=s16le',
+    '--rate=44100',
+    '--channels=2',
+    '--raw'
+  ]);
+
+  let isConnected = true;
+
+  recorder.stdout.on('data', (data) => {
+    if (isConnected && ws.readyState === WebSocket.OPEN) {
+      try {
+        ws.send(data);
+      } catch (err) {
+        console.warn('WebSocket send error:', err.message);
+      }
+    }
+  });
+
+  recorder.on('error', (err) => {
+    console.error('Audio recorder error:', err.message);
+  });
+
+  ws.on('close', () => {
+    console.log('WebSocket audio connection closed');
+    isConnected = false;
+    recorder.kill();
+  });
+
+  ws.on('error', (err) => {
+    console.error('WebSocket error:', err.message);
+    isConnected = false;
+    recorder.kill();
+  });
+
+  // Send initial connection confirmation
+  ws.send(JSON.stringify({ type: 'connected', timestamp: Date.now() }));
+});
+
+// Start server
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Audio bridge server listening on port ${PORT}`);
+  console.log(`WebRTC endpoint: http://localhost:${PORT}/offer`);
+  console.log(`WebSocket endpoint: ws://localhost:${PORT}/audio-stream`);
+  console.log(`Health check: http://localhost:${PORT}/health`);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('Shutting down audio bridge server...');
+  server.close(() => {
+    process.exit(0);
+  });
+});
+SERVER_EOF
+
+    green "✅ Improved audio bridge server created"
+}
+
+# Step 3: Create audio player HTML page
+create_audio_player_page() {
+    echo "🎵 Creating audio player page..."
+    
+    mkdir -p /opt/audio-bridge/public
+    
+    cat <<'PLAYER_EOF' > /opt/audio-bridge/public/audio-player.html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -397,10 +642,212 @@ cat > public/audio-player.html << 'EOF'
     </script>
 </body>
 </html>
-EOF
+PLAYER_EOF
 
-echo "✅ Audio bridge setup completed"
-echo "📁 Files created in /opt/audio-bridge/"
-echo "🌐 Audio player available at: /audio-player.html"
-echo "🔧 WebRTC endpoint: /offer"
-echo "🔌 WebSocket endpoint: /audio-stream"
+    green "✅ Audio player page created"
+}
+
+# Step 4: Update noVNC integration
+update_novnc_integration() {
+    echo "🖥️ Updating noVNC audio integration..."
+    
+    # Find noVNC directory
+    NOVNC_DIR=""
+    for dir in "/usr/share/novnc" "/opt/novnc" "/var/www/html" "/usr/local/share/novnc"; do
+        if [ -d "$dir" ]; then
+            NOVNC_DIR="$dir"
+            break
+        fi
+    done
+    
+    if [ -z "$NOVNC_DIR" ]; then
+        yellow "⚠️ noVNC directory not found, creating web files in /var/www/html"
+        NOVNC_DIR="/var/www/html"
+        mkdir -p "$NOVNC_DIR"
+    fi
+    
+    # Copy audio player to noVNC directory
+    cp /opt/audio-bridge/public/audio-player.html "$NOVNC_DIR/"
+    
+    green "✅ noVNC audio integration updated"
+}
+
+# Step 5: Start audio bridge service
+start_audio_bridge() {
+    echo "🚀 Starting audio bridge service..."
+    
+    # Kill existing processes
+    pkill -f "webrtc-audio-server" || true
+    pkill -f "audio-bridge" || true
+    sleep 2
+    
+    # Start the audio bridge server
+    cd /opt/audio-bridge
+    nohup node webrtc-audio-server.cjs > /var/log/audio-bridge.log 2>&1 &
+    BRIDGE_PID=$!
+    
+    # Wait for server to start
+    sleep 5
+    
+    # Check if server is running
+    if kill -0 $BRIDGE_PID 2>/dev/null; then
+        green "✅ Audio bridge server started (PID: $BRIDGE_PID)"
+    else
+        red "❌ Audio bridge server failed to start"
+        cat /var/log/audio-bridge.log
+        return 1
+    fi
+}
+
+# Step 6: Test audio streaming
+test_audio_streaming() {
+    echo "🧪 Testing audio streaming..."
+    
+    # Test health endpoint
+    if curl -s http://localhost:8080/health | grep -q "ok"; then
+        green "✅ Audio bridge health check passed"
+    else
+        yellow "⚠️ Audio bridge health check failed"
+    fi
+    
+    # Check if ports are listening
+    if netstat -tlnp | grep -q ":8080"; then
+        green "✅ Audio bridge listening on port 8080"
+    else
+        red "❌ Audio bridge not listening on port 8080"
+    fi
+}
+
+# Main execution function
+main() {
+    echo "🔧 Starting WebRTC/WebSocket Audio Fix..."
+    echo "======================================="
+    
+    install_audio_dependencies
+    create_improved_audio_server
+    create_audio_player_page
+    update_novnc_integration
+    start_audio_bridge
+    test_audio_streaming
+    
+    echo ""
+    echo "🎉 WebRTC/WebSocket Audio Fix Completed!"
+    echo "========================================"
+    echo ""
+    blue "Audio streaming is now available at:"
+    echo "• WebRTC + WebSocket: http://37.27.49.246:32768/vnc_audio.html"
+    echo "• Standalone player: http://37.27.49.246:32768/audio-player.html"
+    echo "• Health check: http://37.27.49.246:32768/health"
+    echo ""
+    green "✅ Audio will attempt WebRTC first, then fallback to WebSocket!"
+    echo ""
+    blue "Testing steps:"
+    echo "1. Open http://37.27.49.246:32768/audio-player.html"
+    echo "2. Click 'Connect Audio'"
+    echo "3. Play audio in the desktop (Firefox, VLC, etc.)"
+    echo "4. Audio should stream to your browser"
+}
+
+# Run the fix
+main "$@"
+EOF
+```
+
+## Step 3: Deploy and Run the Fix
+
+```bash
+# Copy script to container and execute
+docker cp /tmp/fix-webrtc-websocket-audio.sh webtop-kde:/tmp/fix-webrtc-websocket-audio.sh
+docker exec webtop-kde chmod +x /tmp/fix-webrtc-websocket-audio.sh
+docker exec webtop-kde /tmp/fix-webrtc-websocket-audio.sh
+```
+
+## Step 4: Verify the Fix
+
+```bash
+# Check audio bridge status
+docker exec webtop-kde bash -c '
+    echo "=== Audio Bridge Status ==="
+    curl -s http://localhost:8080/health | jq . || curl -s http://localhost:8080/health
+    echo ""
+    echo "=== Running Processes ==="
+    pgrep -f "webrtc-audio-server\|audio-bridge" || echo "No audio bridge process found"
+    echo ""
+    echo "=== Network Ports ==="
+    netstat -tlnp | grep -E ":8080" || echo "Port 8080 not listening"
+    echo ""
+    echo "=== Audio Bridge Logs ==="
+    tail -10 /var/log/audio-bridge.log 2>/dev/null || echo "No logs found"
+'
+```
+
+## Step 5: Test Audio Streaming
+
+### Option 1: Standalone Audio Player
+1. Open: **http://37.27.49.246:32768/audio-player.html**
+2. Click **"Connect Audio"**
+3. The player will try WebRTC first, then fallback to WebSocket
+4. Play audio in the desktop (Firefox, VLC, etc.)
+
+### Option 2: noVNC with Audio
+1. Open: **http://37.27.49.246:32768/vnc_audio.html**
+2. Look for audio controls in the interface
+3. Click **"Connect Audio"**
+
+## What This Fix Provides
+
+### ✅ WebRTC Audio Streaming
+- **Primary method** for low-latency audio
+- Uses STUN servers for NAT traversal
+- Real-time audio capture from `virtual_speaker.monitor`
+
+### ✅ WebSocket Fallback
+- **Automatic fallback** when WebRTC fails
+- Works through firewalls and proxies
+- Streams raw PCM audio data
+
+### ✅ Improved Audio Bridge
+- **Health check endpoint**: `/health`
+- **CORS enabled** for cross-origin requests
+- **Graceful error handling** and logging
+- **Automatic cleanup** of resources
+
+### ✅ Professional Audio Player
+- **Visual connection status** (WebRTC/WebSocket indicators)
+- **Volume control** with real-time adjustment
+- **Connection method display** (shows which method is active)
+- **Responsive design** with modern UI
+
+## Troubleshooting
+
+If audio still doesn't work:
+
+```bash
+# Restart the container
+docker restart webtop-kde
+
+# Wait for services to start
+sleep 30
+
+# Re-run the fix
+docker exec webtop-kde /tmp/fix-webrtc-websocket-audio.sh
+
+# Check PulseAudio status
+docker exec webtop-kde bash -c '
+    export XDG_RUNTIME_DIR=/run/user/1000
+    su - devuser -c "export XDG_RUNTIME_DIR=/run/user/1000; pactl info"
+    su - devuser -c "export XDG_RUNTIME_DIR=/run/user/1000; pactl list short sinks"
+'
+```
+
+## Expected Results
+
+After running this fix:
+
+1. ✅ **WebRTC streaming** will work for low-latency audio
+2. ✅ **WebSocket fallback** will work when WebRTC fails
+3. ✅ **Audio player page** will show connection method
+4. ✅ **Health check** will confirm service status
+5. ✅ **Desktop audio** will stream to your browser
+
+The system will automatically try WebRTC first for the best performance, then fallback to WebSocket if needed!

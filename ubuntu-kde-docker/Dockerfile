@@ -79,7 +79,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Packages required for WebRTC audio bridge
-RUN apt-get update && apt-get install -y libnice10 \
+RUN apt-get update && apt-get install -y libnice10 build-essential python3-dev \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install dbeaver
@@ -199,10 +199,11 @@ RUN /usr/local/bin/setup-audio.sh && \
 RUN /usr/local/bin/setup-ttyd.sh
 
 # Setup audio bridge
-COPY setup-audio-bridge.sh webrtc-audio-server.cjs /usr/local/bin/
+COPY setup-audio-bridge.sh webrtc-audio-server.cjs test-webrtc-websocket-audio.sh /usr/local/bin/
 COPY integrate-audio-ui.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/setup-audio-bridge.sh && \
     chmod +x /usr/local/bin/integrate-audio-ui.sh && \
+    chmod +x /usr/local/bin/test-webrtc-websocket-audio.sh && \
     /usr/local/bin/setup-audio-bridge.sh && \
     /usr/local/bin/integrate-audio-ui.sh
 
