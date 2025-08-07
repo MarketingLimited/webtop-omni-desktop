@@ -21,7 +21,6 @@ RUN apt-get update && apt-get install -y \
     krita blender darktable obs-studio calibre \
     git neofetch btop gnome-tweaks stacer \
     # Development Tools - Complete Stack (VS Code will be installed later)
-    nodejs npm yarn \
     python3 python3-pip python3-venv python3-dev jupyter-notebook \
     php php-cli php-fpm composer \
     ruby ruby-dev bundler golang-go \
@@ -73,9 +72,10 @@ RUN wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor 
     && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/opera.gpg] https://deb.opera.com/opera-stable/ stable non-free" > /etc/apt/sources.list.d/opera.list \
     && apt-get update
 
-# Install Node.js 22 from NodeSource
-RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+# Install Node.js 18 LTS from NodeSource
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
     && apt-get install -y nodejs \
+    && npm install -g yarn \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Packages required for WebRTC audio bridge
