@@ -243,6 +243,12 @@ else
     echo "⚠️  Audio setup script not found"
 fi
 
+# Run post-setup diagnostics as the development user
+if [ -x /usr/local/bin/diagnostic-and-fix.sh ]; then
+    echo "🩺 Running audio diagnostic and fix as ${DEV_USERNAME}..."
+    su - "${DEV_USERNAME}" -c "/usr/local/bin/diagnostic-and-fix.sh" || log_warn "diagnostic-and-fix.sh failed"
+fi
+
 # Set up TTYD terminal service
 log_info "Setting up TTYD terminal service..."
 if [ -f "/usr/local/bin/setup-ttyd.sh" ]; then
