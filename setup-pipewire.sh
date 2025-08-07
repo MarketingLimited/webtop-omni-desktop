@@ -25,7 +25,7 @@ context.properties = {
     link.max-buffers         = 64
     log.level                = 2
     core.daemon              = true
-    core.name                = pipewire-\${uid}
+    core.name                = pipewire-${uid}
 }
 
 context.spa-libs = {
@@ -49,15 +49,15 @@ EOF
 configure_user() {
     local user="$1" uid="$2" home="$3"
 
-    mkdir -p "/run/user/\${uid}/pipewire"
-    chown "\${user}:\${user}" "/run/user/\${uid}" "/run/user/\${uid}/pipewire"
-    chmod 700 "/run/user/\${uid}"
+    mkdir -p "/run/user/${uid}/pipewire"
+    chown "${user}:${user}" "/run/user/${uid}" "/run/user/${uid}/pipewire"
+    chmod 700 "/run/user/${uid}"
 
-    mkdir -p "\${home}/.config/pipewire"
-    generate_user_pipewire_conf "\${uid}" > "\${home}/.config/pipewire/pipewire.conf"
-    chown -R "\${user}:\${user}" "\${home}/.config"
+    mkdir -p "${home}/.config/pipewire"
+    generate_user_pipewire_conf "${uid}" > "${home}/.config/pipewire/pipewire.conf"
+    chown -R "${user}:${user}" "${home}/.config"
 
-    cat <<EOF > "\${home}/.asoundrc"
+    cat <<EOF > "${home}/.asoundrc"
 # User ALSA configuration for PipeWire
 pcm.!default {
     type pipewire
@@ -69,7 +69,7 @@ ctl.!default {
     type pipewire
 }
 EOF
-    chown "\${user}:\${user}" "\${home}/.asoundrc"
+    chown "${user}:${user}" "${home}/.asoundrc"
 }
 
 # Create PipeWire system configuration
