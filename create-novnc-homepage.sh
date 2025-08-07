@@ -606,6 +606,3 @@ echo "🔧 Next steps:"
 echo "  1. Restart your Docker container to apply port changes"
 echo "  2. Run audio diagnostics: docker exec <container> /usr/local/bin/audio-validation.sh"
 echo "  3. Test WebRTC pipeline: docker exec <container> /usr/local/bin/test-webrtc-pipeline.sh"
-EOF
-
-chmod +x create-novnc-homepage.sh
