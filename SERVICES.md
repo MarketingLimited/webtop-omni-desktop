@@ -32,6 +32,12 @@ Container-compatible audio infrastructure.
 - **Configuration**: Uses virtual sinks for container compatibility
 - **Critical**: Yes - Required for audio functionality
 
+#### PipeWireStartup (Utility)
+- **Purpose**: Prepares runtime audio environment and validates D-Bus availability
+- **Behavior**: Launches a session D-Bus via `dbus-daemon` if none is running and aborts when the bus cannot be started
+- **Script**: `fix-pipewire-startup.sh`
+- **Critical**: Yes - Ensures reliable PipeWire initialization
+
 #### AudioValidation (Priority 28)
 - **Purpose**: Creates and validates virtual audio devices
 - **Dependencies**: PipeWire
