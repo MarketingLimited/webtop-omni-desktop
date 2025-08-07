@@ -24,6 +24,7 @@ fi
 # Export environment variables for PipeWire
 export XDG_RUNTIME_DIR="/run/user/${DEV_UID}"
 export HOME="${HOME_DIR}"
+PIPEWIRE_WAIT_TIMEOUT="${PIPEWIRE_WAIT_TIMEOUT:-30}"
 
 # Function to execute PipeWire commands
 run_pw_cli() {
@@ -32,6 +33,21 @@ run_pw_cli() {
     else
         su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pw-cli $*"
     fi
+}
+
+# Wait for PipeWire to be ready
+wait_for_pipewire() {
+    local elapsed=0
+    blue "⏳ Waiting for PipeWire to become ready..."
+    until run_pw_cli info 0 >/dev/null 2>&1; do
+        if [ "$elapsed" -ge "$PIPEWIRE_WAIT_TIMEOUT" ]; then
+            red "❌ PipeWire did not become ready within ${PIPEWIRE_WAIT_TIMEOUT}s."
+            return 1
+        fi
+        sleep 1
+        elapsed=$((elapsed + 1))
+    done
+    green "✅ PipeWire is ready."
 }
 
 # Function to create a virtual audio device
@@ -56,6 +72,10 @@ create_virtual_device() {
 # Main function
 main() {
     blue "🎧 Creating virtual audio devices..."
+
+    if ! wait_for_pipewire; then
+        return 1
+    fi
 
     create_virtual_device "virtual_speaker" "Virtual Marketing Speaker"
     create_virtual_device "virtual_microphone" "Virtual Marketing Microphone"
