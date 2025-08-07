@@ -223,11 +223,13 @@ XEOF
 chown -R "${DEV_USERNAME}":"${DEV_USERNAME}" "/home/${DEV_USERNAME}/.vnc"
 chmod +x "/home/${DEV_USERNAME}/.vnc/xstartup"
 
-# XDG runtime directory
+# Recreate XDG runtime directory and PipeWire sockets
+rm -rf "/run/user/${DEV_UID}"
 mkdir -p "/run/user/${DEV_UID}"
 chown "${DEV_USERNAME}":"${DEV_USERNAME}" "/run/user/${DEV_UID}"
 chmod 700 "/run/user/${DEV_UID}"
 export XDG_RUNTIME_DIR="/run/user/${DEV_UID}"
+export PIPEWIRE_RUNTIME_DIR="/run/user/${DEV_UID}"
 
 echo "🔧 Preparing D-Bus directories..."
 mkdir -p /run/dbus

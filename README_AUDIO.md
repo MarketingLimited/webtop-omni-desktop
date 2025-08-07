@@ -12,13 +12,21 @@ This WebTop includes a comprehensive PipeWire-based audio system with WebRTC str
 
 ## Host Setup
 
-The container relies on an ALSA loopback device provided by the host. Before
-starting the WebTop container, make sure the module is loaded:
+The container relies on host sound modules and device mappings.
+
+### Required kernel modules
+
+Load the ALSA loopback module before starting the WebTop container:
 
 ```bash
 sudo modprobe snd-aloop
 echo snd-aloop | sudo tee -a /etc/modules
 ```
+
+### Device mapping
+
+Expose the host sound devices by mapping `/dev/snd` into the container. This
+is handled in `docker-compose.yml` under the `devices` section.
 
 These steps ensure the audio system has the necessary devices when the container starts.
 
