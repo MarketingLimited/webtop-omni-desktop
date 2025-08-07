@@ -22,33 +22,17 @@ Services that other components depend on.
 - **Status**: Always running  
 - **Critical**: Yes - Required for KDE desktop communication
 
-### Audio System (Priority 25-30)
-Container-compatible audio infrastructure.
+### Audio System (`group:audio`)
+Managed by a dedicated supervisor group that launches PipeWire, WirePlumber, and virtual device creation as separate programs.
 
-#### PipeWire (Priority 25)
-- **Purpose**: Audio server with virtual devices
-- **Port**: 8080 (WebRTC bridge)
-- **Dependencies**: Xvfb, D-Bus
-- **Configuration**: Uses virtual sinks for container compatibility
-- **Critical**: Yes - Required for audio functionality
+#### Service Order
+1. **PipeWire** – core audio server
+2. **WirePlumber** – session manager (depends on PipeWire)
+3. **create-virtual-devices** – one-shot script that provisions `virtual_speaker` and `virtual_microphone`
 
-#### PipeWireStartup (Utility)
-- **Purpose**: Prepares runtime audio environment and validates D-Bus availability
-- **Behavior**: Launches a session D-Bus via `dbus-daemon` if none is running and aborts when the bus cannot be started
-- **Script**: `fix-pipewire-startup.sh`
-- **Critical**: Yes - Ensures reliable PipeWire initialization
-
-#### AudioValidation (Priority 28)
-- **Purpose**: Creates and validates virtual audio devices
-- **Dependencies**: PipeWire
-- **Status**: Runs once, then exits
-- **Critical**: Yes - Sets up `virtual_speaker` and `virtual_microphone`
-
-#### AudioMonitor (Priority 30)
-- **Purpose**: Continuous audio system monitoring
-- **Dependencies**: PipeWire, AudioValidation
-- **Status**: Continuous monitoring
-- **Critical**: No - Monitoring only
+#### Restart Strategy
+- `pipewire` and `wireplumber` automatically restart on failure
+- `create-virtual-devices` runs once and restarts only on unexpected failure
 
 ### Desktop Environment (Priority 35)
 KDE Plasma desktop session.
@@ -121,18 +105,12 @@ System validation and health monitoring.
 graph TD
     A[Xvfb] --> C[PipeWire]
     B[D-Bus] --> C
-    C --> D[AudioValidation]
-    D --> E[KDE]
-    C --> E
-    A --> E
-    B --> E
-    E --> F[X11VNC]
-    F --> G[noVNC]
-
-    C --> H
-    E --> I[ServiceHealth]
-    F --> I
-    H --> I
+    C --> D[WirePlumber]
+    D --> E[create-virtual-devices]
+    E --> F[KDE]
+    F --> G[X11VNC]
+    G --> H[noVNC]
+    F --> I[ServiceHealth]
     I --> J[SystemValidation]
 ```
 
@@ -186,7 +164,7 @@ docker exec webtop-kde supervisorctl clear <service>
 #### Audio Services
 ```bash
 # Restart audio system
-docker exec webtop-kde supervisorctl restart pipewire AudioValidation
+docker exec webtop-kde supervisorctl restart pipewire wireplumber create-virtual-devices
 
 # Check audio devices
 docker exec webtop-kde pw-cli list-objects Node
@@ -216,7 +194,6 @@ docker exec webtop-kde netstat -tlnp | grep -E "(80|5901|7681)"
 ### Automatic Health Checks
 - **ServiceHealth**: Monitors service status and restarts failed services
 - **SystemValidation**: Validates complete system functionality
-- **AudioMonitor**: Monitors audio system health
 
 ### Manual Health Checks
 ```bash
@@ -282,7 +259,7 @@ docker exec webtop-kde supervisorctl start Xvfb dbus pipewire
 sleep 10
 
 # Start desktop
-docker exec webtop-kde supervisorctl start AudioValidation KDE
+docker exec webtop-kde supervisorctl start wireplumber create-virtual-devices KDE
 
 # Wait for desktop
 sleep 15
@@ -297,7 +274,7 @@ docker exec webtop-kde supervisorctl start ServiceHealth SystemValidation
 #### Selective Service Restart
 ```bash
 # Restart audio chain
-docker exec webtop-kde supervisorctl restart pipewire AudioValidation AudioMonitor
+docker exec webtop-kde supervisorctl restart pipewire wireplumber create-virtual-devices
 
 # Restart remote access chain
 docker exec webtop-kde supervisorctl restart X11VNC noVNC
