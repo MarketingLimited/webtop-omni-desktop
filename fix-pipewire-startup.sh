@@ -54,8 +54,13 @@ main() {
 
     # 3. Ensure a D-Bus session is available before starting services
     if ! pgrep -x dbus-daemon >/dev/null 2>&1; then
-        yellow "⚠️ D-Bus session not running. Skipping PipeWire startup."
-        return 0
+        blue "🔄 Starting D-Bus session..."
+        if ! DBUS_SESSION_BUS_ADDRESS="$(dbus-daemon --session --fork --print-address 2>/dev/null)"; then
+            red "❌ Unable to start D-Bus session. Aborting PipeWire startup."
+            return 1
+        fi
+        export DBUS_SESSION_BUS_ADDRESS
+        green "✅ D-Bus session started."
     fi
 
     # 4. Start PipeWire and WirePlumber services
