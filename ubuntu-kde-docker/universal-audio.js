@@ -435,6 +435,9 @@
                 }
             };
 
+            // Ensure we offer to receive audio
+            pc.addTransceiver('audio', { direction: 'recvonly' });
+
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
 
@@ -456,7 +459,7 @@
                         clearTimeout(timer);
                         this.isConnected = true;
                         this.updateUI();
-                        this.updateStatus('Audio connected', 'connected');
+                        this.updateStatus('Audio connected via WebRTC', 'connected');
                         resolve();
                     } else if (['failed', 'disconnected', 'closed'].includes(pc.connectionState)) {
                         clearTimeout(timer);
@@ -469,8 +472,8 @@
         async attemptConnection() {
             const wsProtocol = window.AUDIO_WS_SCHEME || (window.location.protocol === 'https:' ? 'wss' : 'ws');
             const wsUrls = [
-                `${wsProtocol}://${audioHost}:${audioPort}`,
-                `${wsProtocol}://${window.location.host}/audio-bridge`
+                `${wsProtocol}://${window.location.host}/audio-stream`,
+                `${wsProtocol}://${audioHost}:${audioPort}/audio-stream`
             ];
 
             for (const wsUrl of wsUrls) {
@@ -500,7 +503,7 @@
                     this.websocket = ws;
                     this.isConnected = true;
                     this.updateUI();
-                    this.updateStatus('Audio connected', 'connected');
+                    this.updateStatus('Audio connected via WebSocket', 'connected');
                     resolve();
                 };
 

@@ -351,45 +351,54 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
             async connectAudio() {
                 try {
                     this.updateStatus('Connecting...', 'connecting');
-                    
+
                     // Handle browser autoplay restrictions
                     if (this.audioContext && this.audioContext.state === 'suspended') {
                         await this.audioContext.resume();
                     }
-                    
+
                     if (!this.audioContext) {
                         this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
                         this.gainNode = this.audioContext.createGain();
                         this.gainNode.connect(this.audioContext.destination);
-                        
+
                         // Restore saved volume
                         const savedVolume = localStorage.getItem('audio-volume') || '50';
                         this.elements.volumeSlider.value = savedVolume;
                         this.setVolume(savedVolume);
                     }
-                    
-                    // Determine WebSocket protocol, allow override via environment
-                    const wsProtocol = window.AUDIO_WS_SCHEME || (window.location.protocol === 'https:' ? 'wss' : 'ws');
 
-                    // Try multiple connection methods with fallback using the matched protocol
-                    const connectionMethods = [
-                        () => this.connectWebSocket(`${wsProtocol}://${window.AUDIO_HOST || window.location.hostname}:${window.AUDIO_PORT || 8080}`),
-                        () => this.connectWebSocket(`${wsProtocol}://${window.location.host}/audio-bridge`)
+                    // Try WebRTC first
+                    try {
+                        await this.connectWebRTC();
+                        return;
+                    } catch (err) {
+                        console.warn('WebRTC failed, falling back to WebSocket:', err);
+                    }
+
+                    // WebSocket fallback (try same-origin first, then direct host:port)
+                    const wsProtocol = window.AUDIO_WS_SCHEME || (window.location.protocol === 'https:' ? 'wss' : 'ws');
+                    const wsCandidates = [
+                        `${wsProtocol}://${window.location.host}/audio-stream`,
+                        `${wsProtocol}://${window.AUDIO_HOST || window.location.hostname}:${window.AUDIO_PORT || 8080}/audio-stream`
                     ];
-                    
-                    for (const method of connectionMethods) {
+
+                    let connected = false;
+                    for (const url of wsCandidates) {
                         try {
-                            await method();
+                            await this.connectWebSocket(url);
+                            connected = true;
                             break;
-                        } catch (err) {
-                            console.warn('Connection method failed, trying next...', err);
+                        } catch (e) {
+                            console.warn('WebSocket attempt failed:', url, e.message);
                         }
                     }
-                    
+                    if (!connected) throw new Error('All connection methods failed');
+
                 } catch (error) {
                     console.error('Failed to connect audio:', error);
                     this.updateStatus('Failed to connect: ' + error.message, 'error');
-                    
+
                     // Retry after delay
                     setTimeout(() => {
                         if (!this.isConnected && this.autoConnectEnabled) {
@@ -397,6 +406,55 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
                         }
                     }, 5000);
                 }
+            }
+            
+            async connectWebRTC() {
+                const pc = new RTCPeerConnection({
+                    iceServers: [
+                        ...(window.WEBRTC_STUN_SERVER ? [{ urls: window.WEBRTC_STUN_SERVER }] : []),
+                        ...(window.WEBRTC_TURN_SERVER ? [{ urls: window.WEBRTC_TURN_SERVER, username: window.WEBRTC_TURN_USERNAME || undefined, credential: window.WEBRTC_TURN_PASSWORD || undefined }] : []),
+                    ]
+                });
+                this.peerConnection = pc;
+
+                pc.ontrack = (event) => {
+                    const stream = event.streams[0];
+                    const source = this.audioContext.createMediaStreamSource(stream);
+                    source.connect(this.gainNode);
+                };
+
+                // Ensure we offer to receive audio
+                pc.addTransceiver('audio', { direction: 'recvonly' });
+
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+
+                const offerUrl = `http://${window.AUDIO_HOST || window.location.hostname}:${window.WEBRTC_PORT || window.AUDIO_PORT || 8080}/offer`;
+                const response = await fetch(offerUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(offer)
+                });
+                if (!response.ok) throw new Error('WebRTC offer failed');
+
+                const answer = await response.json();
+                await pc.setRemoteDescription(answer);
+
+                await new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => reject(new Error('WebRTC timeout')), 10000);
+                    pc.onconnectionstatechange = () => {
+                        if (pc.connectionState === 'connected') {
+                            clearTimeout(timeout);
+                            this.isConnected = true;
+                            this.updateUI();
+                            this.updateStatus('Audio connected via WebRTC', 'connected');
+                            resolve();
+                        } else if (['failed', 'disconnected', 'closed'].includes(pc.connectionState)) {
+                            clearTimeout(timeout);
+                            reject(new Error('WebRTC connection failed'));
+                        }
+                    };
+                });
             }
             
             async connectWebSocket(wsUrl) {
@@ -414,7 +472,7 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
                         this.websocket = ws;
                         this.isConnected = true;
                         this.updateUI();
-                        this.updateStatus('Audio connected', 'connected');
+                        this.updateStatus('Audio connected via WebSocket', 'connected');
                         resolve();
                     };
                     
@@ -642,51 +700,136 @@ cat > "$NOVNC_DIR/audio-player.html" << 'EOF'
         const connectBtn = document.getElementById('connect-audio');
         const disconnectBtn = document.getElementById('disconnect-audio');
         const statusEl = document.getElementById('status');
-        let audioContext, websocket, gainNode;
+        let audioContext, websocket, gainNode, peerConnection;
 
         connectBtn.addEventListener('click', connectAudio);
         disconnectBtn.addEventListener('click', disconnectAudio);
 
-        async function connectAudio() {
-            updateStatus('Connecting...');
-            connectBtn.disabled = true;
+async function connectAudio() {
+    updateStatus('Connecting...');
+    connectBtn.disabled = true;
 
+    try {
+        if (!audioContext) {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            gainNode = audioContext.createGain();
+            gainNode.connect(audioContext.destination);
+        }
+        if (audioContext.state === 'suspended') {
+            await audioContext.resume();
+        }
+
+        // Try WebRTC first
+        try {
+            await connectWebRTC();
+            updateStatus('Connected via WebRTC');
+            disconnectBtn.disabled = false;
+            return;
+        } catch (e) {
+            console.warn('WebRTC failed, falling back to WebSocket:', e);
+        }
+
+        // WebSocket fallback (same-origin first, then direct host:port)
+        const wsProtocol = window.AUDIO_WS_SCHEME || (window.location.protocol === 'https:' ? 'wss' : 'ws');
+        const candidates = [
+            `${wsProtocol}://${window.location.host}/audio-stream`,
+            `${wsProtocol}://${window.AUDIO_HOST || window.location.hostname}:${window.AUDIO_PORT || 8080}/audio-stream`
+        ];
+        let connected = false;
+        for (const url of candidates) {
             try {
-                if (!audioContext) {
-                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                    gainNode = audioContext.createGain();
-                    gainNode.connect(audioContext.destination);
-                }
-
-                const wsProtocol = window.AUDIO_WS_SCHEME || (window.location.protocol === 'https:' ? 'wss' : 'ws');
-                const wsUrl = `${wsProtocol}://${window.AUDIO_HOST || window.location.hostname}:${window.AUDIO_PORT || 8080}`;
-
-                websocket = new WebSocket(wsUrl);
-                websocket.binaryType = 'arraybuffer';
-
-                websocket.onopen = () => {
-                    updateStatus('Connected');
-                    disconnectBtn.disabled = false;
-                };
-
-                websocket.onmessage = (event) => processAudioData(event.data);
-
-                websocket.onclose = () => {
-                    updateStatus('Disconnected');
-                    connectBtn.disabled = false;
-                    disconnectBtn.disabled = true;
-                };
-
-                websocket.onerror = (err) => {
-                    updateStatus('Error: ' + err.message);
-                    connectBtn.disabled = false;
-                };
-
-            } catch (error) {
-                updateStatus('Error: ' + error.message);
-                connectBtn.disabled = false;
+                await connectWebSocket(url);
+                updateStatus('Connected via WebSocket');
+                disconnectBtn.disabled = false;
+                connected = true;
+                break;
+            } catch (err) {
+                console.warn('WebSocket attempt failed:', url, err.message);
             }
         }
+        if (!connected) throw new Error('All connection methods failed');
+
+    } catch (error) {
+        updateStatus('Error: ' + error.message);
+        connectBtn.disabled = false;
+    }
+}
+
+async function connectWebRTC() {
+    const pc = new RTCPeerConnection({
+        iceServers: [
+            ...(window.WEBRTC_STUN_SERVER ? [{ urls: window.WEBRTC_STUN_SERVER }] : []),
+            ...(window.WEBRTC_TURN_SERVER ? [{ urls: window.WEBRTC_TURN_SERVER, username: window.WEBRTC_TURN_USERNAME || undefined, credential: window.WEBRTC_TURN_PASSWORD || undefined }] : []),
+        ]
+    });
+    peerConnection = pc;
+
+    pc.ontrack = (event) => {
+        const stream = event.streams[0];
+        const source = audioContext.createMediaStreamSource(stream);
+        source.connect(gainNode);
+    };
+
+    // Ensure we offer to receive audio
+    pc.addTransceiver('audio', { direction: 'recvonly' });
+
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+
+    const offerUrl = `http://${window.AUDIO_HOST || window.location.hostname}:${window.WEBRTC_PORT || window.AUDIO_PORT || 8080}/offer`;
+    const response = await fetch(offerUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(offer)
+    });
+    if (!response.ok) throw new Error('WebRTC offer failed');
+
+    const answer = await response.json();
+    await pc.setRemoteDescription(answer);
+
+    await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('WebRTC timeout')), 10000);
+        pc.onconnectionstatechange = () => {
+            if (pc.connectionState === 'connected') {
+                clearTimeout(timeout);
+                resolve();
+            } else if (['failed', 'disconnected', 'closed'].includes(pc.connectionState)) {
+                clearTimeout(timeout);
+                reject(new Error('WebRTC connection failed'));
+            }
+        };
+    });
+}
+
+function connectWebSocket(wsUrl) {
+    return new Promise((resolve, reject) => {
+        websocket = new WebSocket(wsUrl);
+        websocket.binaryType = 'arraybuffer';
+
+        const timeout = setTimeout(() => {
+            websocket.close();
+            reject(new Error('WebSocket timeout'));
+        }, 5000);
+
+        websocket.onopen = () => {
+            clearTimeout(timeout);
+            resolve();
+        };
+
+        websocket.onmessage = (event) => processAudioData(event.data);
+
+        websocket.onclose = () => {
+            updateStatus('Disconnected');
+            connectBtn.disabled = false;
+            disconnectBtn.disabled = true;
+        };
+
+        websocket.onerror = (err) => {
+            clearTimeout(timeout);
+            reject(err);
+        };
+    });
+}
 
         function disconnectAudio() {
             if (websocket) {

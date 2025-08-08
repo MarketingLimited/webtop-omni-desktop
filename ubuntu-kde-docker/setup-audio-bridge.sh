@@ -266,6 +266,9 @@ cat > public/audio-player.html << 'EOF'
                     source.connect(this.gainNode);
                 };
                 
+                // Ensure we offer to receive audio
+                pc.addTransceiver('audio', { direction: 'recvonly' });
+                
                 const offer = await pc.createOffer();
                 await pc.setLocalDescription(offer);
                 
