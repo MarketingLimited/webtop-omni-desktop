@@ -137,9 +137,9 @@ class SharedAudioClient {
                 streams: event.streams.length,
                 tracks: event.streams[0]?.getTracks().length
             });
-            
+
             try {
-                const stream = event.streams[0];
+                const stream = event.streams[0] || new MediaStream([event.track]);
                 const source = this.audioContext.createMediaStreamSource(stream);
                 source.connect(this.gainNode);
                 this.log('WebRTC audio source connected to gain node');
