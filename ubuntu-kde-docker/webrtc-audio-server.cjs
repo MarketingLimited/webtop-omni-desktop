@@ -109,6 +109,37 @@ app.post('/offer', async (req, res) => {
     await pc.setRemoteDescription(req.body);
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
+
+    // Wait for ICE gathering to complete so that all candidates are included
+    await new Promise((resolve) => {
+      if (pc.iceGatheringState === 'complete') {
+        resolve();
+        return;
+      }
+
+      function cleanup() {
+        pc.removeEventListener('icecandidate', onCandidate);
+        pc.removeEventListener('icegatheringstatechange', checkState);
+      }
+
+      function checkState() {
+        if (pc.iceGatheringState === 'complete') {
+          cleanup();
+          resolve();
+        }
+      }
+
+      function onCandidate(event) {
+        if (!event.candidate) {
+          cleanup();
+          resolve();
+        }
+      }
+
+      pc.addEventListener('icecandidate', onCandidate);
+      pc.addEventListener('icegatheringstatechange', checkState);
+    });
+
     res.json(pc.localDescription);
 
     pc.onconnectionstatechange = () => {
