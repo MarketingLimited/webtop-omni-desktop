@@ -109,7 +109,7 @@ app.post('/offer', async (req, res) => {
       '--device=virtual_speaker.monitor',
       '--format=s16le',
       '--rate=48000',
-      '--channels=1',
+      '--channels=2',
       '--raw'
     ]);
 
@@ -120,7 +120,7 @@ app.post('/offer', async (req, res) => {
           source.onData({
             samples: data,
             sampleRate: 48000,
-            channelCount: 1,
+            channelCount: 2,
             bitsPerSample: 16
           });
         }
@@ -211,7 +211,7 @@ wss.on('connection', (ws, req) => {
   const recorder = spawn('parecord', [
     '--device=virtual_speaker.monitor',
     '--format=s16le',
-    '--rate=44100',
+    '--rate=48000',
     '--channels=2',
     '--raw'
   ]);
