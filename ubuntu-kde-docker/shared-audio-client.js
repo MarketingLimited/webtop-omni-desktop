@@ -71,8 +71,13 @@ class SharedAudioClient {
         }
 
         if (window.WEBRTC_TURN_SERVER) {
+            let turnUrl = window.WEBRTC_TURN_SERVER;
+            const host = window.location.hostname;
+            if (turnUrl.includes('localhost') || turnUrl.includes('127.0.0.1')) {
+                turnUrl = turnUrl.replace('localhost', host).replace('127.0.0.1', host);
+            }
             servers.push({
-                urls: window.WEBRTC_TURN_SERVER,
+                urls: turnUrl,
                 username: window.WEBRTC_TURN_USERNAME || undefined,
                 credential: window.WEBRTC_TURN_PASSWORD || undefined
             });
