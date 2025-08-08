@@ -15,6 +15,23 @@ log() {
   echo "[$timestamp] [$level] $*" | tee -a "$LOG_FILE"
 }
 
+MAX_ATTEMPTS=${MAX_ATTEMPTS:-5}
+RETRY_DELAY=${RETRY_DELAY:-1}
+
+retry() {
+  local attempt=1
+  while ! "$@"; do
+    if [ "$attempt" -ge "$MAX_ATTEMPTS" ]; then
+      log WARN "Command '$*' failed after $attempt attempts"
+      return 1
+    fi
+    log WARN "Command '$*' failed (attempt $attempt/$MAX_ATTEMPTS). Retrying in ${RETRY_DELAY}s..."
+    attempt=$((attempt + 1))
+    sleep "$RETRY_DELAY"
+  done
+  return 0
+}
+
 # Ensure required commands exist
 for cmd in pulseaudio pactl pgrep pkill; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
@@ -27,46 +44,67 @@ log INFO "Starting audio diagnostic..."
 
 # 1. Check PulseAudio status
 log INFO "Checking PulseAudio status..."
-if ! pulseaudio --check 2>/dev/null; then
+if ! retry pulseaudio --check >/dev/null 2>&1; then
   log WARN "PulseAudio is not running. Attempting to start..."
   pulseaudio --start >>"$LOG_FILE" 2>&1 || log ERROR "Failed to start PulseAudio"
+  if ! retry pulseaudio --check >/dev/null 2>&1; then
+    log ERROR "PulseAudio failed to respond after start"
+  else
+    log INFO "PulseAudio is running."
+  fi
 else
   log INFO "PulseAudio is running."
 fi
 
 # 2. List sinks and sources
 log INFO "Listing sinks and sources..."
-pactl list short sinks | tee -a "$LOG_FILE"
-pactl list short sources | tee -a "$LOG_FILE"
+if ! retry pactl list short sinks | tee -a "$LOG_FILE"; then
+  log ERROR "Failed to list sinks"
+fi
+if ! retry pactl list short sources | tee -a "$LOG_FILE"; then
+  log ERROR "Failed to list sources"
+fi
 
 DEFAULT_SINK="virtual_speaker"
 
 # 3. Ensure virtual_speaker exists
-if ! pactl list short sinks | grep -q "$DEFAULT_SINK"; then
+SINK_TMP=$(mktemp)
+if ! retry pactl list short sinks >"$SINK_TMP"; then
+  log ERROR "Failed to list sinks"
+elif ! grep -q "$DEFAULT_SINK" "$SINK_TMP"; then
   log WARN "$DEFAULT_SINK not found. Creating..."
-  pactl load-module module-null-sink \
+  if ! retry pactl load-module module-null-sink \
     sink_name="$DEFAULT_SINK" \
     sink_properties=device.description=Virtual_Marketing_Speaker \
-    >>"$LOG_FILE" 2>&1 || log ERROR "Failed to create $DEFAULT_SINK"
+    >>"$LOG_FILE" 2>&1; then
+    log ERROR "Failed to create $DEFAULT_SINK"
+  fi
 else
   log INFO "$DEFAULT_SINK exists."
 fi
+rm -f "$SINK_TMP"
 
 # 4. Set default sink to virtual_speaker and move existing streams
-if pactl set-default-sink "$DEFAULT_SINK" >>"$LOG_FILE" 2>&1; then
+if retry pactl set-default-sink "$DEFAULT_SINK" >>"$LOG_FILE" 2>&1; then
   log INFO "Default sink set to $DEFAULT_SINK"
-  pactl list short sink-inputs | awk '{print $1}' | while read -r input; do
-    if [ -n "$input" ]; then
-      pactl move-sink-input "$input" "$DEFAULT_SINK" >>"$LOG_FILE" 2>&1 || true
-    fi
-  done
+  INPUT_TMP=$(mktemp)
+  if ! retry pactl list short sink-inputs >"$INPUT_TMP"; then
+    log ERROR "Failed to list sink inputs"
+  else
+    awk '{print $1}' "$INPUT_TMP" | while read -r input; do
+      if [ -n "$input" ]; then
+        retry pactl move-sink-input "$input" "$DEFAULT_SINK" >>"$LOG_FILE" 2>&1 || true
+      fi
+    done
+  fi
+  rm -f "$INPUT_TMP"
 else
   log ERROR "Failed to set default sink to $DEFAULT_SINK"
 fi
 
 # 5. Unmute and set volume to 100%
-pactl set-sink-mute "$DEFAULT_SINK" 0 >>"$LOG_FILE" 2>&1 || true
-pactl set-sink-volume "$DEFAULT_SINK" 100% >>"$LOG_FILE" 2>&1 || true
+retry pactl set-sink-mute "$DEFAULT_SINK" 0 >>"$LOG_FILE" 2>&1 || true
+retry pactl set-sink-volume "$DEFAULT_SINK" 100% >>"$LOG_FILE" 2>&1 || true
 
 # 6. Restart audio bridge if present
 if pgrep -f 'audio-bridge' >/dev/null; then
