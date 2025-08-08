@@ -4,6 +4,8 @@
 
 The Ubuntu KDE WebTop now supports WebRTC-first audio streaming with automatic WebSocket fallback. This guide covers configuration options for optimal WebRTC performance, especially over the internet.
 
+If `WEBRTC_TURN_SERVER` is set to a `localhost` address (for example `turn:localhost:3478`), the client will automatically replace `localhost` with the current page's hostname. This ensures the embedded TURN server remains reachable when the container is accessed remotely.
+
 ## Environment Variables
 
 Add these to your `.env` file for WebRTC configuration:

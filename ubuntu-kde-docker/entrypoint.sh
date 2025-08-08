@@ -41,11 +41,21 @@ if [ -f "$ENV_FILE" ]; then
     sed -i "s/^AUDIO_HOST=.*/AUDIO_HOST=${AUDIO_HOST}/" "$ENV_FILE"
     sed -i "s/^AUDIO_PORT=.*/AUDIO_PORT=${AUDIO_PORT}/" "$ENV_FILE"
     sed -i "s/^AUDIO_WS_SCHEME=.*/AUDIO_WS_SCHEME=${AUDIO_WS_SCHEME}/" "$ENV_FILE"
+    sed -i "s/^WEBRTC_PORT=.*/WEBRTC_PORT=${WEBRTC_PORT:-$AUDIO_PORT}/" "$ENV_FILE"
+    sed -i "s/^WEBRTC_STUN_SERVER=.*/WEBRTC_STUN_SERVER=${WEBRTC_STUN_SERVER}/" "$ENV_FILE"
+    sed -i "s/^WEBRTC_TURN_SERVER=.*/WEBRTC_TURN_SERVER=${WEBRTC_TURN_SERVER}/" "$ENV_FILE"
+    sed -i "s/^WEBRTC_TURN_USERNAME=.*/WEBRTC_TURN_USERNAME=${WEBRTC_TURN_USERNAME}/" "$ENV_FILE"
+    sed -i "s/^WEBRTC_TURN_PASSWORD=.*/WEBRTC_TURN_PASSWORD=${WEBRTC_TURN_PASSWORD}/" "$ENV_FILE"
 elif [ -f "/.env" ]; then
     ENV_FILE="/.env"
     sed -i "s/^AUDIO_HOST=.*/AUDIO_HOST=${AUDIO_HOST}/" "$ENV_FILE"
     sed -i "s/^AUDIO_PORT=.*/AUDIO_PORT=${AUDIO_PORT}/" "$ENV_FILE"
     sed -i "s/^AUDIO_WS_SCHEME=.*/AUDIO_WS_SCHEME=${AUDIO_WS_SCHEME}/" "$ENV_FILE"
+    sed -i "s/^WEBRTC_PORT=.*/WEBRTC_PORT=${WEBRTC_PORT:-$AUDIO_PORT}/" "$ENV_FILE"
+    sed -i "s/^WEBRTC_STUN_SERVER=.*/WEBRTC_STUN_SERVER=${WEBRTC_STUN_SERVER}/" "$ENV_FILE"
+    sed -i "s/^WEBRTC_TURN_SERVER=.*/WEBRTC_TURN_SERVER=${WEBRTC_TURN_SERVER}/" "$ENV_FILE"
+    sed -i "s/^WEBRTC_TURN_USERNAME=.*/WEBRTC_TURN_USERNAME=${WEBRTC_TURN_USERNAME}/" "$ENV_FILE"
+    sed -i "s/^WEBRTC_TURN_PASSWORD=.*/WEBRTC_TURN_PASSWORD=${WEBRTC_TURN_PASSWORD}/" "$ENV_FILE"
 fi
 
 # Write audio configuration for browser clients with validation
@@ -65,12 +75,22 @@ window.AUDIO_PORT = ${AUDIO_PORT};
 window.AUDIO_WS_SCHEME = '${AUDIO_WS_SCHEME}';
 window.ENABLE_WEBSOCKET_FALLBACK = ${ENABLE_WEBSOCKET_FALLBACK:-true};
 
+// WebRTC configuration
+window.WEBRTC_PORT = ${WEBRTC_PORT:-${AUDIO_PORT}};
+window.WEBRTC_STUN_SERVER = '${WEBRTC_STUN_SERVER}';
+window.WEBRTC_TURN_SERVER = '${WEBRTC_TURN_SERVER}';
+window.WEBRTC_TURN_USERNAME = '${WEBRTC_TURN_USERNAME}';
+window.WEBRTC_TURN_PASSWORD = '${WEBRTC_TURN_PASSWORD}';
+
 // Debug information
 console.log('Audio configuration:', {
     host: window.AUDIO_HOST,
     port: window.AUDIO_PORT,
     scheme: window.AUDIO_WS_SCHEME,
-    enableWebSocketFallback: window.ENABLE_WEBSOCKET_FALLBACK
+    enableWebSocketFallback: window.ENABLE_WEBSOCKET_FALLBACK,
+    webrtcPort: window.WEBRTC_PORT,
+    stunServer: window.WEBRTC_STUN_SERVER,
+    turnServer: window.WEBRTC_TURN_SERVER
 });
 
 // Validate configuration
