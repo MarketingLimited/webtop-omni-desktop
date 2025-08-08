@@ -67,6 +67,10 @@ const WebSocket = require('ws');
 const { spawn } = require('child_process');
 const path = require('path');
 
+// Track active peer connection and signaling clients
+let currentPeerConnection = null;
+const signalingClients = new Set();
+
 // Try to load wrtc, fallback gracefully if not available
 let RTCPeerConnection, RTCAudioSource;
 try {
@@ -133,11 +137,26 @@ app.post('/offer', async (req, res) => {
     return res.status(503).json({ error: 'WebRTC not available' });
   }
 
-  try {
-    const pc = new RTCPeerConnection({ iceServers: buildIceServers() });
-    const source = new RTCAudioSource();
-    const track = source.createTrack();
-    pc.addTrack(track);
+    try {
+      const pc = new RTCPeerConnection({ iceServers: buildIceServers() });
+      currentPeerConnection = pc;
+      const source = new RTCAudioSource();
+      const track = source.createTrack();
+      pc.addTrack(track);
+
+      // Forward gathered ICE candidates to connected signaling clients
+      pc.onicecandidate = (event) => {
+        const message = JSON.stringify({ type: 'candidate', candidate: event.candidate });
+        signalingClients.forEach((client) => {
+          if (client.readyState === WebSocket.OPEN) {
+            try {
+              client.send(message);
+            } catch (err) {
+              console.warn('Failed to send ICE candidate:', err.message);
+            }
+          }
+        });
+      };
 
     // Create audio capture process
     const audioProcess = spawn('parecord', [
@@ -179,6 +198,7 @@ app.post('/offer', async (req, res) => {
         audioProcess.kill();
         pc.close();
         track.stop();
+        currentPeerConnection = null;
       }
     };
 
@@ -198,13 +218,42 @@ app.post('/offer', async (req, res) => {
 });
 
 // Create HTTP server
-const server = http.createServer(app);
+  const server = http.createServer(app);
 
-// WebSocket server for fallback audio streaming
-const wss = new WebSocket.Server({ 
-  server,
-  path: '/audio-stream'
-});
+  // WebSocket server for WebRTC signaling (ICE candidates)
+  const signalingWss = new WebSocket.Server({
+    server,
+    path: '/webrtc'
+  });
+
+  signalingWss.on('connection', (ws) => {
+    signalingClients.add(ws);
+
+    ws.on('message', async (message) => {
+      try {
+        const data = JSON.parse(message);
+        if (data.type === 'candidate' && currentPeerConnection) {
+          try {
+            await currentPeerConnection.addIceCandidate(data.candidate || null);
+          } catch (err) {
+            console.error('Error adding ICE candidate:', err.message);
+          }
+        }
+      } catch (err) {
+        console.error('Invalid signaling message:', err.message);
+      }
+    });
+
+    const cleanup = () => signalingClients.delete(ws);
+    ws.on('close', cleanup);
+    ws.on('error', cleanup);
+  });
+
+  // WebSocket server for fallback audio streaming
+  const wss = new WebSocket.Server({
+    server,
+    path: '/audio-stream'
+  });
 
 wss.on('connection', (ws, req) => {
   console.log('WebSocket audio connection established');
@@ -251,12 +300,13 @@ wss.on('connection', (ws, req) => {
 });
 
 // Start server
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Audio bridge server listening on port ${PORT}`);
-  console.log(`WebRTC endpoint: http://localhost:${PORT}/offer`);
-  console.log(`WebSocket endpoint: ws://localhost:${PORT}/audio-stream`);
-  console.log(`Health check: http://localhost:${PORT}/health`);
-});
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`Audio bridge server listening on port ${PORT}`);
+    console.log(`WebRTC endpoint: http://localhost:${PORT}/offer`);
+    console.log(`WebRTC signaling: ws://localhost:${PORT}/webrtc`);
+    console.log(`WebSocket endpoint: ws://localhost:${PORT}/audio-stream`);
+    console.log(`Health check: http://localhost:${PORT}/health`);
+  });
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
