@@ -161,8 +161,36 @@ RUN mkdir -p /var/run/sshd /root/.vnc /tmp/.X11-unix && \
 
 
 # Desktop and Flatpak setup scripts
-COPY start-pulseaudio.sh /usr/local/bin/start-pulseaudio.sh
-RUN chmod +x /usr/local/bin/start-pulseaudio.sh
+COPY setup-flatpak-apps.sh /usr/local/bin/setup-flatpak-apps.sh
+COPY setup-desktop.sh /usr/local/bin/setup-desktop.sh
+COPY setup-audio.sh /usr/local/bin/setup-audio.sh
+COPY fix-audio-startup.sh /usr/local/bin/fix-audio-startup.sh
+COPY setup-marketing-shortcuts.sh /usr/local/bin/setup-marketing-shortcuts.sh
+COPY setup-development.sh /usr/local/bin/setup-development.sh
+COPY setup-wine.sh /usr/local/bin/setup-wine.sh
+COPY setup-waydroid.sh /usr/local/bin/setup-waydroid.sh
+COPY setup-video-editing.sh /usr/local/bin/setup-video-editing.sh
+COPY setup-ttyd.sh /usr/local/bin/setup-ttyd.sh
+COPY service-health.sh /usr/local/bin/service-health.sh
+COPY test-desktop-audio.sh /usr/local/bin/test-desktop-audio.sh
+COPY audio-validation.sh /usr/local/bin/audio-validation.sh
+COPY system-validation.sh /usr/local/bin/system-validation.sh
+COPY audio-monitor.sh /usr/local/bin/audio-monitor.sh
+COPY health-check.sh /usr/local/bin/health-check.sh
+COPY fix-permissions.sh /usr/local/bin/fix-permissions.sh
+COPY test-polkit.sh /usr/local/bin/test-polkit.sh
+COPY create-virtual-audio-devices.sh /usr/local/bin/create-virtual-audio-devices.sh
+COPY setup-universal-audio.sh /usr/local/bin/setup-universal-audio.sh
+RUN chmod +x /usr/local/bin/setup-*.sh \
+    /usr/local/bin/service-health.sh \
+    /usr/local/bin/test-desktop-audio.sh \
+    /usr/local/bin/audio-monitor.sh \
+    /usr/local/bin/audio-validation.sh \
+    /usr/local/bin/health-check.sh \
+    /usr/local/bin/fix-permissions.sh \
+    /usr/local/bin/test-polkit.sh \
+    /usr/local/bin/fix-audio-startup.sh \
+    /usr/local/bin/create-virtual-audio-devices.sh
 
 # Initialize audio system during build
 RUN /usr/local/bin/setup-audio.sh && \
