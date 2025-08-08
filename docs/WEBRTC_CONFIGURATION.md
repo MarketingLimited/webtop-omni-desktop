@@ -2,7 +2,9 @@
 
 Reliable WebRTC audio requires a reachable TURN server. STUN alone cannot traverse strict NAT or firewall rules. If `WEBRTC_TURN_SERVER` is not configured, connections may fail.
 
-The TURN server typically listens on UDP port **3478**. Ensure this port (and any additional ports your TURN server uses) is exposed so clients can reach it.
+This project now ships with a lightweight [coturn](https://github.com/coturn/coturn) server that starts automatically inside the container.  By default it listens on port **3478** with credentials `webtop:webtop` and is exposed to clients as both STUN and TURN under `stun:localhost:3478` / `turn:localhost:3478`.
+
+The TURN server typically listens on UDP port **3478**. Ensure this port (and any additional ports your TURN server uses) is exposed so clients can reach it or override the environment variables to point to an external service.
 
 ## docker-compose example
 
