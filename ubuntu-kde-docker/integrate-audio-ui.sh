@@ -400,18 +400,22 @@ fi
 # Copy universal audio script to noVNC directory
 cp "/usr/local/bin/universal-audio.js" "$NOVNC_DIR/" 2>/dev/null || echo "Note: Universal audio script will be created during setup"
 
-# Create placeholder audio configuration file for runtime overrides
-cat > "$NOVNC_DIR/audio-env.js" <<'EOF'
+# Populate audio configuration for browser clients
+if [ -f "/opt/audio-bridge/audio-env.js" ]; then
+    cp "/opt/audio-bridge/audio-env.js" "$NOVNC_DIR/audio-env.js"
+else
+    cat > "$NOVNC_DIR/audio-env.js" <<EOF
 window.AUDIO_HOST = window.AUDIO_HOST || window.location.hostname;
-window.AUDIO_PORT = window.AUDIO_PORT || 8080;
-window.AUDIO_WS_SCHEME = window.AUDIO_WS_SCHEME || '';
-window.WEBRTC_PORT = window.WEBRTC_PORT || window.AUDIO_PORT || 8080;
-window.WEBRTC_STUN_SERVER = window.WEBRTC_STUN_SERVER || '';
-window.WEBRTC_TURN_SERVER = window.WEBRTC_TURN_SERVER || '';
-window.WEBRTC_TURN_USERNAME = window.WEBRTC_TURN_USERNAME || '';
-window.WEBRTC_TURN_PASSWORD = window.WEBRTC_TURN_PASSWORD || '';
+window.AUDIO_PORT = window.AUDIO_PORT || ${AUDIO_PORT:-8080};
+window.AUDIO_WS_SCHEME = window.AUDIO_WS_SCHEME || '${AUDIO_WS_SCHEME:-}';
+window.WEBRTC_PORT = window.WEBRTC_PORT || window.AUDIO_PORT || ${WEBRTC_PORT:-${AUDIO_PORT:-8080}};
+window.WEBRTC_STUN_SERVER = window.WEBRTC_STUN_SERVER || '${WEBRTC_STUN_SERVER:-}';
+window.WEBRTC_TURN_SERVER = window.WEBRTC_TURN_SERVER || '${WEBRTC_TURN_SERVER:-}';
+window.WEBRTC_TURN_USERNAME = window.WEBRTC_TURN_USERNAME || '${WEBRTC_TURN_USERNAME:-}';
+window.WEBRTC_TURN_PASSWORD = window.WEBRTC_TURN_PASSWORD || '${WEBRTC_TURN_PASSWORD:-}';
 window.ENABLE_WEBSOCKET_FALLBACK = window.ENABLE_WEBSOCKET_FALLBACK !== undefined ? window.ENABLE_WEBSOCKET_FALLBACK : true;
 EOF
+fi
 
 # Create standalone audio player for testing
 cat > "$NOVNC_DIR/audio-player.html" << 'EOF'

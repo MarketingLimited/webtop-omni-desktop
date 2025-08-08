@@ -75,6 +75,20 @@ Desktop Apps → PulseAudio → Virtual Sink → Audio Bridge → WebSocket → 
 - 44.1kHz 16-bit stereo PCM
 - Real-time streaming with minimal latency
 
+## WebRTC TURN Configuration
+
+Some networks block direct peer-to-peer WebRTC traffic. In those cases the
+audio client can fall back to a TURN relay when configured with the following
+environment variables:
+
+- `WEBRTC_TURN_SERVER` – TURN server URL, for example `turn:turn.example.com:3478`
+- `WEBRTC_TURN_USERNAME` – Username used to authenticate with the TURN server
+- `WEBRTC_TURN_PASSWORD` – Corresponding password for the TURN username
+
+These variables are injected into the browser at runtime so the client can
+automatically route audio through the TURN server when a direct connection is
+not possible.
+
 ## Troubleshooting
 
 ### No Audio in Browser

@@ -56,6 +56,19 @@ cp /usr/local/bin/webrtc-audio-server.cjs ./webrtc-audio-server.cjs
 
 # Copy shared audio client
 cp /usr/local/bin/shared-audio-client.js ./shared-audio-client.js
+
+# Generate audio environment configuration for clients
+cat > audio-env.js <<EOF
+window.AUDIO_HOST = '${AUDIO_HOST:-}';
+window.AUDIO_PORT = ${AUDIO_PORT:-8080};
+window.AUDIO_WS_SCHEME = '${AUDIO_WS_SCHEME:-}';
+window.WEBRTC_PORT = ${WEBRTC_PORT:-${AUDIO_PORT:-8080}};
+window.WEBRTC_STUN_SERVER = '${WEBRTC_STUN_SERVER:-}';
+window.WEBRTC_TURN_SERVER = '${WEBRTC_TURN_SERVER:-}';
+window.WEBRTC_TURN_USERNAME = '${WEBRTC_TURN_USERNAME:-}';
+window.WEBRTC_TURN_PASSWORD = '${WEBRTC_TURN_PASSWORD:-}';
+window.ENABLE_WEBSOCKET_FALLBACK = ${ENABLE_WEBSOCKET_FALLBACK:-true};
+EOF
 # Create public directory for web assets
 mkdir -p public
 
