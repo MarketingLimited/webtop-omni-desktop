@@ -107,6 +107,16 @@ setting the following environment variables when launching the container:
 If negotiation fails, the client automatically falls back to the legacy
 WebSocket audio stream.
 
+### 🎉 Complete Solution Summary
+- Automatic WebRTC + WebSocket audio streaming
+- Health check endpoint at `/health`
+- CORS enabled with graceful `wrtc` fallback
+- Setup script, supervisor config, and Dockerfile auto-configure the bridge
+- `test-webrtc-websocket-audio.sh` validates functionality
+
+See [docs/audio-streaming.md](docs/audio-streaming.md) for detailed instructions and testing.
+
+
 ### Manual Installation
 
 1. **System checks**
