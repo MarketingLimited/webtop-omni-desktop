@@ -21,6 +21,10 @@ try {
 const PORT = process.env.WEBRTC_PORT || process.env.AUDIO_PORT || 8080;
 const app = express();
 
+if (!process.env.WEBRTC_TURN_SERVER) {
+  console.warn('WEBRTC_TURN_SERVER is not set; WebRTC may fail behind restrictive networks');
+}
+
 // Enable CORS for all routes
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
