@@ -71,44 +71,21 @@ try {
 2. **WebSocket** (reliable, works through firewalls)
 3. **Graceful error handling** with user feedback
 
-## 🌐 Available Audio Streaming URLs
-After building and running your container:
+## 🌐 Available Endpoints
 
-- **Standalone Audio Player**: `http://YOUR_SERVER_IP:32768/audio-player.html`
-  - Professional UI with WebRTC/WebSocket indicators
-  - Real-time connection method display
-  - Volume control and status monitoring
-- **noVNC with Audio**: `http://YOUR_SERVER_IP:32768/vnc_audio.html`
-  - Integrated VNC + audio controls
-  - Automatic audio activation overlay
-  - WebRTC-first with clear status indicators
-- **Health Check**: `http://YOUR_SERVER_IP:32768/health`
-  - JSON response with WebRTC/WebSocket availability
-- **Direct Audio Bridge**: `http://YOUR_SERVER_IP:8080/audio-player.html`
-  - Direct access to audio bridge (bypasses proxy)
-  - Useful for debugging proxy issues
+After building and running the container:
 
-## 🚀 How It Works
-**Smart Connection Logic**
-- **WebRTC-first**: Attempts low-latency peer-to-peer connection
-- **Proper negotiation**: Adds recvonly transceiver before offer
-- **Multiple endpoints**: Tries both direct and same-origin URLs
-- Automatically falls back to WebSocket if WebRTC fails
-- Visual indicators show which method is active
-- **Shared client library**: Consistent behavior across all interfaces
+### **Standalone Audio Player**
+- **URL**: `http://YOUR_SERVER_IP:32768/audio-player.html`
+- **Features**: WebRTC/WebSocket connection with visual indicators
 
-**Automatic Setup**
-- Everything configured during Docker build
-- No manual intervention required
-- Works on any server environment
-- **Environment-based configuration** for different deployments
+### **noVNC with Audio**
+- **URL**: `http://YOUR_SERVER_IP:32768/vnc_audio.html`
+- **Features**: Integrated VNC + audio controls
 
-**Robust Error Handling**
-- Graceful fallback when components fail
-- User-friendly error messages
-- Automatic retry mechanisms
-- **AudioContext recovery** for browser policy issues
-- **Connection method logging** for debugging
+### **Health Check**
+- **URL**: `http://YOUR_SERVER_IP:32768/health`
+- **Response**: JSON with WebRTC/WebSocket availability
 
 ## 🔧 Technical Implementation
 
@@ -205,6 +182,46 @@ The system is now **fully automated**:
    - Open `http://YOUR_SERVER_IP:32768/audio-player.html`
    - Click "Connect Audio"
    - Audio will automatically use WebRTC or WebSocket
+
+## 🎵 Expected Results
+- ✅ **WebRTC streaming works** for low-latency audio (20-100ms)
+- ✅ **Proper WebRTC negotiation** with recvonly transceiver
+- ✅ **Multiple connection attempts** for reliability
+- ✅ WebSocket fallback works when WebRTC fails
+- ✅ **Clear visual indicators** show connection method (WebRTC/WebSocket)
+- ✅ Desktop audio streams from Firefox, VLC, etc.
+- ✅ **Professional UI** with volume control and status
+- ✅ **Shared client library** ensures consistent behavior
+- ✅ **Same-origin proxy support** for enhanced compatibility
+- ✅ Health monitoring confirms system status
+- ✅ **Environment-based configuration** for different deployments
+- ✅ **Comprehensive testing** validates all components
+
+The implementation is fully automated and works reliably when you build and deploy the Docker image on any server. The system intelligently chooses the best audio streaming method available (WebRTC-first, then WebSocket) and provides a professional user experience with clear visual feedback and robust error handling.
+
+## 🔧 Configuration Options
+
+### Environment Variables
+```bash
+# WebRTC Configuration
+WEBRTC_STUN_SERVER=stun:stun.l.google.com:19302
+WEBRTC_TURN_SERVER=turn:your-turn-server.com:3478
+WEBRTC_TURN_USERNAME=your-username
+WEBRTC_TURN_PASSWORD=your-password
+
+# Audio Service Configuration  
+AUDIO_HOST=your-server.com
+AUDIO_PORT=8080
+AUDIO_WS_SCHEME=wss
+```
+
+### nginx Proxy (Optional)
+Enable same-origin access by adding proxy routes:
+- `/offer` → `http://webtop:8080/offer`
+- `/audio-stream` → `http://webtop:8080/audio-stream`
+- `/health` → `http://webtop:8080/health`
+
+This allows clients to use relative URLs and avoid CORS issues.
 
 ## ✅ Benefits
 
