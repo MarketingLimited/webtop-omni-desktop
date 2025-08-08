@@ -38,9 +38,15 @@ npm install --omit=dev || {
     npm install --omit=dev --no-optional
 }
 
+# Ensure node-pre-gyp is available for native builds
+echo "Installing node-pre-gyp for native module support..."
+npm install node-pre-gyp || {
+    echo "Warning: node-pre-gyp installation failed; continuing without it"
+}
+
 # Try to install wrtc, but don't fail if it doesn't work
 echo "Attempting to install WebRTC support..."
-npm install wrtc --omit=dev || {
+npm install wrtc --omit=dev --build-from-source || {
     echo "Warning: wrtc module failed to install, WebRTC will be disabled"
     echo "WebSocket fallback will still work"
 }
