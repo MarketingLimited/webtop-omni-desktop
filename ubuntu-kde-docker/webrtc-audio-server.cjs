@@ -53,7 +53,6 @@ function buildIceServers() {
   // Add custom servers if configured
   if (process.env.WEBRTC_STUN_SERVER) {
     servers.push({ urls: process.env.WEBRTC_STUN_SERVER });
-    console.log('Using custom STUN server:', process.env.WEBRTC_STUN_SERVER);
   }
   if (process.env.WEBRTC_TURN_SERVER) {
     servers.push({
@@ -61,41 +60,22 @@ function buildIceServers() {
       username: process.env.WEBRTC_TURN_USERNAME,
       credential: process.env.WEBRTC_TURN_PASSWORD
     });
-    console.log('Using custom TURN server:', process.env.WEBRTC_TURN_SERVER);
   }
-  console.log('ICE servers configured:', servers);
   return servers;
 }
 
 // WebRTC offer endpoint
 app.post('/offer', async (req, res) => {
   if (!RTCPeerConnection || !RTCAudioSource) {
-    console.warn('WebRTC not available, returning 503.');
     return res.status(503).json({ error: 'WebRTC not available, use WebSocket fallback' });
   }
 
   try {
-    console.log('Received WebRTC offer request.');
     const pc = new RTCPeerConnection({ iceServers: buildIceServers() });
-    console.log('RTCPeerConnection created.');
-
-    pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        console.log('ICE candidate found:', event.candidate.candidate);
-      } else {
-        console.log('All ICE candidates gathered.');
-      }
-    };
-
-    pc.oniceconnectionstatechange = () => {
-      console.log('ICE connection state changed:', pc.iceConnectionState);
-    };
-
     const source = new RTCAudioSource();
     const track = source.createTrack();
     const stream = new wrtc.MediaStream();
     pc.addTrack(track, stream);
-    console.log('Audio track added to RTCPeerConnection.');
 
     // Create audio capture process
     const audioProcess = spawn('parecord', [
@@ -105,7 +85,6 @@ app.post('/offer', async (req, res) => {
       '--channels=1',
       '--raw'
     ]);
-    console.log('Audio capture process (parecord) spawned.');
 
     // Process audio data and send to WebRTC
     audioProcess.stdout.on('data', (data) => {
@@ -119,31 +98,22 @@ app.post('/offer', async (req, res) => {
           });
         }
       } catch (err) {
-        console.warn('Audio processing error (onData):', err.message);
+        console.warn('Audio processing error:', err.message);
       }
     });
 
     audioProcess.on('error', (err) => {
-      console.error('Audio capture process error:', err.message);
+      console.error('Audio capture error:', err.message);
     });
 
-    audioProcess.on('exit', (code, signal) => {
-      console.log(`Audio capture process exited with code ${code} and signal ${signal}`);
-    });
-
-    console.log('Setting remote description...');
     await pc.setRemoteDescription(req.body);
-    console.log('Remote description set. Creating answer...');
     const answer = await pc.createAnswer();
-    console.log('Answer created. Setting local description...');
     await pc.setLocalDescription(answer);
-    console.log('Local description set. Sending answer to client.');
     res.json(pc.localDescription);
 
     pc.onconnectionstatechange = () => {
       console.log('WebRTC connection state:', pc.connectionState);
       if (['closed', 'failed', 'disconnected'].includes(pc.connectionState)) {
-        console.log(`WebRTC connection ${pc.connectionState}. Killing audio process and closing peer connection.`);
         audioProcess.kill();
         pc.close();
         track.stop();
@@ -153,7 +123,6 @@ app.post('/offer', async (req, res) => {
     // Cleanup after 5 minutes of inactivity
     setTimeout(() => {
       if (pc.connectionState !== 'closed') {
-        console.log('WebRTC connection timed out after 5 minutes of inactivity. Cleaning up.');
         audioProcess.kill();
         pc.close();
         track.stop();
@@ -161,7 +130,7 @@ app.post('/offer', async (req, res) => {
     }, 300000);
 
   } catch (err) {
-    console.error('WebRTC offer processing error:', err);
+    console.error('WebRTC error:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -186,7 +155,6 @@ wss.on('connection', (ws, req) => {
     '--channels=2',
     '--raw'
   ]);
-  console.log('WebSocket audio capture process (parecord) spawned.');
 
   let isConnected = true;
 
@@ -201,11 +169,7 @@ wss.on('connection', (ws, req) => {
   });
 
   recorder.on('error', (err) => {
-    console.error('WebSocket audio recorder error:', err.message);
-  });
-
-  recorder.on('exit', (code, signal) => {
-    console.log(`WebSocket audio capture process exited with code ${code} and signal ${signal}`);
+    console.error('Audio recorder error:', err.message);
   });
 
   ws.on('close', () => {

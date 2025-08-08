@@ -368,27 +368,6 @@ else
     echo "⚠️  Service health monitoring script not found"
 fi
 
-# Function to wait for PulseAudio to be ready
-wait_for_pulseaudio() {
-    log_info "Waiting for PulseAudio to be ready..."
-    local timeout=60
-    local count=0
-    while ! pulseaudio --check >/dev/null 2>&1;
-        if [ $count -ge $timeout ]; then
-            log_error "PulseAudio did not start within $timeout seconds."
-            return 1
-        fi
-        log_info "PulseAudio not ready yet, waiting... ($((timeout - count)) seconds remaining)"
-        sleep 1
-        count=$((count + 1))
-    done
-    log_info "PulseAudio is ready."
-    return 0
-}
-
-# Ensure PulseAudio is running and virtual devices are created before starting supervisord
-wait_for_pulseaudio || exit 1
-
 log_info "Starting supervisor daemon..."
 
 exec env \
