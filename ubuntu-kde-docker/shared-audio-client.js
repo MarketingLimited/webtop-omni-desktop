@@ -23,6 +23,8 @@ class SharedAudioClient {
         this.retryCount = 0;
         this.maxRetries = 3;
         this.statusHandlers = [];
+
+        this.turnWarningLogged = false;
         
         this.debugMode = options.debug || false;
         
@@ -67,13 +69,16 @@ class SharedAudioClient {
         if (window.WEBRTC_STUN_SERVER) {
             servers.push({ urls: window.WEBRTC_STUN_SERVER });
         }
-        
+
         if (window.WEBRTC_TURN_SERVER) {
             servers.push({
                 urls: window.WEBRTC_TURN_SERVER,
                 username: window.WEBRTC_TURN_USERNAME || undefined,
                 credential: window.WEBRTC_TURN_PASSWORD || undefined
             });
+        } else if (!this.turnWarningLogged) {
+            console.warn('WEBRTC_TURN_SERVER is not set; WebRTC may fail behind restrictive networks');
+            this.turnWarningLogged = true;
         }
         
         this.log('ICE servers configured', servers);
