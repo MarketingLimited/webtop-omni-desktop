@@ -336,3 +336,13 @@ const getRegionalTurnServer = () => {
 ```
 
 This configuration ensures optimal WebRTC performance while maintaining reliable WebSocket fallback for all network conditions.
+
+### Enforce WebRTC-only Connections
+
+To disable the automatic WebSocket fallback and require WebRTC, set the following in `audio-env.js` or as an environment variable:
+
+```javascript
+window.ENABLE_WEBSOCKET_FALLBACK = false;
+```
+
+When this flag is `false`, clients will not attempt a WebSocket connection if WebRTC fails.

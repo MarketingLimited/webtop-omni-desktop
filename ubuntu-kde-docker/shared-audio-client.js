@@ -8,6 +8,10 @@ class SharedAudioClient {
         this.audioPort = options.audioPort || window.AUDIO_PORT || 8080;
         this.webrtcPort = options.webrtcPort || window.WEBRTC_PORT || this.audioPort;
         this.wsScheme = options.wsScheme || window.AUDIO_WS_SCHEME || (window.location.protocol === 'https:' ? 'wss' : 'ws');
+
+        const fallbackConfig = options.enableWebSocketFallback ?? window.ENABLE_WEBSOCKET_FALLBACK;
+        this.enableWebSocketFallback =
+            typeof fallbackConfig === 'undefined' ? true : String(fallbackConfig).toLowerCase() !== 'false';
         
         this.audioContext = null;
         this.websocket = null;
@@ -26,7 +30,8 @@ class SharedAudioClient {
             audioHost: this.audioHost,
             audioPort: this.audioPort,
             webrtcPort: this.webrtcPort,
-            wsScheme: this.wsScheme
+            wsScheme: this.wsScheme,
+            enableWebSocketFallback: this.enableWebSocketFallback
         });
     }
     
@@ -108,13 +113,19 @@ class SharedAudioClient {
                 this.updateStatus('Connected via WebRTC', 'connected', 'webrtc');
                 return;
             } catch (err) {
-                this.log('WebRTC failed, falling back to WebSocket', err.message);
+                this.log('WebRTC failed', err.message);
+                if (!this.enableWebSocketFallback) {
+                    throw err;
+                }
+                this.log('Falling back to WebSocket', err.message);
             }
-            
-            // WebSocket fallback
-            await this.connectWebSocket();
-            this.isConnected = true;
-            this.updateStatus('Connected via WebSocket', 'connected', 'websocket');
+
+            if (this.enableWebSocketFallback) {
+                // WebSocket fallback
+                await this.connectWebSocket();
+                this.isConnected = true;
+                this.updateStatus('Connected via WebSocket', 'connected', 'websocket');
+            }
             
         } catch (error) {
             this.log('Connection failed', error.message);
