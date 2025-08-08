@@ -5,9 +5,9 @@ const { spawn } = require('child_process');
 const path = require('path');
 
 // Try to load wrtc, fallback gracefully if not available
-let RTCPeerConnection, RTCAudioSource;
+let wrtc, RTCPeerConnection, RTCAudioSource;
 try {
-  const wrtc = require('wrtc');
+  wrtc = require('wrtc');
   RTCPeerConnection = wrtc.RTCPeerConnection;
   RTCAudioSource = wrtc.nonstandard.RTCAudioSource;
 } catch (err) {
@@ -74,7 +74,8 @@ app.post('/offer', async (req, res) => {
     const pc = new RTCPeerConnection({ iceServers: buildIceServers() });
     const source = new RTCAudioSource();
     const track = source.createTrack();
-    pc.addTrack(track);
+    const stream = new wrtc.MediaStream();
+    pc.addTrack(track, stream);
 
     // Create audio capture process
     const audioProcess = spawn('parecord', [
