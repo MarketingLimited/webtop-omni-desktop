@@ -96,8 +96,7 @@
 
 ### WebRTC Audio Configuration
 
-The audio bridge now supports WebRTC streaming. Configure STUN/TURN servers by
-setting the following environment variables when launching the container:
+The audio bridge now supports WebRTC streaming. A bundled [coturn](https://github.com/coturn/coturn) server runs inside the container and is exposed on port **3478** using default credentials `webtop:webtop`. Configure STUN/TURN servers by setting the following environment variables when launching the container (override them if you deploy an external TURN service):
 
 - `WEBRTC_STUN_SERVER` – STUN server URL (e.g. `stun:stun.l.google.com:19302`)
 - `WEBRTC_TURN_SERVER` – TURN server URL

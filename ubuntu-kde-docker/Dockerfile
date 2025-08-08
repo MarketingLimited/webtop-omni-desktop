@@ -48,7 +48,7 @@ RUN apt-get update && apt-get install -y \
     # File managers and utilities
     mc ranger fzf ripgrep fd-find \
     # Network and security tools
-    nmap wireshark \
+    nmap wireshark coturn \
     # Virtualization
     qemu-system-x86 virt-manager \
     nextcloud-desktop \
@@ -149,10 +149,10 @@ ENV LANGUAGE=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
 ENV TTYD_USER=terminal
 ENV TTYD_PASSWORD=terminal
-ENV WEBRTC_STUN_SERVER=""
-ENV WEBRTC_TURN_SERVER=""
-ENV WEBRTC_TURN_USERNAME=""
-ENV WEBRTC_TURN_PASSWORD=""
+ENV WEBRTC_STUN_SERVER="stun:localhost:3478"
+ENV WEBRTC_TURN_SERVER="turn:localhost:3478"
+ENV WEBRTC_TURN_USERNAME="webtop"
+ENV WEBRTC_TURN_PASSWORD="webtop"
 ENV WEBRTC_PORT=8080
 ENV ENABLE_WEBSOCKET_FALLBACK=true
 # Create directories and VNC setup for x11vnc
@@ -203,9 +203,10 @@ RUN /usr/local/bin/setup-ttyd.sh
 COPY setup-audio-bridge.sh webrtc-audio-server.cjs test-webrtc-websocket-audio.sh /usr/local/bin/
 COPY shared-audio-client.js /usr/local/bin/
 COPY universal-audio.js /opt/audio-bridge/
-COPY integrate-audio-ui.sh /usr/local/bin/
+COPY integrate-audio-ui.sh start-turn.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/setup-audio-bridge.sh && \
     chmod +x /usr/local/bin/integrate-audio-ui.sh && \
+    chmod +x /usr/local/bin/start-turn.sh && \
     chmod +x /usr/local/bin/test-webrtc-websocket-audio.sh && \
     /usr/local/bin/setup-audio-bridge.sh && \
     /usr/local/bin/integrate-audio-ui.sh
