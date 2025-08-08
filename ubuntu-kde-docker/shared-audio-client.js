@@ -11,6 +11,7 @@ class SharedAudioClient {
         
         this.audioContext = null;
         this.websocket = null;
+        this.signalSocket = null;
         this.peerConnection = null;
         this.gainNode = null;
         this.isConnected = false;
@@ -127,7 +128,42 @@ class SharedAudioClient {
         
         const pc = new RTCPeerConnection({ iceServers: this.getIceServers() });
         this.peerConnection = pc;
-        
+
+        // Set up signaling channel for ICE candidates
+        const signalUrl = `${this.wsScheme}://${this.audioHost}:${this.webrtcPort}/webrtc`;
+        const signalSocket = new WebSocket(signalUrl);
+        this.signalSocket = signalSocket;
+
+        // Wait for signaling channel to open
+        await new Promise((resolve, reject) => {
+            const timer = setTimeout(() => reject(new Error('Signaling connection timeout')), 5000);
+            signalSocket.onopen = () => { clearTimeout(timer); resolve(); };
+            signalSocket.onerror = () => { clearTimeout(timer); reject(new Error('Signaling connection failed')); };
+        });
+
+        // Forward local ICE candidates to server
+        pc.onicecandidate = (event) => {
+            if (signalSocket.readyState === WebSocket.OPEN) {
+                try {
+                    signalSocket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate }));
+                } catch (e) {
+                    this.log('Failed to send ICE candidate', e.message);
+                }
+            }
+        };
+
+        // Apply remote ICE candidates from server
+        signalSocket.onmessage = async (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'candidate') {
+                    await pc.addIceCandidate(data.candidate || null);
+                }
+            } catch (e) {
+                this.log('Failed to handle remote candidate', e.message);
+            }
+        };
+
         // CRITICAL: Add receiving transceiver before creating offer
         pc.addTransceiver('audio', { direction: 'recvonly' });
         this.log('Added recvonly audio transceiver');
@@ -347,7 +383,12 @@ class SharedAudioClient {
             this.websocket.close();
             this.websocket = null;
         }
-        
+
+        if (this.signalSocket) {
+            this.signalSocket.close();
+            this.signalSocket = null;
+        }
+
         if (this.peerConnection) {
             this.peerConnection.close();
             this.peerConnection = null;
