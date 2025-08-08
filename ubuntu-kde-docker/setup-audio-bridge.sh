@@ -20,7 +20,9 @@ cat > package.json << 'EOF'
   "main": "webrtc-audio-server.cjs",
   "dependencies": {
     "express": "^4.18.2",
-    "ws": "^8.14.2",
+    "ws": "^8.14.2"
+  },
+  "optionalDependencies": {
     "wrtc": "^0.4.7"
   },
   "scripts": {
@@ -29,16 +31,16 @@ cat > package.json << 'EOF'
 }
 EOF
 
-# Install dependencies with fallback for wrtc
+# Install declared dependencies
 echo "Installing Node.js dependencies..."
-npm install express ws --production || {
+npm install --omit=dev || {
     echo "Failed to install basic dependencies, trying alternative approach..."
-    npm install --no-optional express ws
+    npm install --omit=dev --no-optional
 }
 
 # Try to install wrtc, but don't fail if it doesn't work
 echo "Attempting to install WebRTC support..."
-npm install wrtc --production || {
+npm install wrtc --omit=dev || {
     echo "Warning: wrtc module failed to install, WebRTC will be disabled"
     echo "WebSocket fallback will still work"
 }
