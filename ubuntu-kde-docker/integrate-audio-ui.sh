@@ -410,6 +410,7 @@ window.WEBRTC_STUN_SERVER = window.WEBRTC_STUN_SERVER || '';
 window.WEBRTC_TURN_SERVER = window.WEBRTC_TURN_SERVER || '';
 window.WEBRTC_TURN_USERNAME = window.WEBRTC_TURN_USERNAME || '';
 window.WEBRTC_TURN_PASSWORD = window.WEBRTC_TURN_PASSWORD || '';
+window.ENABLE_WEBSOCKET_FALLBACK = window.ENABLE_WEBSOCKET_FALLBACK !== undefined ? window.ENABLE_WEBSOCKET_FALLBACK : true;
 EOF
 
 # Create standalone audio player for testing

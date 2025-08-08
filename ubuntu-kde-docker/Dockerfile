@@ -154,6 +154,7 @@ ENV WEBRTC_TURN_SERVER=""
 ENV WEBRTC_TURN_USERNAME=""
 ENV WEBRTC_TURN_PASSWORD=""
 ENV WEBRTC_PORT=8080
+ENV ENABLE_WEBSOCKET_FALLBACK=true
 # Create directories and VNC setup for x11vnc
 RUN mkdir -p /var/run/sshd /root/.vnc /tmp/.X11-unix && \
     chmod 1777 /tmp/.X11-unix
