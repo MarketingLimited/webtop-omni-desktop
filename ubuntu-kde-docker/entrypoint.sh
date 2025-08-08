@@ -120,8 +120,9 @@ fi
 
 # Initialize system directories
 mkdir -p /var/run/dbus /tmp/.ICE-unix /tmp/.X11-unix
-# Ensure world-writable permissions for X11 and ICE sockets
+# Ensure root ownership and world-writable permissions for X11 and ICE sockets
 # /tmp/.X11-unix may be mounted read-only by the host
+chown root:root /tmp/.X11-unix 2>/dev/null || log_warn "/tmp/.X11-unix ownership could not be set"
 chmod 1777 /tmp/.ICE-unix 2>/dev/null || log_warn "/tmp/.ICE-unix permissions could not be set"
 chmod 1777 /tmp/.X11-unix 2>/dev/null || log_warn "/tmp/.X11-unix is not writable; skipping chmod"
 
@@ -199,7 +200,10 @@ echo "${DEV_USERNAME}:${DEV_PASSWORD}" | chpasswd
 if ! getent group pulse-access >/dev/null; then
     groupadd -r pulse-access
 fi
-usermod -aG sudo,ssl-cert,pulse-access,video "$DEV_USERNAME"
+# Ensure video and render groups exist for graphical access
+getent group video >/dev/null || groupadd -r video
+getent group render >/dev/null || groupadd -r render
+usermod -aG sudo,ssl-cert,pulse-access,video,render "$DEV_USERNAME"
 
 # Ensure runtime variables match the actual user IDs
 DEV_UID="$(id -u "$DEV_USERNAME")"
