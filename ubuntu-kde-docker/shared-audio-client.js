@@ -353,7 +353,7 @@ class SharedAudioClient {
             }
             
             const frameLength = samples.length / 2;
-            const audioBuffer = this.audioContext.createBuffer(2, frameLength, 44100);
+            const audioBuffer = this.audioContext.createBuffer(2, frameLength, 48000);
             
             const leftChannel = audioBuffer.getChannelData(0);
             const rightChannel = audioBuffer.getChannelData(1);
@@ -374,7 +374,7 @@ class SharedAudioClient {
             // Schedule playback with small buffer to prevent gaps
             const playTime = Math.max(this.audioContext.currentTime, this.lastPlayTime || 0);
             source.start(playTime);
-            this.lastPlayTime = playTime + (frameLength / 44100);
+            this.lastPlayTime = playTime + (frameLength / 48000);
             
             // Clean up source after playback
             setTimeout(() => {
@@ -383,7 +383,7 @@ class SharedAudioClient {
                 } catch (e) {
                     // Source already disconnected
                 }
-            }, (frameLength / 44100) * 1000 + 100);
+            }, (frameLength / 48000) * 1000 + 100);
             
         } catch (error) {
             this.log('Audio processing error:', error.message);
