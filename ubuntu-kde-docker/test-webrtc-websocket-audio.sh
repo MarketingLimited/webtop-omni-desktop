@@ -4,6 +4,12 @@
 
 set -e
 
+AUDIO_BRIDGE_DIR="/opt/audio-bridge"
+if [ ! -d "$AUDIO_BRIDGE_DIR" ]; then
+    echo "⚠️  $AUDIO_BRIDGE_DIR not found. Creating stub..."
+    mkdir -p "$AUDIO_BRIDGE_DIR"
+fi
+
 echo "🧪 Testing WebRTC and WebSocket Audio Streaming..."
 
 DEV_USERNAME="${DEV_USERNAME:-devuser}"
