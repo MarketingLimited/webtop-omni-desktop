@@ -1,8 +1,8 @@
-# Removed obsolete version declaration
+# Docker Compose for WebTop Streaming Box with WebRTC
 
 services:
   webtop:
-    build: 
+    build:
       context: .
       dockerfile: Dockerfile
     container_name: webtop-kde
@@ -15,10 +15,14 @@ services:
       - "7681:7681"     # ttyd terminal
       - "8080:8080"     # Audio Bridge / WebRTC
       - "4713:4713"     # PulseAudio
-      - "3478:3478"     # STUN/TURN
       - "5901:5901"     # VNC
     env_file:
       - .env
+    environment:
+      - WEBRTC_STUN_SERVER=stun:coturn:3478
+      - WEBRTC_TURN_SERVER=turn:coturn:3478
+      - WEBRTC_TURN_USERNAME=user
+      - WEBRTC_TURN_PASSWORD=pass
     volumes:
       - /data/ubuntu-kde-docker_webtop/config:/config
       - /data/ubuntu-kde-docker_webtop/var/log/supervisor:/var/log/supervisor
@@ -40,4 +44,27 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+    depends_on:
+      - coturn
+    networks:
+      - webtop-net
+
+  coturn:
+    image: coturn/coturn
+    container_name: webtop-coturn
+    restart: unless-stopped
+    ports:
+      - "3478:3478/udp"
+      - "3478:3478/tcp"
+    command:
+      - "-n"
+      - "--log-file=stdout"
+      - "--user=user:pass"
+      - "--realm=webtop.org"
+    networks:
+      - webtop-net
+
+networks:
+  webtop-net:
+    driver: bridge
 
