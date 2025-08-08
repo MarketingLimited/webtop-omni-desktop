@@ -425,6 +425,9 @@
             const pc = new RTCPeerConnection({ iceServers: this.getIceServers() });
             this.peerConnection = pc;
 
+            // CRITICAL: Add receiving transceiver before creating offer
+            pc.addTransceiver('audio', { direction: 'recvonly' });
+            
             pc.ontrack = (event) => {
                 try {
                     const stream = event.streams[0];
@@ -435,20 +438,33 @@
                 }
             };
 
-            // Ensure we offer to receive audio
-            pc.addTransceiver('audio', { direction: 'recvonly' });
-
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
 
-            const response = await fetch(`http://${audioHost}:${webrtcPort}/offer`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(offer)
-            });
-            if (!response.ok) {
-                throw new Error('Failed to receive answer');
+            // Try multiple offer endpoints
+            const offerUrls = [
+                `http://${audioHost}:${webrtcPort}/offer`,
+                `/offer` // Same-origin fallback if proxied
+            ];
+            
+            let response = null;
+            for (const url of offerUrls) {
+                try {
+                    response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(offer)
+                    });
+                    if (response.ok) break;
+                } catch (e) {
+                    console.warn(`WebRTC offer failed for ${url}:`, e.message);
+                }
             }
+            
+            if (!response || !response.ok) {
+                throw new Error('All WebRTC offer endpoints failed');
+            }
+            
             const answer = await response.json();
             await pc.setRemoteDescription(answer);
 
@@ -472,8 +488,8 @@
         async attemptConnection() {
             const wsProtocol = window.AUDIO_WS_SCHEME || (window.location.protocol === 'https:' ? 'wss' : 'ws');
             const wsUrls = [
-                `${wsProtocol}://${window.location.host}/audio-stream`,
-                `${wsProtocol}://${audioHost}:${audioPort}/audio-stream`
+                `${wsProtocol}://${audioHost}:${audioPort}/audio-stream`,
+                `${wsProtocol}://${window.location.host}/audio-stream` // Same-origin fallback
             ];
 
             for (const wsUrl of wsUrls) {
@@ -508,6 +524,10 @@
                 };
 
                 ws.onmessage = (event) => {
+                    if (typeof event.data === 'string') {
+                        // Control message
+                        return;
+                    }
                     this.processAudioData(event.data);
                 };
 
@@ -545,25 +565,56 @@
             if (!this.audioContext || !this.gainNode || this.audioContext.state === 'closed') return;
 
             try {
+                // Resume context if suspended (Chrome autoplay policy)
+                if (this.audioContext.state === 'suspended') {
+                    this.audioContext.resume().catch(e => 
+                        console.warn('Could not resume audio context:', e.message)
+                    );
+                    return; // Skip this frame
+                }
+                
                 const samples = new Int16Array(data);
-                if (samples.length === 0) return;
+                if (samples.length === 0 || samples.length % 2 !== 0) {
+                    console.warn('Invalid audio data length:', samples.length);
+                    return;
+                }
 
                 const audioBuffer = this.audioContext.createBuffer(2, samples.length / 2, 44100);
                 const leftChannel = audioBuffer.getChannelData(0);
                 const rightChannel = audioBuffer.getChannelData(1);
 
                 for (let i = 0; i < samples.length / 2; i++) {
-                    leftChannel[i] = samples[i * 2] / 32768.0;
-                    rightChannel[i] = samples[i * 2 + 1] / 32768.0;
+                    leftChannel[i] = Math.max(-1, Math.min(1, samples[i * 2] / 32768.0));
+                    rightChannel[i] = Math.max(-1, Math.min(1, samples[i * 2 + 1] / 32768.0));
                 }
 
                 const source = this.audioContext.createBufferSource();
                 source.buffer = audioBuffer;
                 source.connect(this.gainNode);
-                source.start();
+                
+                // Schedule playback with small buffer to prevent gaps
+                const playTime = Math.max(this.audioContext.currentTime, this.lastPlayTime || 0);
+                source.start(playTime);
+                this.lastPlayTime = playTime + (samples.length / 2 / 44100);
+                
+                // Clean up source after playback
+                setTimeout(() => {
+                    try {
+                        source.disconnect();
+                    } catch (e) {
+                        // Source already disconnected
+                    }
+                }, (samples.length / 2 / 44100) * 1000 + 100);
                 
             } catch (error) {
                 console.warn('Audio processing error:', error);
+                
+                // Attempt recovery if context is in error state
+                if (this.audioContext && this.audioContext.state === 'closed') {
+                    console.log('AudioContext closed, attempting reconnection...');
+                    this.disconnect();
+                    setTimeout(() => this.connect(), 1000);
+                }
             }
         }
 
@@ -582,7 +633,12 @@
 
         updateStatus(message, type) {
             this.elements.statusText.textContent = message;
-            this.elements.statusDot.className = type === 'connected' ? 'connected' : '';
+            this.elements.statusDot.className = `status-dot ${type === 'connected' ? 'connected' : ''}`;
+            
+            // Show connection method if available
+            if (this.currentMethod && type === 'connected') {
+                this.elements.statusText.textContent = `${message} (${this.currentMethod.toUpperCase()})`;
+            }
         }
 
         togglePanel() {

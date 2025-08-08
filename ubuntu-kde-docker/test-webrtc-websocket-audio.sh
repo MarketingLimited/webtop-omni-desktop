@@ -129,9 +129,23 @@ test_audio_bridge_server() {
     # Test health endpoint
     if curl -s http://localhost:8080/health | grep -q "ok"; then
         green "✅ Health endpoint responding"
+        
+        # Check if WebRTC is available
+        if curl -s http://localhost:8080/health | grep -q '"webrtc":true'; then
+            green "✅ WebRTC support available"
+        else
+            yellow "⚠️ WebRTC support not available (wrtc module missing)"
+        fi
     else
         red "❌ Health endpoint not responding"
         curl -s http://localhost:8080/health || echo "No response"
+    fi
+    
+    # Test WebRTC offer endpoint
+    if curl -s -X POST -H "Content-Type: application/json" -d '{"type":"offer","sdp":"test"}' http://localhost:8080/offer | grep -q "error\|sdp"; then
+        green "✅ WebRTC offer endpoint responding"
+    else
+        yellow "⚠️ WebRTC offer endpoint test inconclusive"
     fi
     
     # Test if port is listening
@@ -141,7 +155,7 @@ test_audio_bridge_server() {
         red "❌ Server not listening on port 8080"
     fi
     
-    # Test WebSocket endpoint
+    # Test WebSocket endpoint with correct path
     if command -v wscat >/dev/null 2>&1; then
         if timeout 3 wscat -c ws://localhost:8080/audio-stream --close 2>/dev/null; then
             green "✅ WebSocket endpoint accessible"
@@ -149,7 +163,12 @@ test_audio_bridge_server() {
             yellow "⚠️ WebSocket endpoint test failed"
         fi
     else
-        yellow "⚠️ wscat not available for WebSocket testing"
+        # Alternative WebSocket test using curl
+        if curl -s -H "Connection: Upgrade" -H "Upgrade: websocket" -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" -H "Sec-WebSocket-Version: 13" http://localhost:8080/audio-stream | grep -q "101\|Upgrade"; then
+            green "✅ WebSocket endpoint accessible (curl test)"
+        else
+            yellow "⚠️ WebSocket endpoint test inconclusive"
+        fi
     fi
     
     # Clean up

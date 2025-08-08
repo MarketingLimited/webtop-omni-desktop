@@ -71,21 +71,44 @@ try {
 2. **WebSocket** (reliable, works through firewalls)
 3. **Graceful error handling** with user feedback
 
-## 🌐 Available Endpoints
+## 🌐 Available Audio Streaming URLs
+After building and running your container:
 
-After building and running the container:
+- **Standalone Audio Player**: `http://YOUR_SERVER_IP:32768/audio-player.html`
+  - Professional UI with WebRTC/WebSocket indicators
+  - Real-time connection method display
+  - Volume control and status monitoring
+- **noVNC with Audio**: `http://YOUR_SERVER_IP:32768/vnc_audio.html`
+  - Integrated VNC + audio controls
+  - Automatic audio activation overlay
+  - WebRTC-first with clear status indicators
+- **Health Check**: `http://YOUR_SERVER_IP:32768/health`
+  - JSON response with WebRTC/WebSocket availability
+- **Direct Audio Bridge**: `http://YOUR_SERVER_IP:8080/audio-player.html`
+  - Direct access to audio bridge (bypasses proxy)
+  - Useful for debugging proxy issues
 
-### **Standalone Audio Player**
-- **URL**: `http://YOUR_SERVER_IP:32768/audio-player.html`
-- **Features**: WebRTC/WebSocket connection with visual indicators
+## 🚀 How It Works
+**Smart Connection Logic**
+- **WebRTC-first**: Attempts low-latency peer-to-peer connection
+- **Proper negotiation**: Adds recvonly transceiver before offer
+- **Multiple endpoints**: Tries both direct and same-origin URLs
+- Automatically falls back to WebSocket if WebRTC fails
+- Visual indicators show which method is active
+- **Shared client library**: Consistent behavior across all interfaces
 
-### **noVNC with Audio**
-- **URL**: `http://YOUR_SERVER_IP:32768/vnc_audio.html`
-- **Features**: Integrated VNC + audio controls
+**Automatic Setup**
+- Everything configured during Docker build
+- No manual intervention required
+- Works on any server environment
+- **Environment-based configuration** for different deployments
 
-### **Health Check**
-- **URL**: `http://YOUR_SERVER_IP:32768/health`
-- **Response**: JSON with WebRTC/WebSocket availability
+**Robust Error Handling**
+- Graceful fallback when components fail
+- User-friendly error messages
+- Automatic retry mechanisms
+- **AudioContext recovery** for browser policy issues
+- **Connection method logging** for debugging
 
 ## 🔧 Technical Implementation
 
