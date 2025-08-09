@@ -346,20 +346,36 @@ class SharedAudioClient {
         return new Promise((resolve, reject) => {
             const ws = new WebSocket(wsUrl);
             ws.binaryType = 'arraybuffer';
-            
+
             const timeout = setTimeout(() => {
                 ws.close();
                 reject(new Error('WebSocket timeout'));
             }, 5000);
-            
+
+            let handshakeDone = false;
+
             ws.onopen = () => {
-                clearTimeout(timeout);
-                this.websocket = ws;
-                this.log('WebSocket opened');
-                resolve();
+                this.log('WebSocket opened, awaiting handshake');
             };
-            
+
             ws.onmessage = (event) => {
+                if (!handshakeDone) {
+                    try {
+                        const msg = JSON.parse(event.data);
+                        if (msg.type === 'connected') {
+                            handshakeDone = true;
+                            clearTimeout(timeout);
+                            this.websocket = ws;
+                            resolve();
+                            return;
+                        }
+                    } catch (_) { /* not JSON */ }
+                    clearTimeout(timeout);
+                    ws.close();
+                    reject(new Error('WebSocket handshake failed'));
+                    return;
+                }
+
                 if (typeof event.data === 'string') {
                     // Control message
                     this.log('WebSocket control message:', event.data);
@@ -367,7 +383,7 @@ class SharedAudioClient {
                 }
                 this.processAudioData(event.data);
             };
-            
+
             ws.onclose = () => {
                 clearTimeout(timeout);
                 if (this.isConnected) {
@@ -377,7 +393,7 @@ class SharedAudioClient {
                 }
                 this.log('WebSocket closed');
             };
-            
+
             ws.onerror = (error) => {
                 clearTimeout(timeout);
                 this.log('WebSocket error:', error);

@@ -513,22 +513,39 @@
             return new Promise((resolve, reject) => {
                 const ws = new WebSocket(wsUrl);
                 ws.binaryType = 'arraybuffer';
-                
+
                 const timeout = setTimeout(() => {
                     ws.close();
                     reject(new Error('Connection timeout'));
                 }, 3000);
 
+                let handshakeDone = false;
+
                 ws.onopen = () => {
-                    clearTimeout(timeout);
-                    this.websocket = ws;
-                    this.isConnected = true;
-                    this.updateUI();
-                    this.updateStatus('Audio connected via WebSocket', 'connected');
-                    resolve();
+                    // wait for handshake
                 };
 
                 ws.onmessage = (event) => {
+                    if (!handshakeDone) {
+                        try {
+                            const msg = JSON.parse(event.data);
+                            if (msg.type === 'connected') {
+                                handshakeDone = true;
+                                clearTimeout(timeout);
+                                this.websocket = ws;
+                                this.isConnected = true;
+                                this.updateUI();
+                                this.updateStatus('Audio connected via WebSocket', 'connected');
+                                resolve();
+                                return;
+                            }
+                        } catch (_) { /* not JSON */ }
+                        clearTimeout(timeout);
+                        ws.close();
+                        reject(new Error('WebSocket handshake failed'));
+                        return;
+                    }
+
                     if (typeof event.data === 'string') {
                         // Control message
                         return;
@@ -545,7 +562,7 @@
                     }
                 };
 
-                ws.onerror = (error) => {
+                ws.onerror = () => {
                     clearTimeout(timeout);
                     reject(new Error('WebSocket error'));
                 };

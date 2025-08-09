@@ -17,7 +17,7 @@ while [ "$attempt" -le "$max_attempts" ]; do
   if su - "$PULSE_USER" -c "export XDG_RUNTIME_DIR=$RUNTIME_DIR; pactl info" >/dev/null 2>&1 || \
      su - "$PULSE_USER" -c "pactl -s tcp:localhost:4713 info" >/dev/null 2>&1; then
     echo "PulseAudio is ready. Starting AudioBridge."
-    exec /usr/bin/node /opt/audio-bridge/webrtc-audio-server.cjs
+    exec su - "$PULSE_USER" -c "export XDG_RUNTIME_DIR=$RUNTIME_DIR PULSE_RUNTIME_PATH=$RUNTIME_DIR/pulse PULSE_SERVER=unix:$RUNTIME_DIR/pulse/native; node /opt/audio-bridge/webrtc-audio-server.cjs"
   fi
 
   echo "PulseAudio not ready for AudioBridge (attempt $attempt/$max_attempts)" >&2
