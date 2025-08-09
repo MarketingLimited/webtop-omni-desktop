@@ -4,14 +4,19 @@ const WebSocket = require('ws');
 const { spawn } = require('child_process');
 const path = require('path');
 
+const PARECORD_DEVICE = process.env.PARECORD_DEVICE || 'virtual_speaker.monitor';
+const PARECORD_RATE = process.env.PARECORD_RATE || '48000';
+const PARECORD_LATENCY = process.env.PARECORD_LATENCY || '5';
+
 // Spawn a parecord process with automatic restart and backoff
 function createParecord(onData) {
   const args = [
-    '--device=virtual_speaker.monitor',
+    `--device=${PARECORD_DEVICE}`,
     '--format=s16le',
-    '--rate=48000',
+    `--rate=${PARECORD_RATE}`,
     '--channels=2',
-    '--raw'
+    '--raw',
+    `--latency-msec=${PARECORD_LATENCY}`
   ];
 
   let proc;
@@ -26,6 +31,7 @@ function createParecord(onData) {
       PULSE_RUNTIME_PATH: process.env.PULSE_RUNTIME_PATH,
       PULSE_SERVER: process.env.PULSE_SERVER
     };
+    console.log(`Starting parecord with device ${PARECORD_DEVICE} at ${PARECORD_RATE}Hz (latency ${PARECORD_LATENCY}ms)`);
     proc = spawn('parecord', args, { env });
     proc.stdout.on('data', onData);
 

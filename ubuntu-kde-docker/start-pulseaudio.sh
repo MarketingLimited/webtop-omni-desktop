@@ -30,8 +30,7 @@ if ! id "$PULSE_USER" >/dev/null 2>&1; then
   exit 1
 fi
 if ! id -nG "$PULSE_USER" | grep -qw audio; then
-  echo "User $PULSE_USER is not in audio group" >&2
-  exit 1
+  echo "User $PULSE_USER is not in audio group; continuing with software-only audio" >&2
 fi
 
 RUNTIME_DIR="/run/user/$PULSE_UID"
