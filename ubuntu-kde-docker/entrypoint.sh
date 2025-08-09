@@ -266,7 +266,8 @@ chmod +x "/home/${DEV_USERNAME}/.vnc/xstartup"
 
 # XDG runtime directory
 mkdir -p "/run/user/${DEV_UID}"
-chown "${DEV_USERNAME}":"${DEV_USERNAME}" "/run/user/${DEV_UID}"
+# Ensure ownership uses numeric IDs in case usernames aren't yet resolved
+chown "${DEV_UID}:${DEV_GID}" "/run/user/${DEV_UID}"
 chmod 700 "/run/user/${DEV_UID}"
 export XDG_RUNTIME_DIR="/run/user/${DEV_UID}"
 
