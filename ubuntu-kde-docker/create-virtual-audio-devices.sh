@@ -63,68 +63,79 @@ wait_for_pulseaudio() {
 create_virtual_devices() {
     echo "🔧 Creating virtual audio devices..."
     
-    # Function to run pactl with fallback servers and proper output
+    # Function to run pactl with fallback servers and explicit exit codes
     run_pactl() {
         local cmd="$1"
-        local check_output="${2:-false}"
-        
-        # Try local socket first, then TCP fallback
-        if su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl $cmd" 2>/dev/null; then
-            return 0
-        elif su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl -s tcp:localhost:4713 $cmd" 2>/dev/null; then
-            return 0
-        else
-            echo "❌ Failed to execute pactl command: $cmd"
-            return 1
+        local output
+        local exit_code
+
+        output=$(su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl $cmd" 2>&1)
+        exit_code=$?
+
+        if [ $exit_code -ne 0 ]; then
+            output=$(su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl -s tcp:localhost:4713 $cmd" 2>&1)
+            exit_code=$?
         fi
+
+        if [ $exit_code -ne 0 ]; then
+            echo "$output" >&2
+        else
+            echo "$output"
+        fi
+
+        return $exit_code
     }
-    
+
     # Check current sinks and create virtual speaker if needed
     local current_sinks
-    current_sinks=$(run_pactl "list short sinks" "true" 2>/dev/null || echo "")
-    
+    if ! current_sinks=$(run_pactl "list short sinks" 2>&1); then
+        echo "❌ Failed to list sinks: $current_sinks" >&2
+        return 1
+    fi
+
     if ! echo "$current_sinks" | grep -q virtual_speaker; then
         echo "Creating virtual speaker..."
-        if run_pactl "load-module module-null-sink sink_name=virtual_speaker sink_properties=device.description=\"Virtual_Marketing_Speaker\""; then
-            echo "✅ Virtual speaker created successfully"
-        else
-            echo "⚠️ Failed to create virtual speaker, trying alternative method..."
-            su - "${DEV_USERNAME}" -c "
-                export XDG_RUNTIME_DIR=/run/user/${DEV_UID}
-                export PULSE_RUNTIME_PATH=/run/user/${DEV_UID}/pulse
-                pactl -s tcp:localhost:4713 load-module module-null-sink sink_name=virtual_speaker sink_properties=device.description=\"Virtual_Marketing_Speaker\" 2>/dev/null || echo 'Alternative method also failed'
-            " || true
+        local output
+        if ! output=$(run_pactl "load-module module-null-sink sink_name=virtual_speaker sink_properties=device.description=\"Virtual_Marketing_Speaker\"" 2>&1); then
+            echo "❌ Failed to create virtual speaker: $output" >&2
+            return 1
         fi
+        echo "✅ Virtual speaker created successfully"
     else
         echo "✅ Virtual speaker already exists"
     fi
-    
+
     # Create virtual microphone
-    if ! run_pactl "list short sinks" | grep -q virtual_microphone; then
+    if ! current_sinks=$(run_pactl "list short sinks" 2>&1); then
+        echo "❌ Failed to list sinks: $current_sinks" >&2
+        return 1
+    fi
+    if ! echo "$current_sinks" | grep -q virtual_microphone; then
         echo "Creating virtual microphone..."
-        if ! run_pactl "load-module module-null-sink sink_name=virtual_microphone sink_properties=device.description=\"Virtual_Marketing_Microphone\""; then
-            echo "⚠️ Failed to create virtual microphone, using fallback method"
-            su - "${DEV_USERNAME}" -c "
-                export XDG_RUNTIME_DIR=/run/user/${DEV_UID}
-                export PULSE_RUNTIME_PATH=/run/user/${DEV_UID}/pulse
-                pactl -s tcp:localhost:4713 load-module module-null-sink sink_name=virtual_microphone sink_properties=device.description=\"Virtual_Marketing_Microphone\" || true
-            "
+        local output
+        if ! output=$(run_pactl "load-module module-null-sink sink_name=virtual_microphone sink_properties=device.description=\"Virtual_Marketing_Microphone\"" 2>&1); then
+            echo "❌ Failed to create virtual microphone: $output" >&2
+            return 1
         fi
+        echo "✅ Virtual microphone created successfully"
     else
         echo "✅ Virtual microphone already exists"
     fi
-    
+
     # Create virtual microphone source
-    if ! run_pactl "list short sources" | grep -q virtual_mic_source; then
+    local current_sources
+    if ! current_sources=$(run_pactl "list short sources" 2>&1); then
+        echo "❌ Failed to list sources: $current_sources" >&2
+        return 1
+    fi
+    if ! echo "$current_sources" | grep -q virtual_mic_source; then
         echo "Creating virtual microphone source..."
-        if ! run_pactl "load-module module-virtual-source source_name=virtual_mic_source master=virtual_microphone.monitor source_properties=device.description=\"Virtual_Marketing_Mic_Source\""; then
-            echo "⚠️ Failed to create virtual microphone source, using fallback method"
-            su - "${DEV_USERNAME}" -c "
-                export XDG_RUNTIME_DIR=/run/user/${DEV_UID}
-                export PULSE_RUNTIME_PATH=/run/user/${DEV_UID}/pulse
-                pactl -s tcp:localhost:4713 load-module module-virtual-source source_name=virtual_mic_source master=virtual_microphone.monitor source_properties=device.description=\"Virtual_Marketing_Mic_Source\" || true
-            "
+        local output
+        if ! output=$(run_pactl "load-module module-virtual-source source_name=virtual_mic_source master=virtual_microphone.monitor source_properties=device.description=\"Virtual_Marketing_Mic_Source\"" 2>&1); then
+            echo "❌ Failed to create virtual microphone source: $output" >&2
+            return 1
         fi
+        echo "✅ Virtual microphone source created successfully"
     else
         echo "✅ Virtual microphone source already exists"
     fi
@@ -202,7 +213,10 @@ main() {
         echo "❌ PulseAudio setup failed. Aborting."
         exit 1
     fi
-    create_virtual_devices
+    if ! create_virtual_devices; then
+        echo "❌ Virtual audio device creation failed. Aborting."
+        exit 1
+    fi
     verify_devices
     
     echo "🎵 Virtual audio device setup completed successfully!"
