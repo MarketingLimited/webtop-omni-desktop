@@ -1,209 +1,44 @@
 #!/bin/bash
-# Audio System Validation Script for Marketing Agency WebTop
-# Validates and repairs audio configuration after container startup
-
-set -e
+# Simple audio validation for container startup
+# Checks PulseAudio via pactl and audio bridge health endpoint
+#
+# Exit codes:
+#   1 - PulseAudio not responding
+#   2 - No PulseAudio sinks
+#   3 - No PulseAudio sources
+#   4 - Audio health endpoint failed
 
 DEV_USERNAME="${DEV_USERNAME:-devuser}"
 DEV_UID="${DEV_UID:-1000}"
+AUDIO_PORT="${AUDIO_PORT:-8080}"
 
-echo "🔊 Validating audio system configuration..."
+export XDG_RUNTIME_DIR="/run/user/${DEV_UID}"
+export PULSE_RUNTIME_PATH="${XDG_RUNTIME_DIR}/pulse"
 
-# Color output functions
-red() { echo -e "\033[31m$*\033[0m"; }
-green() { echo -e "\033[32m$*\033[0m"; }
-yellow() { echo -e "\033[33m$*\033[0m"; }
-blue() { echo -e "\033[34m$*\033[0m"; }
-
-# Check if PulseAudio is running with virtual devices
-validate_pulseaudio() {
-    echo "🔍 Validating PulseAudio configuration..."
-    
-    # Wait for PulseAudio to start with proper environment
-    export XDG_RUNTIME_DIR="/run/user/${DEV_UID}"
-    export PULSE_RUNTIME_PATH="/run/user/${DEV_UID}/pulse"
-    
-    timeout=60
-    while [ $timeout -gt 0 ]; do
-        if su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl info" >/dev/null 2>&1; then
-            break
-        fi
-        sleep 2
-        timeout=$((timeout - 2))
-    done
-    
-    if ! su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl info" >/dev/null 2>&1; then
-        red "❌ PulseAudio not responding after 60 seconds"
-        # Try to restart PulseAudio
-        yellow "🔄 Attempting to restart PulseAudio..."
-        /usr/local/bin/fix-audio-startup.sh
-        sleep 5
-        return 1
-    fi
-    
-    # Check for virtual devices with proper environment
-    if su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl list short sinks" | grep -q "virtual_speaker"; then
-        green "✅ Virtual speaker device found"
-    else
-        yellow "⚠️  Virtual speaker device missing, attempting to create..."
-        su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl load-module module-null-sink sink_name=virtual_speaker sink_properties=device.description=\"Virtual_Marketing_Speaker\"" || true
-    fi
-    
-    if su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl list short sources" | grep -q "virtual_mic_source\|virtual_microphone.monitor"; then
-        green "✅ Virtual microphone source found"
-    else
-        yellow "⚠️  Virtual microphone source missing, attempting to create..."
-        su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl load-module module-null-sink sink_name=virtual_microphone sink_properties=device.description=\"Virtual_Marketing_Microphone\"" || true
-    fi
-    
-    # Set defaults if not already set
-    current_sink=$(su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl get-default-sink" 2>/dev/null || echo "")
-    if [ "$current_sink" != "virtual_speaker" ]; then
-        su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl set-default-sink virtual_speaker" 2>/dev/null || yellow "⚠️  Could not set default sink"
-    fi
-    
-    return 0
-}
-
-# Test audio device visibility in KDE
-test_kde_audio_integration() {
-    echo "🔍 Testing KDE audio integration..."
-    
-    # Check if KDE can see audio devices
-    if command -v qdbus >/dev/null 2>&1; then
-        # Try to query KDE audio system
-        if qdbus org.kde.kded5 /modules/kmix 2>/dev/null; then
-            green "✅ KDE audio system responding"
-        else
-            yellow "⚠️  KDE audio system not responding"
-        fi
-    fi
-    
-    # Check if audio volume applet can find devices
-    export DISPLAY=:1
-    if command -v pactl >/dev/null && su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl list short sinks" | grep -q virtual; then
-        green "✅ Virtual audio devices available for KDE"
-    else
-        yellow "⚠️  Audio devices may not be visible in KDE"
-    fi
-}
-
-# Verify WebRTC bridge is responding
-test_webrtc_bridge() {
-    echo "🔍 Testing WebRTC audio bridge..."
-    if command -v node >/dev/null 2>&1; then
-        if node <<'NODE'
-const { RTCPeerConnection } = require('/opt/audio-bridge/node_modules/wrtc');
-(async () => {
-  try {
-    const pc = new RTCPeerConnection();
-    pc.ontrack = () => { process.exit(0); };
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    const res = await fetch('http://localhost:8080/offer', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(offer)
-    });
-    const answer = await res.json();
-    await pc.setRemoteDescription(answer);
-    setTimeout(() => process.exit(1), 3000);
-  } catch (e) {
-    process.exit(1);
-  }
-})();
-NODE
-        then
-            green "✅ WebRTC bridge responding"
-        else
-            yellow "⚠️  WebRTC bridge test failed"
-        fi
-    else
-        yellow "⚠️  Node.js not available for WebRTC test"
-    fi
-}
-
-# Create desktop audio test file
-create_audio_test_script() {
-    echo "🔧 Creating desktop audio test script..."
-    
-    cat <<'SCRIPT_EOF' > "/home/${DEV_USERNAME}/test-audio.sh"
-#!/bin/bash
-# Desktop Audio Test Script
-
-echo "🎵 Testing audio system from desktop..."
-
-# Test PulseAudio connectivity
-echo "Testing PulseAudio connection..."
-if pactl info; then
-    echo "✅ PulseAudio connection successful"
-else
-    echo "❌ PulseAudio connection failed"
-    exit 1
+# Verify PulseAudio responds
+if ! su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR}; pactl info" >/dev/null 2>&1; then
+  echo "PulseAudio not responding" >&2
+  exit 1
 fi
 
-# List available devices
-echo ""
-echo "Available audio sinks:"
-pactl list short sinks
-
-echo ""
-echo "Available audio sources:"
-pactl list short sources
-
-# Test audio generation
-echo ""
-echo "Testing audio generation (3 seconds of tone)..."
-if command -v speaker-test >/dev/null; then
-    speaker-test -t sine -f 440 -l 1 -s 1 &
-    SPEAKER_PID=$!
-    sleep 3
-    kill $SPEAKER_PID 2>/dev/null || true
-    echo "✅ Audio test completed"
-else
-    echo "⚠️  speaker-test not available"
+# Ensure at least one sink exists
+if ! su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR}; pactl list short sinks" | grep -q .; then
+  echo "No PulseAudio sinks found" >&2
+  exit 2
 fi
 
-echo ""
-echo "🎵 Audio test completed! Check the KDE audio settings panel."
-SCRIPT_EOF
-
-    chown "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/test-audio.sh"
-    chmod +x "/home/${DEV_USERNAME}/test-audio.sh"
-    
-    green "✅ Audio test script created at /home/${DEV_USERNAME}/test-audio.sh"
-}
-
-# Main validation function
-main() {
-    echo "Starting audio system validation..."
-    
-    # Wait a moment for services to settle
-    sleep 5
-    
-    validate_pulseaudio
-    test_kde_audio_integration
-    test_webrtc_bridge
-    create_audio_test_script
-    
-    echo ""
-    blue "🎵 Audio validation completed!"
-    echo ""
-    echo "To test audio in the desktop:"
-    echo "1. Open KDE System Settings > Audio"
-    echo "2. Check if Virtual_Marketing_Speaker and Virtual_Marketing_Microphone are visible"
-    echo "3. Run: /home/${DEV_USERNAME}/test-audio.sh from a terminal"
-    echo ""
-    
-    # Final device count
-    device_count=$(pactl list short sinks | wc -l)
-    if [ "$device_count" -gt 0 ]; then
-        green "✅ Audio validation successful! Found $device_count audio devices."
-    else
-        red "❌ Audio validation failed! No audio devices found."
-        return 1
-    fi
-}
-
-# Run validation if called directly
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    main "$@"
+# Ensure at least one source exists
+if ! su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR}; pactl list short sources" | grep -q .; then
+  echo "No PulseAudio sources found" >&2
+  exit 3
 fi
+
+# Check audio bridge health endpoint
+if ! curl -fsS "http://localhost:${AUDIO_PORT}/health" >/dev/null; then
+  echo "Audio service health check failed" >&2
+  exit 4
+fi
+
+echo "Audio validation passed"
+exit 0
+
