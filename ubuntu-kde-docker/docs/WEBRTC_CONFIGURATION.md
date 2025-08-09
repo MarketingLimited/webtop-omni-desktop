@@ -24,6 +24,12 @@ AUDIO_PORT=8080
 AUDIO_WS_SCHEME=wss
 ```
 
+> **Production requirement:** Always configure `WEBRTC_TURN_SERVER`,
+> `WEBRTC_TURN_USERNAME`, and `WEBRTC_TURN_PASSWORD` with a reachable
+> TURN service. STUN alone cannot traverse corporate firewalls or
+> symmetric NAT. Missing TURN settings will cause WebRTC to fail for
+> many remote users.
+
 ## STUN/TURN Server Setup
 
 ### Using Google's Public STUN Servers (Default)
@@ -34,7 +40,8 @@ WEBRTC_STUN_SERVER=stun:stun.l.google.com:19302
 
 ### Setting Up Your Own TURN Server
 
-For production deployments over the internet, you'll need a TURN server:
+For production deployments over the internet, a TURN server is **mandatory**.
+Without one, WebRTC will typically fail outside of local networks.
 
 #### Option 1: coturn (Recommended)
 
