@@ -4,6 +4,55 @@ const WebSocket = require('ws');
 const { spawn } = require('child_process');
 const path = require('path');
 
+// Spawn a parecord process with automatic restart and backoff
+function createParecord(onData) {
+  const args = [
+    '--device=virtual_speaker.monitor',
+    '--format=s16le',
+    '--rate=48000',
+    '--channels=2',
+    '--raw'
+  ];
+
+  let proc;
+  let stopped = false;
+  const restartTimes = [];
+
+  const start = () => {
+    if (stopped) return;
+    proc = spawn('parecord', args);
+    proc.stdout.on('data', onData);
+
+    const handleFailure = (type, err) => {
+      console.error(`parecord ${type}:`, err);
+
+      if (stopped) return;
+      const now = Date.now();
+      restartTimes.push(now);
+      while (restartTimes.length && now - restartTimes[0] > 60000) {
+        restartTimes.shift();
+      }
+      if (restartTimes.length > 5) {
+        console.error('parecord restart limit reached; not restarting');
+        return;
+      }
+      setTimeout(start, 1000);
+    };
+
+    proc.on('error', (err) => handleFailure('error', err.message));
+    proc.on('exit', (code, signal) => handleFailure('exit', `code ${code} signal ${signal}`));
+  };
+
+  start();
+
+  return {
+    kill() {
+      stopped = true;
+      if (proc) proc.kill();
+    }
+  };
+}
+
 // Track active peer connection and signaling clients
 let currentPeerConnection = null;
 const signalingClients = new Set();
@@ -105,16 +154,7 @@ app.post('/offer', async (req, res) => {
     };
 
     // Create audio capture process
-    const audioProcess = spawn('parecord', [
-      '--device=virtual_speaker.monitor',
-      '--format=s16le',
-      '--rate=48000',
-      '--channels=2',
-      '--raw'
-    ]);
-
-    // Process audio data and send to WebRTC
-    audioProcess.stdout.on('data', (data) => {
+    const audioProcess = createParecord((data) => {
       try {
         if (pc.connectionState === 'connected') {
           source.onData({
@@ -127,10 +167,6 @@ app.post('/offer', async (req, res) => {
       } catch (err) {
         console.warn('Audio processing error:', err.message);
       }
-    });
-
-    audioProcess.on('error', (err) => {
-      console.error('Audio capture error:', err.message);
     });
 
     await pc.setRemoteDescription(req.body);
@@ -207,18 +243,10 @@ const wss = new WebSocket.Server({
 wss.on('connection', (ws, req) => {
   console.log('WebSocket audio connection established');
   
-  // Create audio capture process for WebSocket
-  const recorder = spawn('parecord', [
-    '--device=virtual_speaker.monitor',
-    '--format=s16le',
-    '--rate=48000',
-    '--channels=2',
-    '--raw'
-  ]);
-
   let isConnected = true;
 
-  recorder.stdout.on('data', (data) => {
+  // Create audio capture process for WebSocket
+  const recorder = createParecord((data) => {
     if (isConnected && ws.readyState === WebSocket.OPEN) {
       try {
         ws.send(data);
@@ -226,10 +254,6 @@ wss.on('connection', (ws, req) => {
         console.warn('WebSocket send error:', err.message);
       }
     }
-  });
-
-  recorder.on('error', (err) => {
-    console.error('Audio recorder error:', err.message);
   });
 
   ws.on('close', () => {
