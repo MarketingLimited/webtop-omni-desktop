@@ -4,10 +4,12 @@
 load-module module-device-restore
 load-module module-stream-restore
 load-module module-card-restore
+load-module module-default-device-restore
+load-module module-rescue-streams
+load-module module-always-sink
+load-module module-suspend-on-idle
 
 # Load audio drivers
-load-module module-udev-detect
-load-module module-detect
 
 # Load network modules
 load-module module-native-protocol-unix auth-anonymous=1
