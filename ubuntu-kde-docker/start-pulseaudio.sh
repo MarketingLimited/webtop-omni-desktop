@@ -35,6 +35,9 @@ chmod 700 "$RUNTIME_DIR"
 # 3. Remove stale PID files or instances
 rm -f "$PULSE_DIR"/*.pid 2>/dev/null || true
 pkill -u "$PULSE_UID" pulseaudio >/dev/null 2>&1 || true
+# PulseAudio's native UNIX socket path.  If a previous run crashed or exited
+# without cleaning up, the leftover file will block the daemon from binding to
+# the same address again, so ensure it is removed before startup.
 NATIVE_SOCKET="$PULSE_DIR/native"
 if [ -e "$NATIVE_SOCKET" ]; then
   echo "Removing stale PulseAudio socket: $NATIVE_SOCKET"
@@ -51,6 +54,8 @@ start_pulseaudio() {
 }
 
 # 4. Start PulseAudio in daemon mode and log output
+# PA_MODE records how clients should connect: "unix" uses the native socket and
+# "tcp" enables module-native-protocol-tcp for network access.
 PA_MODE="unix"
 start_pulseaudio "$PA_MODE"
 
@@ -82,11 +87,14 @@ wait_for_pactl() {
   return 1
 }
 
+# Try connecting over the expected UNIX socket.  If pactl cannot reach the
+# daemon, assume the bind failed (e.g. another socket is already in use) and
+# restart in TCP mode.
 if ! wait_for_pactl "export XDG_RUNTIME_DIR=$RUNTIME_DIR;" ""; then
   echo "Initial PulseAudio startup failed, retrying with TCP..." >&2
   pkill -u "$PULSE_UID" pulseaudio >/dev/null 2>&1 || true
   rm -f "$NATIVE_SOCKET" 2>/dev/null || true
-  PA_MODE="tcp"
+  PA_MODE="tcp"  # remember active protocol for later checks and logging
   start_pulseaudio "$PA_MODE"
   for i in {1..10}; do
     if grep -q 'Daemon startup complete' "$LOGFILE" || grep -q 'READY=1' "$LOGFILE"; then
