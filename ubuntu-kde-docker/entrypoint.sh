@@ -35,6 +35,18 @@ log_warn() {
 : "${AUDIO_WS_SCHEME:=}"
 export AUDIO_HOST AUDIO_PORT AUDIO_WS_SCHEME
 
+# Validate TURN configuration
+: "${WEBRTC_TURN_SERVER:=}"
+: "${WEBRTC_TURN_USERNAME:=}"
+: "${WEBRTC_TURN_PASSWORD:=}"
+missing_turn_vars=()
+[[ -z "$WEBRTC_TURN_SERVER" ]] && missing_turn_vars+=(WEBRTC_TURN_SERVER)
+[[ -z "$WEBRTC_TURN_USERNAME" ]] && missing_turn_vars+=(WEBRTC_TURN_USERNAME)
+[[ -z "$WEBRTC_TURN_PASSWORD" ]] && missing_turn_vars+=(WEBRTC_TURN_PASSWORD)
+if [ ${#missing_turn_vars[@]} -ne 0 ]; then
+    log_warn "Missing TURN configuration variables: ${missing_turn_vars[*]}. WebRTC may fail behind strict networks."
+fi
+
 # Update runtime .env if present
 ENV_FILE="/config/.env"
 if [ -f "$ENV_FILE" ]; then
