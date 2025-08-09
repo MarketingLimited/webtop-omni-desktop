@@ -44,29 +44,27 @@ if [ -e "$NATIVE_SOCKET" ]; then
   rm -f "$NATIVE_SOCKET"
 fi
 
-# start_pulseaudio MODE
-#   $1 - desired transport: "unix" (default) uses only the native
-#       UNIX socket, while "tcp" loads module-native-protocol-tcp and
-#       disables the idle timeout so the daemon listens on localhost.
-# Launch PulseAudio as $PULSE_USER using the requested transport.  The
-# script calls this first with "unix"; if pactl cannot reach the daemon the
-# caller switches PA_MODE to "tcp" and invokes the function again to retry
-# over loopback TCP.
+# Launch PulseAudio using a minimal system-wide configuration.
+# The daemon runs with the provided system.pa so only the required
+# modules (null sink, native UNIX, optional TCP) are loaded.
 start_pulseaudio() {
-  local mode="$1"
-  local cmd="pulseaudio -D --log-target=file:$LOGFILE"
-  if [ "$mode" = "tcp" ]; then
-    cmd="pulseaudio -D --exit-idle-time=-1 --load=module-native-protocol-tcp --log-target=file:$LOGFILE"
-  fi
+  local cmd="pulseaudio --system --daemonize --file=/etc/pulse/system.pa --log-target=file:$LOGFILE"
   su - "$PULSE_USER" -c "export XDG_RUNTIME_DIR=$RUNTIME_DIR; $cmd"
 }
 
+# Ensure the system configuration exists and is readable by the PulseAudio
+# user to avoid confusing crashes later.
+if ! su - "$PULSE_USER" -c 'test -r /etc/pulse/system.pa'; then
+  echo "Missing or unreadable PulseAudio config: /etc/pulse/system.pa" >&2
+  exit 1
+fi
+
 # 4. Start PulseAudio in daemon mode and log output
 # PA_MODE tracks which transport is currently active so later health checks
-# and logs use the correct connection string. We begin in "unix" mode and only
-# switch to "tcp" if the UNIX socket cannot be bound.
+# and logs use the correct connection string. We begin assuming the UNIX
+# socket will be used and fall back to TCP only if that fails.
 PA_MODE="unix"
-start_pulseaudio "$PA_MODE"
+start_pulseaudio
 
 for i in {1..10}; do
   if grep -q 'Daemon startup complete' "$LOGFILE" || grep -q 'READY=1' "$LOGFILE"; then
@@ -87,7 +85,7 @@ fi
 #   $2 - text label appended to log messages for clarity
 # Polls "pactl info" until it succeeds or times out, verifying the daemon is
 # reachable over the given transport.  The caller first probes the UNIX socket;
-# failure there triggers a restart in TCP mode and another call to this helper
+# failure there triggers a TCP fallback and another call to this helper
 # with the appropriate PULSE_SERVER value.
 wait_for_pactl() {
   local server_flag="$1"
@@ -106,22 +104,10 @@ wait_for_pactl() {
 
 # Try connecting over the expected UNIX socket first. If pactl cannot reach the
 # daemon, assume the bind failed (e.g. another socket is already in use) and
-# restart in TCP mode.
+# fall back to the TCP module already loaded by system.pa.
 if ! wait_for_pactl "export XDG_RUNTIME_DIR=$RUNTIME_DIR;" ""; then
   echo "Initial PulseAudio startup failed, retrying with TCP..." >&2
-  pkill -u "$PULSE_UID" pulseaudio >/dev/null 2>&1 || true
-  rm -f "$NATIVE_SOCKET" 2>/dev/null || true
-  # Switch to TCP fallback and record the mode so later steps know to use the
-  # network endpoint instead of the UNIX socket.
   PA_MODE="tcp"
-  start_pulseaudio "$PA_MODE"
-  for i in {1..10}; do
-    if grep -q 'Daemon startup complete' "$LOGFILE" || grep -q 'READY=1' "$LOGFILE"; then
-      echo "PulseAudio reported successful startup."
-      break
-    fi
-    sleep 1
-  done
   wait_for_pactl "PULSE_SERVER=tcp:127.0.0.1:4713" " over TCP" || {
     echo "Failed to connect to PulseAudio with pactl info" >&2
     echo "Check $LOGFILE for details" >&2

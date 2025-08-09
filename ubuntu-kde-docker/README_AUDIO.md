@@ -60,6 +60,23 @@ environment when the container starts.
 
 ## Technical Details
 
+### PulseAudio Configuration
+A dedicated `/etc/pulse/system.pa` is installed to keep the audio stack
+minimal and predictable. It loads only the core modules required by the
+WebTop environment:
+
+```
+load-module module-null-sink
+load-module module-native-protocol-unix
+.ifexists module-native-protocol-tcp.so
+load-module module-native-protocol-tcp
+.endif
+```
+
+`start-pulseaudio.sh` starts the daemon in system mode using this file via
+`pulseaudio --system --file=/etc/pulse/system.pa`, providing a TCP fallback
+when the UNIX socket cannot be used.
+
 ### Ports
 - `32768`: Main noVNC interface with audio
 - `8080`: Audio bridge WebSocket server

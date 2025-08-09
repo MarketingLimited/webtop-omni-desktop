@@ -1,0 +1,6 @@
+# Minimal PulseAudio configuration for WebTop
+load-module module-null-sink
+load-module module-native-protocol-unix
+.ifexists module-native-protocol-tcp.so
+load-module module-native-protocol-tcp
+.endif
