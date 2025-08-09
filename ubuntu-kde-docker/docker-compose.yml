@@ -20,6 +20,8 @@ services:
     env_file:
       - .env
     environment:
+      # WebRTC STUN/TURN configuration
+      WEBRTC_STUN_SERVER: ${WEBRTC_STUN_SERVER}
       WEBRTC_TURN_SERVER: ${WEBRTC_TURN_SERVER}
       WEBRTC_TURN_USERNAME: ${WEBRTC_TURN_USERNAME}
       WEBRTC_TURN_PASSWORD: ${WEBRTC_TURN_PASSWORD}
