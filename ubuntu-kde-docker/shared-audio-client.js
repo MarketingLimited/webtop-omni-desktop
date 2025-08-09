@@ -5,8 +5,12 @@
 class SharedAudioClient {
     constructor(options = {}) {
         this.audioHost = options.audioHost || window.AUDIO_HOST || window.location.hostname;
-        this.audioPort = options.audioPort || window.AUDIO_PORT || 8080;
-        this.webrtcPort = options.webrtcPort || window.WEBRTC_PORT || this.audioPort;
+        this.audioPort =
+            options.audioPort !== undefined ? options.audioPort :
+            (typeof window.AUDIO_PORT !== 'undefined' ? window.AUDIO_PORT : 8080);
+        this.webrtcPort =
+            options.webrtcPort !== undefined ? options.webrtcPort :
+            (typeof window.WEBRTC_PORT !== 'undefined' ? window.WEBRTC_PORT : this.audioPort);
         this.wsScheme = options.wsScheme || window.AUDIO_WS_SCHEME || (window.location.protocol === 'https:' ? 'wss' : 'ws');
 
         const fallbackConfig = options.enableWebSocketFallback ?? window.ENABLE_WEBSOCKET_FALLBACK;
@@ -151,8 +155,9 @@ class SharedAudioClient {
         this.peerConnection = pc;
 
         // Try multiple signaling URLs for ICE candidates
+        const signalPort = this.webrtcPort ? `:${this.webrtcPort}` : '';
         const signalUrls = [
-            `${this.wsScheme}://${this.audioHost}:${this.webrtcPort}/webrtc`,
+            `${this.wsScheme}://${this.audioHost}${signalPort}/webrtc`,
             `${this.wsScheme}://${window.location.host}/webrtc` // Same-origin fallback
         ];
 
@@ -242,8 +247,9 @@ class SharedAudioClient {
         this.log('WebRTC offer created');
         
         // Try multiple offer endpoints
+        const offerPort = this.webrtcPort ? `:${this.webrtcPort}` : '';
         const offerUrls = [
-            `http://${this.audioHost}:${this.webrtcPort}/offer`,
+            `http://${this.audioHost}${offerPort}/offer`,
             `/offer` // Same-origin fallback if proxied
         ];
         
@@ -297,8 +303,9 @@ class SharedAudioClient {
         this.log('Attempting WebSocket connection...');
         
         // Try multiple WebSocket URLs
+        const wsPort = this.audioPort ? `:${this.audioPort}` : '';
         const wsUrls = [
-            `${this.wsScheme}://${this.audioHost}:${this.audioPort}/audio-stream`,
+            `${this.wsScheme}://${this.audioHost}${wsPort}/audio-stream`,
             `${this.wsScheme}://${window.location.host}/audio-stream` // Same-origin fallback
         ];
         
