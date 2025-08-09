@@ -1,9 +1,15 @@
 #!/bin/bash
 # diagnostic-and-fix.sh: Automatic audio diagnostic and fix script for WebTop container
+#
+# Usage:
+#   DEV_UID=<uid> DEV_USERNAME=<user> ./diagnostic-and-fix.sh
 set -euo pipefail
 
-# Assume the user's PulseAudio runtime directory is available
-export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+DEV_USERNAME="${DEV_USERNAME:-devuser}"
+DEV_UID="${DEV_UID:-$(id -u "$DEV_USERNAME" 2>/dev/null || echo 1000)}"
+
+# Use the specified user's PulseAudio runtime directory
+export XDG_RUNTIME_DIR="/run/user/${DEV_UID}"
 
 LOG_FILE="${LOG_FILE:-/tmp/audio_diagnostic.log}"
 : >"$LOG_FILE"
