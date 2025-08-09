@@ -33,7 +33,12 @@ test('falls back to TCP when UNIX socket unavailable', async (t) => {
   const sockPath = path.join(runtimeDir, 'native');
   try { fs.unlinkSync(sockPath); } catch {}
   const server = net.createServer().listen(sockPath);
-  t.after(() => server.close());
+  t.after(async () => {
+    await new Promise((resolve) => server.close(resolve));
+    try {
+      fs.unlinkSync(sockPath);
+    } catch {}
+  });
 
   const script = path.resolve(__dirname, '..', 'start-pulseaudio.sh');
   const result = spawnSync('/bin/bash', [script], {
