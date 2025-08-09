@@ -96,6 +96,48 @@ check_kde_audio() {
     fi
 }
 
+# Restart PulseAudio using available startup script or direct commands
+restart_pulseaudio() {
+    log_audio "\U0001F504 Restarting PulseAudio daemon"
+    if command -v start-pulseaudio.sh >/dev/null 2>&1; then
+        "$(command -v start-pulseaudio.sh)" >/dev/null 2>&1 || true
+    else
+        pkill -x pulseaudio >/dev/null 2>&1 || true
+        if id "${DEV_USERNAME}" >/dev/null 2>&1; then
+            su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID:-1000}; pulseaudio --start" >/dev/null 2>&1 || true
+        else
+            pulseaudio --start >/dev/null 2>&1 || true
+        fi
+    fi
+}
+
+# Continuously verify audio stream output and latency
+monitor_audio_stream() {
+    while true; do
+        if ! id "${DEV_USERNAME}" >/dev/null 2>&1; then
+            sleep 5
+            continue
+        fi
+
+        local latency bytes
+        latency=$(
+            su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID:-1000}; pactl list sources 2>/dev/null" 2>/dev/null \
+            | awk '/Name: virtual_speaker.monitor/{f=1} f && /Latency:/{sub(/^[ \t]*Latency: /, "", $0); print; exit}' \
+            || echo ""
+        )
+        bytes=$(su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID:-1000}; timeout 3s parec --latency-msec=1 -d virtual_speaker.monitor 2>/dev/null | wc -c" 2>/dev/null || echo 0)
+
+        if [ "$bytes" -gt 0 ]; then
+            log_audio "\U0001F4E1 virtual_speaker.monitor active - ${bytes} bytes read (latency: ${latency:-unknown})"
+        else
+            log_audio "\U0001F6D1 virtual_speaker.monitor stalled - restarting PulseAudio"
+            restart_pulseaudio
+        fi
+
+        sleep 5
+    done
+}
+
 generate_audio_status() {
     log_audio "=== Audio System Status Report ==="
     
@@ -147,6 +189,9 @@ main() {
             ;;
         "monitor")
             log_audio "Starting continuous audio monitoring (10-minute intervals)..."
+            monitor_audio_stream &
+            STREAM_MONITOR_PID=$!
+            trap "kill $STREAM_MONITOR_PID" EXIT
             while true; do
                 # Only generate status if system is ready
                 if id "${DEV_USERNAME}" >/dev/null 2>&1; then
