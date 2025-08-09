@@ -52,7 +52,24 @@ if ! grep -q 'Daemon startup complete' "$LOGFILE" && ! grep -q 'READY=1' "$LOGFI
   exit 1
 fi
 
-# 5. Health check for sinks/sources
+# 5. Wait for pactl to report server info
+echo "Waiting for PulseAudio availability..."
+for i in {1..20}; do
+  if su - "$PULSE_USER" -c "export XDG_RUNTIME_DIR=$RUNTIME_DIR; pactl info" >/dev/null 2>&1; then
+    echo "pactl info succeeded."
+    break
+  fi
+  echo "PulseAudio not ready (attempt $i/20)" >&2
+  sleep 1
+done
+
+if ! su - "$PULSE_USER" -c "export XDG_RUNTIME_DIR=$RUNTIME_DIR; pactl info" >/dev/null 2>&1; then
+  echo "Failed to connect to PulseAudio with pactl info" >&2
+  echo "Check $LOGFILE for details" >&2
+  exit 1
+fi
+
+# 6. Health check for sinks/sources
 echo "Performing PulseAudio health check..."
 SINKS=$(su - "$PULSE_USER" -c "export XDG_RUNTIME_DIR=$RUNTIME_DIR; pactl list short sinks" 2>/dev/null)
 if [ -z "$SINKS" ]; then
