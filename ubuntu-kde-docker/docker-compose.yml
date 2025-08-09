@@ -30,7 +30,7 @@ services:
     volumes:
       - /data/ubuntu-kde-docker_webtop/config:/config
       - /data/ubuntu-kde-docker_webtop/var/log/supervisor:/var/log/supervisor
-      - /data/ubuntu-kde-docker_webtop/tmp/.X11-unix:/tmp/.X11-unix:ro
+      - /data/ubuntu-kde-docker_webtop/tmp/.X11-unix:/tmp/.X11-unix:rw
     devices:
       - /dev/snd:/dev/snd
     tmpfs:

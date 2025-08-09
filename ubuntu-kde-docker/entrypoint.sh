@@ -149,9 +149,13 @@ fi
 mkdir -p /var/run/dbus /tmp/.ICE-unix /tmp/.X11-unix
 # Ensure root ownership and world-writable permissions for X11 and ICE sockets
 # /tmp/.X11-unix may be mounted read-only by the host
-chown root:root /tmp/.X11-unix 2>/dev/null || log_warn "/tmp/.X11-unix ownership could not be set"
+if [ -w /tmp/.X11-unix ]; then
+    chown root:root /tmp/.X11-unix 2>/dev/null || log_warn "/tmp/.X11-unix ownership could not be set"
+    chmod 1777 /tmp/.X11-unix 2>/dev/null || log_warn "/tmp/.X11-unix permissions could not be set"
+else
+    log_warn "/tmp/.X11-unix is not writable; skipping ownership and permission changes"
+fi
 chmod 1777 /tmp/.ICE-unix 2>/dev/null || log_warn "/tmp/.ICE-unix permissions could not be set"
-chmod 1777 /tmp/.X11-unix 2>/dev/null || log_warn "/tmp/.X11-unix is not writable; skipping chmod"
 
 # Replace default username in polkit rule if different
 if [ -f /etc/polkit-1/rules.d/99-devuser-all.rules ]; then
