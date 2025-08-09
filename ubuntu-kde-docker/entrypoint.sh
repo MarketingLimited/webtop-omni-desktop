@@ -235,6 +235,9 @@ fi
 getent group video >/dev/null || groupadd -r video
 getent group render >/dev/null || groupadd -r render
 usermod -aG sudo,ssl-cert,pulse-access,video,render "$DEV_USERNAME"
+# Allow access to sound devices
+getent group audio >/dev/null || groupadd -r audio
+usermod -aG audio "$DEV_USERNAME"
 
 # Ensure runtime variables match the actual user IDs
 DEV_UID="$(id -u "$DEV_USERNAME")"
