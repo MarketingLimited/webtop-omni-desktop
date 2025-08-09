@@ -279,20 +279,39 @@ class SharedAudioClient {
         const answer = await response.json();
         await pc.setRemoteDescription(answer);
         this.log('WebRTC answer processed');
-        
-        // Wait for connection with timeout
+
+        // Wait for connection with timeout and monitor signaling socket
         await new Promise((resolve, reject) => {
             const timeout = setTimeout(() => {
+                cleanup();
                 reject(new Error('WebRTC connection timeout'));
             }, 10000);
-            
+
+            const cleanup = () => {
+                clearTimeout(timeout);
+                pc.onconnectionstatechange = null;
+                signalSocket.onerror = null;
+                signalSocket.onclose = null;
+            };
+
+            const fail = (msg) => {
+                if (pc.connectionState !== 'connected') {
+                    cleanup();
+                    reject(new Error(msg));
+                }
+            };
+
+            signalSocket.onerror = () => fail('Signaling socket error');
+            signalSocket.onclose = () => fail('Signaling socket closed');
+
             pc.onconnectionstatechange = () => {
+                this.log('WebRTC connection state changed', pc.connectionState);
                 if (pc.connectionState === 'connected') {
-                    clearTimeout(timeout);
+                    cleanup();
                     this.log('WebRTC connection established');
                     resolve();
                 } else if (['failed', 'disconnected', 'closed'].includes(pc.connectionState)) {
-                    clearTimeout(timeout);
+                    cleanup();
                     reject(new Error(`WebRTC connection ${pc.connectionState}`));
                 }
             };
