@@ -44,20 +44,11 @@ if [ -e "$NATIVE_SOCKET" ]; then
   rm -f "$NATIVE_SOCKET"
 fi
 
-# Launch PulseAudio using a minimal system-wide configuration.
-# The daemon runs with the provided system.pa so only the required
-# modules (null sink, native UNIX, optional TCP) are loaded.
+# Launch a per-user PulseAudio daemon using the default configuration.
 start_pulseaudio() {
-  local cmd="pulseaudio --system --daemonize --file=/etc/pulse/system.pa --log-target=file:$LOGFILE"
-  su - "$PULSE_USER" -c "export XDG_RUNTIME_DIR=$RUNTIME_DIR; $cmd"
+  local cmd="pulseaudio --daemonize --exit-idle-time=-1 --log-target=file:$LOGFILE"
+  su - "$PULSE_USER" -c "export XDG_RUNTIME_DIR=$RUNTIME_DIR PULSE_RUNTIME_PATH=$PULSE_DIR; $cmd"
 }
-
-# Ensure the system configuration exists and is readable by the PulseAudio
-# user to avoid confusing crashes later.
-if ! su - "$PULSE_USER" -c 'test -r /etc/pulse/system.pa'; then
-  echo "Missing or unreadable PulseAudio config: /etc/pulse/system.pa" >&2
-  exit 1
-fi
 
 # 4. Start PulseAudio in daemon mode and log output
 # PA_MODE tracks which transport is currently active so later health checks

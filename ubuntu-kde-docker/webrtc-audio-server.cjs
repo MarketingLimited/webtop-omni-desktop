@@ -20,7 +20,13 @@ function createParecord(onData) {
 
   const start = () => {
     if (stopped) return;
-    proc = spawn('parecord', args);
+    const env = {
+      ...process.env,
+      XDG_RUNTIME_DIR: process.env.XDG_RUNTIME_DIR,
+      PULSE_RUNTIME_PATH: process.env.PULSE_RUNTIME_PATH,
+      PULSE_SERVER: process.env.PULSE_SERVER
+    };
+    proc = spawn('parecord', args, { env });
     proc.stdout.on('data', onData);
 
     const handleFailure = (type, err) => {
