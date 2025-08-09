@@ -40,22 +40,22 @@ wait_for_pulseaudio() {
     
     echo "❌ PulseAudio not ready after 60 seconds"
     echo "🔧 Attempting PulseAudio restart..."
-    
-    # Try to restart PulseAudio
+
+    # Try to restart PulseAudio as root and start it as the dev user
+    pkill -u "${DEV_UID}" pulseaudio || true
     su - "${DEV_USERNAME}" -c "
         export XDG_RUNTIME_DIR=/run/user/${DEV_UID}
         export PULSE_RUNTIME_PATH=/run/user/${DEV_UID}/pulse
-        pkill -f pulseaudio || true
-        sleep 2
         pulseaudio --daemonize --start
     "
-    
+
     sleep 5
     if su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl info >/dev/null 2>&1"; then
         echo "✅ PulseAudio restarted successfully"
         return 0
     fi
-    
+
+    echo "❌ PulseAudio restart failed"
     return 1
 }
 
@@ -198,7 +198,10 @@ main() {
     chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/run/user/${DEV_UID}"
     
     # Execute the device creation process
-    wait_for_pulseaudio
+    if ! wait_for_pulseaudio; then
+        echo "❌ PulseAudio setup failed. Aborting."
+        exit 1
+    fi
     create_virtual_devices
     verify_devices
     
