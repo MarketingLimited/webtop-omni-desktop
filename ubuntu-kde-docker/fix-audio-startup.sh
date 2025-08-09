@@ -45,9 +45,13 @@ fi
 
 # Create optimized PulseAudio client configuration (runtime only)
 if [ "$IS_RUNTIME" = true ]; then
+    # Remove any user-provided PulseAudio server configuration which can
+    # prevent the daemon from autospawning. Rely on system defaults instead.
+    rm -f "/home/${DEV_USERNAME}/.config/pulse/default.pa" 2>/dev/null || true
+
     cat <<EOF > "/home/${DEV_USERNAME}/.config/pulse/client.conf"
 # Container-optimized PulseAudio client configuration
-default-server = unix:/run/user/${DEV_UID}/pulse/native
+autospawn = yes
 enable-shm = no
 enable-memfd = no
 auto-connect-localhost = yes

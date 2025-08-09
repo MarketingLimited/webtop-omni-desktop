@@ -7,7 +7,8 @@ set -euo pipefail
 echo "🔧 Fixing noVNC Audio Connection Issues..."
 
 DEV_USERNAME="${DEV_USERNAME:-devuser}"
-DEV_UID="${DEV_UID:-1000}"
+# Determine the actual UID at runtime instead of assuming 1000
+DEV_UID="${DEV_UID:-$(id -u "$DEV_USERNAME" 2>/dev/null || echo 1000)}"
 
 # Color output functions
 red() { echo -e "\033[31m$*\033[0m"; }
@@ -56,50 +57,13 @@ setup_runtime_directories() {
 create_minimal_pulse_config() {
     echo "⚙️ Creating minimal PulseAudio configuration..."
     
-    # Create user pulse config directory
+    # Remove conflicting user configuration and rely on system defaults
     mkdir -p "/home/${DEV_USERNAME}/.config/pulse"
-    
-    # Create minimal default.pa configuration
-    cat <<EOF > "/home/${DEV_USERNAME}/.config/pulse/default.pa"
-#!/usr/bin/pulseaudio -nF
+    rm -f "/home/${DEV_USERNAME}/.config/pulse/default.pa" 2>/dev/null || true
 
-# Load core modules
-load-module module-device-restore
-load-module module-stream-restore
-load-module module-card-restore
-
-# Load native protocol (local socket)
-load-module module-native-protocol-unix auth-anonymous=1 socket=/run/user/${DEV_UID}/pulse/native
-
-# Load TCP protocol for VNC audio
-load-module module-native-protocol-tcp auth-anonymous=1 port=4713 listen=0.0.0.0
-
-# Create virtual audio devices
-load-module module-null-sink sink_name=virtual_speaker sink_properties=device.description="Virtual_Speaker"
-load-module module-null-sink sink_name=virtual_microphone sink_properties=device.description="Virtual_Microphone"
-
-# Create virtual source from microphone monitor
-load-module module-virtual-source source_name=virtual_mic_source master=virtual_microphone.monitor source_properties=device.description="Virtual_Mic_Source"
-
-# Load essential modules
-load-module module-default-device-restore
-load-module module-rescue-streams
-load-module module-always-sink
-load-module module-suspend-on-idle timeout=0
-
-# Set defaults
-set-default-sink virtual_speaker
-set-default-source virtual_mic_source
-
-# Set volume levels (50% = 32768)
-set-sink-volume virtual_speaker 32768
-set-sink-volume virtual_microphone 32768
-EOF
-
-    # Create client configuration
+    # Create client configuration without hardcoded server paths
     cat <<EOF > "/home/${DEV_USERNAME}/.config/pulse/client.conf"
 # PulseAudio client configuration
-default-server = unix:/run/user/${DEV_UID}/pulse/native
 autospawn = yes
 daemon-binary = /usr/bin/pulseaudio
 extra-arguments = --log-target=syslog --realtime-priority=5
@@ -107,7 +71,7 @@ EOF
 
     # Set proper ownership
     chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/.config/pulse"
-    
+
     green "✅ PulseAudio configuration created"
 }
 
