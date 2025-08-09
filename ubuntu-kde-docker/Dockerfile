@@ -204,6 +204,7 @@ COPY setup-audio-bridge.sh start-pulseaudio.sh start-audio-bridge.sh webrtc-audi
 COPY shared-audio-client.js /usr/local/bin/
 COPY universal-audio.js /opt/audio-bridge/
 COPY integrate-audio-ui.sh start-turn.sh /usr/local/bin/
+COPY system.pa /etc/pulse/system.pa
 RUN chmod +x /usr/local/bin/setup-audio-bridge.sh \
     /usr/local/bin/start-pulseaudio.sh \
     /usr/local/bin/start-audio-bridge.sh \
