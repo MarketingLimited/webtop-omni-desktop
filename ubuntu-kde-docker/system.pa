@@ -1,6 +1,23 @@
-# Minimal PulseAudio configuration for WebTop
-load-module module-null-sink
-load-module module-native-protocol-unix
-.ifexists module-native-protocol-tcp.so
-load-module module-native-protocol-tcp
-.endif
+#!/usr/bin/pulseaudio -nF
+
+# Load core modules
+load-module module-device-restore
+load-module module-stream-restore
+load-module module-card-restore
+
+# Load audio drivers
+load-module module-udev-detect
+load-module module-detect
+
+# Load network modules
+load-module module-native-protocol-unix auth-anonymous=1
+load-module module-native-protocol-tcp auth-anonymous=1 port=4713 listen=0.0.0.0
+
+# Create virtual devices
+load-module module-null-sink sink_name=virtual_speaker sink_properties=device.description="Virtual_Speaker"
+load-module module-null-sink sink_name=virtual_microphone sink_properties=device.description="Virtual_Microphone"
+load-module module-virtual-source source_name=virtual_mic_source master=virtual_microphone.monitor source_properties=device.description="Virtual_Mic_Source"
+
+# Set defaults
+set-default-sink virtual_speaker
+set-default-source virtual_mic_source

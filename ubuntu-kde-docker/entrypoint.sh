@@ -231,10 +231,13 @@ echo "${DEV_USERNAME}:${DEV_PASSWORD}" | chpasswd
 if ! getent group pulse-access >/dev/null; then
     groupadd -r pulse-access
 fi
+if ! getent group pulse >/dev/null; then
+    groupadd -r pulse
+fi
 # Ensure video and render groups exist for graphical access
 getent group video >/dev/null || groupadd -r video
 getent group render >/dev/null || groupadd -r render
-usermod -aG sudo,ssl-cert,pulse-access,video,render "$DEV_USERNAME"
+usermod -aG sudo,ssl-cert,pulse,pulse-access,video,render "$DEV_USERNAME"
 # Allow access to sound devices
 getent group audio >/dev/null || groupadd -r audio
 usermod -aG audio "$DEV_USERNAME"
