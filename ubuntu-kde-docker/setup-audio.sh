@@ -68,8 +68,8 @@ load-module module-stream-restore
 load-module module-card-restore
 load-module module-augment-properties
 
-# Load native protocol first (use runtime directory for socket)
-load-module module-native-protocol-unix auth-anonymous=1
+# Load native protocol first (local socket)
+load-module module-native-protocol-unix auth-anonymous=1 socket=/run/user/${DEV_UID}/pulse/native
 
 # Enable TCP module for remote audio access (VNC)
 load-module module-native-protocol-tcp auth-anonymous=1 port=4713 listen=0.0.0.0

@@ -96,17 +96,13 @@
 
 ### WebRTC Audio Configuration
 
-The audio bridge now supports WebRTC streaming. A bundled [coturn](https://github.com/coturn/coturn) server runs inside the container and is exposed on port **3478** using default credentials `webtop:webtop`. Configure STUN/TURN servers by setting the following environment variables when launching the container (override them if you deploy an external TURN service):
+The audio bridge now supports WebRTC streaming. Configure STUN/TURN servers by
+setting the following environment variables when launching the container:
 
 - `WEBRTC_STUN_SERVER` – STUN server URL (e.g. `stun:stun.l.google.com:19302`)
 - `WEBRTC_TURN_SERVER` – TURN server URL
 - `WEBRTC_TURN_USERNAME` – TURN authentication username
 - `WEBRTC_TURN_PASSWORD` – TURN authentication password
-
-For reliable connectivity behind NAT or firewalls, a TURN server must be
-available and its UDP port 3478 exposed. See
-[docs/WEBRTC_CONFIGURATION.md](docs/WEBRTC_CONFIGURATION.md) for a sample
-`docker-compose` setup with port mappings.
 
 If negotiation fails, the client automatically falls back to the legacy
 WebSocket audio stream.

@@ -19,18 +19,10 @@ services:
       - "5901:5901"     # VNC
     env_file:
       - .env
-    environment:
-      # WebRTC STUN/TURN configuration
-      WEBRTC_STUN_SERVER: ${WEBRTC_STUN_SERVER}
-      WEBRTC_TURN_SERVER: ${WEBRTC_TURN_SERVER}
-      WEBRTC_TURN_USERNAME: ${WEBRTC_TURN_USERNAME}
-      WEBRTC_TURN_PASSWORD: ${WEBRTC_TURN_PASSWORD}
-      WEBRTC_TURN_PORT: ${WEBRTC_TURN_PORT}
-      WEBRTC_TURN_REALM: ${WEBRTC_TURN_REALM}
     volumes:
       - /data/ubuntu-kde-docker_webtop/config:/config
       - /data/ubuntu-kde-docker_webtop/var/log/supervisor:/var/log/supervisor
-      - /data/ubuntu-kde-docker_webtop/tmp/.X11-unix:/tmp/.X11-unix:rw
+      - /data/ubuntu-kde-docker_webtop/tmp/.X11-unix:/tmp/.X11-unix:ro
     devices:
       - /dev/snd:/dev/snd
     tmpfs:

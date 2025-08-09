@@ -14,12 +14,6 @@ services:
       - "5901:5901"   # VNC
     env_file:
       - .env.production
-    environment:
-      WEBRTC_TURN_SERVER: ${WEBRTC_TURN_SERVER}
-      WEBRTC_TURN_USERNAME: ${WEBRTC_TURN_USERNAME}
-      WEBRTC_TURN_PASSWORD: ${WEBRTC_TURN_PASSWORD}
-      WEBRTC_TURN_PORT: ${WEBRTC_TURN_PORT}
-      WEBRTC_TURN_REALM: ${WEBRTC_TURN_REALM}
     volumes:
       - /data/ubuntu-kde-docker_webtop/config:/config
       - /data/ubuntu-kde-docker_webtop/var/log/supervisor:/var/log/supervisor

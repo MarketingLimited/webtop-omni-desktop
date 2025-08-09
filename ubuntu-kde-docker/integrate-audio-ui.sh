@@ -35,8 +35,6 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
     <title>Desktop with Audio</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="audio-env.js"></script>
-    <script src="js/audio-client.js"></script>
     <style>
         body {
             margin: 0;
@@ -185,9 +183,12 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
 
     <script src="audio-env.js"></script>
     <script>
-        class DesktopAudioUI {
+        class DesktopAudioManager {
             constructor() {
-                this.audioClient = new SharedAudioClient({ debug: true });
+                this.audioContext = null;
+                this.websocket = null;
+                this.gainNode = null;
+                this.isConnected = false;
                 this.isMinimized = false;
                 this.autoConnectEnabled = !localStorage.getItem('audio-disabled');
                 this.hasUserInteracted = false;
@@ -205,18 +206,13 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
                 
                 this.setupEventListeners();
                 this.createAudioOverlay();
+                this.checkAudioBridge();
                 this.setupAutoConnect();
-                
-                // Setup status handler
-                this.audioClient.onStatusChange((status) => {
-                    this.updateStatus(status.message, status.state, status.method);
-                    this.updateUI();
-                });
             }
             
             setupEventListeners() {
-                this.elements.connectBtn.addEventListener('click', () => this.audioClient.connect());
-                this.elements.disconnectBtn.addEventListener('click', () => this.audioClient.disconnect());
+                this.elements.connectBtn.addEventListener('click', () => this.connectAudio());
+                this.elements.disconnectBtn.addEventListener('click', () => this.disconnectAudio());
                 this.elements.volumeSlider.addEventListener('input', (e) => this.setVolume(e.target.value));
                 this.elements.minimizeBtn.addEventListener('click', () => this.toggleMinimize());
                 
@@ -224,7 +220,7 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
                 document.addEventListener('keydown', (e) => {
                     if (e.ctrlKey && e.altKey && e.key.toLowerCase() === 'a') {
                         e.preventDefault();
-                        this.audioClient.isConnected ? this.audioClient.disconnect() : this.audioClient.connect();
+                        this.isConnected ? this.disconnectAudio() : this.connectAudio();
                     }
                 });
             }
@@ -302,7 +298,7 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
                 const activateAudio = () => {
                     this.hasUserInteracted = true;
                     overlay.remove();
-                    this.audioClient.connect();
+                    this.connectAudio();
                 };
                 
                 overlay.addEventListener('click', (e) => {
@@ -330,7 +326,7 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
                     if (!this.hasUserInteracted && this.autoConnectEnabled) {
                         this.hasUserInteracted = true;
                         // Small delay to ensure audio context can be created
-                        setTimeout(() => this.audioClient.connect(), 100);
+                        setTimeout(() => this.connectAudio(), 100);
                     }
                 };
                 
@@ -339,25 +335,261 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
                 document.addEventListener('touchstart', enableAutoConnect, { once: true });
             }
             
+            async checkAudioBridge() {
+                try {
+                    const response = await fetch('/audio-player.html');
+                    if (response.ok) {
+                        this.updateStatus('Audio bridge available', 'ready');
+                    } else {
+                        this.updateStatus('Audio bridge not available', 'error');
+                    }
+                } catch (error) {
+                    this.updateStatus('Audio bridge check failed', 'error');
+                }
+            }
+            
+            async connectAudio() {
+                try {
+                    this.updateStatus('Connecting...', 'connecting');
+
+                    // Handle browser autoplay restrictions
+                    if (this.audioContext && this.audioContext.state === 'suspended') {
+                        await this.audioContext.resume();
+                    }
+
+                    if (!this.audioContext) {
+                        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                        this.gainNode = this.audioContext.createGain();
+                        this.gainNode.connect(this.audioContext.destination);
+
+                        // Restore saved volume
+                        const savedVolume = localStorage.getItem('audio-volume') || '50';
+                        this.elements.volumeSlider.value = savedVolume;
+                        this.setVolume(savedVolume);
+                    }
+
+                    // Try WebRTC first
+                    try {
+                        await this.connectWebRTC();
+                        return;
+                    } catch (err) {
+                        console.warn('WebRTC failed, falling back to WebSocket:', err);
+                    }
+
+                    // WebSocket fallback (try same-origin first, then direct host:port)
+                    const wsProtocol = window.AUDIO_WS_SCHEME || (window.location.protocol === 'https:' ? 'wss' : 'ws');
+                    const wsCandidates = [
+                        `${wsProtocol}://${window.location.host}/audio-stream`,
+                        `${wsProtocol}://${window.AUDIO_HOST || window.location.hostname}:${window.AUDIO_PORT || 8080}/audio-stream`
+                    ];
+
+                    let connected = false;
+                    for (const url of wsCandidates) {
+                        try {
+                            await this.connectWebSocket(url);
+                            connected = true;
+                            break;
+                        } catch (e) {
+                            console.warn('WebSocket attempt failed:', url, e.message);
+                        }
+                    }
+                    if (!connected) throw new Error('All connection methods failed');
+
+                } catch (error) {
+                    console.error('Failed to connect audio:', error);
+                    this.updateStatus('Failed to connect: ' + error.message, 'error');
+
+                    // Retry after delay
+                    setTimeout(() => {
+                        if (!this.isConnected && this.autoConnectEnabled) {
+                            this.connectAudio();
+                        }
+                    }, 5000);
+                }
+            }
+            
+            async connectWebRTC() {
+                const pc = new RTCPeerConnection({
+                    iceServers: [
+                        ...(window.WEBRTC_STUN_SERVER ? [{ urls: window.WEBRTC_STUN_SERVER }] : []),
+                        ...(window.WEBRTC_TURN_SERVER ? [{ urls: window.WEBRTC_TURN_SERVER, username: window.WEBRTC_TURN_USERNAME || undefined, credential: window.WEBRTC_TURN_PASSWORD || undefined }] : []),
+                    ]
+                });
+                this.peerConnection = pc;
+
+                pc.ontrack = (event) => {
+                    const stream = event.streams[0];
+                    const source = this.audioContext.createMediaStreamSource(stream);
+                    source.connect(this.gainNode);
+                };
+
+                // Ensure we offer to receive audio
+                pc.addTransceiver('audio', { direction: 'recvonly' });
+
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+
+                const offerUrl = `http://${window.AUDIO_HOST || window.location.hostname}:${window.WEBRTC_PORT || window.AUDIO_PORT || 8080}/offer`;
+                const response = await fetch(offerUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(offer)
+                });
+                if (!response.ok) throw new Error('WebRTC offer failed');
+
+                const answer = await response.json();
+                await pc.setRemoteDescription(answer);
+
+                await new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => reject(new Error('WebRTC timeout')), 10000);
+                    pc.onconnectionstatechange = () => {
+                        if (pc.connectionState === 'connected') {
+                            clearTimeout(timeout);
+                            this.isConnected = true;
+                            this.updateUI();
+                            this.updateStatus('Audio connected via WebRTC', 'connected');
+                            resolve();
+                        } else if (['failed', 'disconnected', 'closed'].includes(pc.connectionState)) {
+                            clearTimeout(timeout);
+                            reject(new Error('WebRTC connection failed'));
+                        }
+                    };
+                });
+            }
+            
+            async connectWebSocket(wsUrl) {
+                return new Promise((resolve, reject) => {
+                    const ws = new WebSocket(wsUrl);
+                    ws.binaryType = 'arraybuffer';
+                    
+                    const timeout = setTimeout(() => {
+                        ws.close();
+                        reject(new Error('Connection timeout'));
+                    }, 5000);
+                    
+                    ws.onopen = () => {
+                        clearTimeout(timeout);
+                        this.websocket = ws;
+                        this.isConnected = true;
+                        this.updateUI();
+                        this.updateStatus('Audio connected via WebSocket', 'connected');
+                        resolve();
+                    };
+                    
+                    ws.onmessage = (event) => {
+                        this.processAudioData(event.data);
+                    };
+                    
+                    ws.onclose = () => {
+                        clearTimeout(timeout);
+                        this.isConnected = false;
+                        this.updateUI();
+                        this.updateStatus('Audio disconnected', 'disconnected');
+                    };
+                    
+                    ws.onerror = (error) => {
+                        clearTimeout(timeout);
+                        reject(error);
+                    };
+                });
+            }
+            
+            disconnectAudio() {
+                if (this.websocket) {
+                    this.websocket.close();
+                }
+                if (this.audioContext) {
+                    this.audioContext.close();
+                }
+                this.isConnected = false;
+                this.updateUI();
+                this.updateStatus('Audio disconnected', 'disconnected');
+            }
+            
+            processAudioData(data) {
+                if (!this.audioContext || !this.gainNode || this.audioContext.state === 'closed') return;
+                
+                try {
+                    // Validate data size
+                    if (data.byteLength === 0) {
+                        console.warn('⚠️  Received empty audio data');
+                        return;
+                    }
+                    
+                    const samples = new Int16Array(data);
+                    if (samples.length === 0 || samples.length % 2 !== 0) {
+                        console.warn('⚠️  Invalid audio data length:', samples.length);
+                        return;
+                    }
+                    
+                    // Resume audio context if suspended (Chrome autoplay policy)
+                    if (this.audioContext.state === 'suspended') {
+                        this.audioContext.resume().catch(e => console.warn('Could not resume audio context:', e));
+                        return; // Skip this frame, context will be ready next time
+                    }
+                    
+                    const frameLength = samples.length / 2;
+                    const audioBuffer = this.audioContext.createBuffer(2, frameLength, 44100);
+                    
+                    const leftChannel = audioBuffer.getChannelData(0);
+                    const rightChannel = audioBuffer.getChannelData(1);
+                    
+                    // Convert 16-bit PCM to float with proper range checking
+                    for (let i = 0; i < frameLength; i++) {
+                        const leftSample = samples[i * 2];
+                        const rightSample = samples[i * 2 + 1];
+                        
+                        // Convert to float (-1.0 to 1.0) with proper scaling
+                        leftChannel[i] = Math.max(-1, Math.min(1, leftSample / 32768.0));
+                        rightChannel[i] = Math.max(-1, Math.min(1, rightSample / 32768.0));
+                    }
+                    
+                    const source = this.audioContext.createBufferSource();
+                    source.buffer = audioBuffer;
+                    source.connect(this.gainNode);
+                    
+                    // Schedule playback immediately but handle potential overlap
+                    const playTime = this.audioContext.currentTime;
+                    source.start(playTime);
+                    
+                    // Clean up source after playback
+                    setTimeout(() => {
+                        try {
+                            source.disconnect();
+                        } catch (e) {
+                            // Source already disconnected
+                        }
+                    }, (frameLength / 44100) * 1000 + 100);
+                    
+                } catch (error) {
+                    console.error('❌ Error processing audio data:', error);
+                    
+                    // Attempt to recover audio context if it's in an error state
+                    if (this.audioContext && this.audioContext.state === 'closed') {
+                        console.log('🔄 Audio context closed, attempting to recreate...');
+                        this.disconnectAudio();
+                        setTimeout(() => this.connectAudio(), 1000);
+                    }
+                }
+            }
+            
             setVolume(value) {
-                this.audioClient.setVolume(value);
+                if (this.gainNode) {
+                    this.gainNode.gain.value = value / 100;
+                }
                 this.elements.volumeLabel.textContent = value + '%';
+                // Save volume preference
+                localStorage.setItem('audio-volume', value);
             }
             
             updateUI() {
-                const status = this.audioClient.getStatus();
-                this.elements.connectBtn.disabled = status.isConnected;
-                this.elements.disconnectBtn.disabled = !status.isConnected;
+                this.elements.connectBtn.disabled = this.isConnected;
+                this.elements.disconnectBtn.disabled = !this.isConnected;
             }
             
-            updateStatus(message, type, method = null) {
+            updateStatus(message, type) {
                 this.elements.statusText.textContent = message;
                 this.elements.statusDot.className = `status-dot ${type === 'connected' ? 'connected' : ''}`;
-                
-                // Show connection method if available
-                if (method && type === 'connected') {
-                    this.elements.statusText.textContent = `${message} (${method.toUpperCase()})`;
-                }
             }
             
             toggleMinimize() {
@@ -370,7 +602,7 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
         
         // Initialize when page loads
         window.addEventListener('load', () => {
-            new DesktopAudioUI();
+            new DesktopAudioManager();
         });
     </script>
 </body>
@@ -400,22 +632,17 @@ fi
 # Copy universal audio script to noVNC directory
 cp "/usr/local/bin/universal-audio.js" "$NOVNC_DIR/" 2>/dev/null || echo "Note: Universal audio script will be created during setup"
 
-# Populate audio configuration for browser clients
-if [ -f "/opt/audio-bridge/audio-env.js" ]; then
-    cp "/opt/audio-bridge/audio-env.js" "$NOVNC_DIR/audio-env.js"
-else
-    cat > "$NOVNC_DIR/audio-env.js" <<EOF
+# Create placeholder audio configuration file for runtime overrides
+cat > "$NOVNC_DIR/audio-env.js" <<'EOF'
 window.AUDIO_HOST = window.AUDIO_HOST || window.location.hostname;
-window.AUDIO_PORT = window.AUDIO_PORT || ${AUDIO_PORT:-8080};
-window.AUDIO_WS_SCHEME = window.AUDIO_WS_SCHEME || '${AUDIO_WS_SCHEME:-}';
-window.WEBRTC_PORT = window.WEBRTC_PORT || window.AUDIO_PORT || ${WEBRTC_PORT:-${AUDIO_PORT:-8080}};
-window.WEBRTC_STUN_SERVER = window.WEBRTC_STUN_SERVER || '${WEBRTC_STUN_SERVER:-}';
-window.WEBRTC_TURN_SERVER = window.WEBRTC_TURN_SERVER || '${WEBRTC_TURN_SERVER:-}';
-window.WEBRTC_TURN_USERNAME = window.WEBRTC_TURN_USERNAME || '${WEBRTC_TURN_USERNAME:-}';
-window.WEBRTC_TURN_PASSWORD = window.WEBRTC_TURN_PASSWORD || '${WEBRTC_TURN_PASSWORD:-}';
-window.ENABLE_WEBSOCKET_FALLBACK = window.ENABLE_WEBSOCKET_FALLBACK !== undefined ? window.ENABLE_WEBSOCKET_FALLBACK : true;
+window.AUDIO_PORT = window.AUDIO_PORT || 8080;
+window.AUDIO_WS_SCHEME = window.AUDIO_WS_SCHEME || '';
+window.WEBRTC_PORT = window.WEBRTC_PORT || window.AUDIO_PORT || 8080;
+window.WEBRTC_STUN_SERVER = window.WEBRTC_STUN_SERVER || '';
+window.WEBRTC_TURN_SERVER = window.WEBRTC_TURN_SERVER || '';
+window.WEBRTC_TURN_USERNAME = window.WEBRTC_TURN_USERNAME || '';
+window.WEBRTC_TURN_PASSWORD = window.WEBRTC_TURN_PASSWORD || '';
 EOF
-fi
 
 # Create standalone audio player for testing
 cat > "$NOVNC_DIR/audio-player.html" << 'EOF'
@@ -425,8 +652,6 @@ cat > "$NOVNC_DIR/audio-player.html" << 'EOF'
     <title>Standalone Audio Player</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="audio-env.js"></script>
-    <script src="js/audio-client.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -459,33 +684,6 @@ cat > "$NOVNC_DIR/audio-player.html" << 'EOF'
         }
         .status {
             margin-top: 20px;
-            padding: 10px;
-            border-radius: 4px;
-            font-weight: 500;
-        }
-        .status.connected {
-            background: rgba(56, 161, 105, 0.2);
-            color: #68d391;
-        }
-        .status.connecting {
-            background: rgba(237, 137, 54, 0.2);
-            color: #f6ad55;
-        }
-        .status.error {
-            background: rgba(229, 62, 62, 0.2);
-            color: #fc8181;
-        }
-        .method-indicator {
-            font-size: 12px;
-            padding: 2px 6px;
-            border-radius: 3px;
-            margin-left: 8px;
-        }
-        .webrtc {
-            background: rgba(56, 161, 105, 0.3);
-        }
-        .websocket {
-            background: rgba(66, 153, 225, 0.3);
         }
     </style>
 </head>
@@ -494,43 +692,177 @@ cat > "$NOVNC_DIR/audio-player.html" << 'EOF'
         <h2>🎧 Standalone Audio Player</h2>
         <button id="connect-audio" class="player-button">Connect</button>
         <button id="disconnect-audio" class="player-button" disabled>Disconnect</button>
-        <div id="status" class="status">Status: Disconnected<span id="method-indicator" class="method-indicator" style="display: none;"></span></div>
+        <div id="status" class="status">Status: Disconnected</div>
     </div>
+    <script src="audio-env.js"></script>
     <script>
-        // Standalone Audio Player using SharedAudioClient
+        // Simplified Audio Manager for standalone player
         const connectBtn = document.getElementById('connect-audio');
         const disconnectBtn = document.getElementById('disconnect-audio');
         const statusEl = document.getElementById('status');
-        const methodIndicator = document.getElementById('method-indicator');
-        
-        // Initialize shared audio client
-        const audioClient = new SharedAudioClient({ debug: true });
+        let audioContext, websocket, gainNode, peerConnection;
 
-        connectBtn.addEventListener('click', () => audioClient.connect());
-        disconnectBtn.addEventListener('click', () => audioClient.disconnect());
+        connectBtn.addEventListener('click', connectAudio);
+        disconnectBtn.addEventListener('click', disconnectAudio);
 
-        // Setup status handler
-        audioClient.onStatusChange((status) => {
-            updateStatus(status.message, status.state, status.method);
-            updateUI(status);
-        });
-        
-        function updateStatus(message, state, method = null) {
-            statusEl.textContent = 'Status: ' + message;
-            statusEl.className = `status ${state}`;
-            
-            if (method && state === 'connected') {
-                methodIndicator.textContent = method.toUpperCase();
-                methodIndicator.className = `method-indicator ${method}`;
-                methodIndicator.style.display = 'inline-block';
-            } else {
-                methodIndicator.style.display = 'none';
+async function connectAudio() {
+    updateStatus('Connecting...');
+    connectBtn.disabled = true;
+
+    try {
+        if (!audioContext) {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            gainNode = audioContext.createGain();
+            gainNode.connect(audioContext.destination);
+        }
+        if (audioContext.state === 'suspended') {
+            await audioContext.resume();
+        }
+
+        // Try WebRTC first
+        try {
+            await connectWebRTC();
+            updateStatus('Connected via WebRTC');
+            disconnectBtn.disabled = false;
+            return;
+        } catch (e) {
+            console.warn('WebRTC failed, falling back to WebSocket:', e);
+        }
+
+        // WebSocket fallback (same-origin first, then direct host:port)
+        const wsProtocol = window.AUDIO_WS_SCHEME || (window.location.protocol === 'https:' ? 'wss' : 'ws');
+        const candidates = [
+            `${wsProtocol}://${window.location.host}/audio-stream`,
+            `${wsProtocol}://${window.AUDIO_HOST || window.location.hostname}:${window.AUDIO_PORT || 8080}/audio-stream`
+        ];
+        let connected = false;
+        for (const url of candidates) {
+            try {
+                await connectWebSocket(url);
+                updateStatus('Connected via WebSocket');
+                disconnectBtn.disabled = false;
+                connected = true;
+                break;
+            } catch (err) {
+                console.warn('WebSocket attempt failed:', url, err.message);
             }
         }
-        
-        function updateUI(status) {
-            connectBtn.disabled = status.isConnected;
-            disconnectBtn.disabled = !status.isConnected;
+        if (!connected) throw new Error('All connection methods failed');
+
+    } catch (error) {
+        updateStatus('Error: ' + error.message);
+        connectBtn.disabled = false;
+    }
+}
+
+async function connectWebRTC() {
+    const pc = new RTCPeerConnection({
+        iceServers: [
+            ...(window.WEBRTC_STUN_SERVER ? [{ urls: window.WEBRTC_STUN_SERVER }] : []),
+            ...(window.WEBRTC_TURN_SERVER ? [{ urls: window.WEBRTC_TURN_SERVER, username: window.WEBRTC_TURN_USERNAME || undefined, credential: window.WEBRTC_TURN_PASSWORD || undefined }] : []),
+        ]
+    });
+    peerConnection = pc;
+
+    pc.ontrack = (event) => {
+        const stream = event.streams[0];
+        const source = audioContext.createMediaStreamSource(stream);
+        source.connect(gainNode);
+    };
+
+    // Ensure we offer to receive audio
+    pc.addTransceiver('audio', { direction: 'recvonly' });
+
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+
+    const offerUrl = `http://${window.AUDIO_HOST || window.location.hostname}:${window.WEBRTC_PORT || window.AUDIO_PORT || 8080}/offer`;
+    const response = await fetch(offerUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(offer)
+    });
+    if (!response.ok) throw new Error('WebRTC offer failed');
+
+    const answer = await response.json();
+    await pc.setRemoteDescription(answer);
+
+    await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('WebRTC timeout')), 10000);
+        pc.onconnectionstatechange = () => {
+            if (pc.connectionState === 'connected') {
+                clearTimeout(timeout);
+                resolve();
+            } else if (['failed', 'disconnected', 'closed'].includes(pc.connectionState)) {
+                clearTimeout(timeout);
+                reject(new Error('WebRTC connection failed'));
+            }
+        };
+    });
+}
+
+function connectWebSocket(wsUrl) {
+    return new Promise((resolve, reject) => {
+        websocket = new WebSocket(wsUrl);
+        websocket.binaryType = 'arraybuffer';
+
+        const timeout = setTimeout(() => {
+            websocket.close();
+            reject(new Error('WebSocket timeout'));
+        }, 5000);
+
+        websocket.onopen = () => {
+            clearTimeout(timeout);
+            resolve();
+        };
+
+        websocket.onmessage = (event) => processAudioData(event.data);
+
+        websocket.onclose = () => {
+            updateStatus('Disconnected');
+            connectBtn.disabled = false;
+            disconnectBtn.disabled = true;
+        };
+
+        websocket.onerror = (err) => {
+            clearTimeout(timeout);
+            reject(err);
+        };
+    });
+}
+
+        function disconnectAudio() {
+            if (websocket) {
+                websocket.close();
+            }
+            if (audioContext) {
+                audioContext.close().then(() => {
+                    audioContext = null;
+                });
+            }
+            updateStatus('Disconnected');
+            disconnectBtn.disabled = true;
+            connectBtn.disabled = false;
+        }
+
+        function processAudioData(data) {
+            if (!audioContext) return;
+            const samples = new Int16Array(data);
+            const buffer = audioContext.createBuffer(2, samples.length / 2, 44100);
+            const left = buffer.getChannelData(0);
+            const right = buffer.getChannelData(1);
+            for (let i = 0; i < samples.length / 2; i++) {
+                left[i] = samples[i * 2] / 32768.0;
+                right[i] = samples[i * 2 + 1] / 32768.0;
+            }
+            const source = audioContext.createBufferSource();
+            source.buffer = buffer;
+            source.connect(gainNode);
+            source.start();
+        }
+
+        function updateStatus(message) {
+            statusEl.textContent = 'Status: ' + message;
         }
     </script>
 </body>
@@ -848,17 +1180,8 @@ EOF
 
 # Create standalone universal audio script
 echo "Creating universal audio integration..."
-
-# Create js directory for shared scripts
-mkdir -p "$NOVNC_DIR/js"
-
-# Copy shared audio client
-cp "/usr/local/bin/shared-audio-client.js" "$NOVNC_DIR/js/audio-client.js" 2>/dev/null || \
-    echo "// Shared audio client will be available after full setup" > "$NOVNC_DIR/js/audio-client.js"
-
-# Copy universal audio script
-cp "/usr/local/bin/universal-audio.js" "$NOVNC_DIR/js/universal-audio.js" 2>/dev/null || \
-    echo "// Universal audio script will be available after full setup" > "$NOVNC_DIR/js/universal-audio.js"
+cp "/usr/local/bin/universal-audio.js" "$NOVNC_DIR/universal-audio.js" 2>/dev/null || \
+    echo "// Universal audio script will be available after full setup" > "$NOVNC_DIR/universal-audio.js"
 
 echo "✅ Audio UI integration completed!"
 echo "🔊 Universal audio support added to all noVNC interfaces"

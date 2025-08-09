@@ -30,22 +30,10 @@ log_warn() {
 # Configure audio service defaults. Leave AUDIO_HOST unset so browsers
 # fall back to the current window hostname, ensuring remote clients can
 # connect even when the container runs behind NAT or port forwarding.
-: "${AUDIO_PORT:=}"
+: "${AUDIO_PORT:=8080}"
 : "${AUDIO_HOST:=}"
 : "${AUDIO_WS_SCHEME:=}"
 export AUDIO_HOST AUDIO_PORT AUDIO_WS_SCHEME
-
-# Validate TURN configuration
-: "${WEBRTC_TURN_SERVER:=}"
-: "${WEBRTC_TURN_USERNAME:=}"
-: "${WEBRTC_TURN_PASSWORD:=}"
-missing_turn_vars=()
-[[ -z "$WEBRTC_TURN_SERVER" ]] && missing_turn_vars+=(WEBRTC_TURN_SERVER)
-[[ -z "$WEBRTC_TURN_USERNAME" ]] && missing_turn_vars+=(WEBRTC_TURN_USERNAME)
-[[ -z "$WEBRTC_TURN_PASSWORD" ]] && missing_turn_vars+=(WEBRTC_TURN_PASSWORD)
-if [ ${#missing_turn_vars[@]} -ne 0 ]; then
-    log_warn "Missing TURN configuration variables: ${missing_turn_vars[*]}. WebRTC may fail behind strict networks."
-fi
 
 # Update runtime .env if present
 ENV_FILE="/config/.env"
@@ -53,21 +41,11 @@ if [ -f "$ENV_FILE" ]; then
     sed -i "s/^AUDIO_HOST=.*/AUDIO_HOST=${AUDIO_HOST}/" "$ENV_FILE"
     sed -i "s/^AUDIO_PORT=.*/AUDIO_PORT=${AUDIO_PORT}/" "$ENV_FILE"
     sed -i "s/^AUDIO_WS_SCHEME=.*/AUDIO_WS_SCHEME=${AUDIO_WS_SCHEME}/" "$ENV_FILE"
-    sed -i "s/^WEBRTC_PORT=.*/WEBRTC_PORT=${WEBRTC_PORT:-$AUDIO_PORT}/" "$ENV_FILE"
-    sed -i "s/^WEBRTC_STUN_SERVER=.*/WEBRTC_STUN_SERVER=${WEBRTC_STUN_SERVER}/" "$ENV_FILE"
-    sed -i "s/^WEBRTC_TURN_SERVER=.*/WEBRTC_TURN_SERVER=${WEBRTC_TURN_SERVER}/" "$ENV_FILE"
-    sed -i "s/^WEBRTC_TURN_USERNAME=.*/WEBRTC_TURN_USERNAME=${WEBRTC_TURN_USERNAME}/" "$ENV_FILE"
-    sed -i "s/^WEBRTC_TURN_PASSWORD=.*/WEBRTC_TURN_PASSWORD=${WEBRTC_TURN_PASSWORD}/" "$ENV_FILE"
 elif [ -f "/.env" ]; then
     ENV_FILE="/.env"
     sed -i "s/^AUDIO_HOST=.*/AUDIO_HOST=${AUDIO_HOST}/" "$ENV_FILE"
     sed -i "s/^AUDIO_PORT=.*/AUDIO_PORT=${AUDIO_PORT}/" "$ENV_FILE"
     sed -i "s/^AUDIO_WS_SCHEME=.*/AUDIO_WS_SCHEME=${AUDIO_WS_SCHEME}/" "$ENV_FILE"
-    sed -i "s/^WEBRTC_PORT=.*/WEBRTC_PORT=${WEBRTC_PORT:-$AUDIO_PORT}/" "$ENV_FILE"
-    sed -i "s/^WEBRTC_STUN_SERVER=.*/WEBRTC_STUN_SERVER=${WEBRTC_STUN_SERVER}/" "$ENV_FILE"
-    sed -i "s/^WEBRTC_TURN_SERVER=.*/WEBRTC_TURN_SERVER=${WEBRTC_TURN_SERVER}/" "$ENV_FILE"
-    sed -i "s/^WEBRTC_TURN_USERNAME=.*/WEBRTC_TURN_USERNAME=${WEBRTC_TURN_USERNAME}/" "$ENV_FILE"
-    sed -i "s/^WEBRTC_TURN_PASSWORD=.*/WEBRTC_TURN_PASSWORD=${WEBRTC_TURN_PASSWORD}/" "$ENV_FILE"
 fi
 
 # Write audio configuration for browser clients with validation
@@ -76,21 +54,6 @@ echo "🔧 Configuring audio environment for browsers..."
 # Ensure directory exists
 mkdir -p /usr/share/novnc
 
-# Determine port values for generated JS. Use window.location.port when
-# AUDIO_PORT or WEBRTC_PORT are unset so the browser connects using the
-# same port as the current page.
-if [ -z "${AUDIO_PORT}" ]; then
-    AUDIO_PORT_JS="window.location.port"
-else
-    AUDIO_PORT_JS="${AUDIO_PORT}"
-fi
-
-if [ -z "${WEBRTC_PORT:-}" ]; then
-    WEBRTC_PORT_JS="window.location.port"
-else
-    WEBRTC_PORT_JS="${WEBRTC_PORT}"
-fi
-
 # Write audio configuration with proper escaping and validation
 cat > /usr/share/novnc/audio-env.js <<EOF
 // Audio environment configuration
@@ -98,26 +61,14 @@ cat > /usr/share/novnc/audio-env.js <<EOF
 console.log('Loading audio environment configuration...');
 
 window.AUDIO_HOST = '${AUDIO_HOST}';
-window.AUDIO_PORT = ${AUDIO_PORT_JS};
+window.AUDIO_PORT = ${AUDIO_PORT};
 window.AUDIO_WS_SCHEME = '${AUDIO_WS_SCHEME}';
-window.ENABLE_WEBSOCKET_FALLBACK = ${ENABLE_WEBSOCKET_FALLBACK:-true};
-
-// WebRTC configuration
-window.WEBRTC_PORT = ${WEBRTC_PORT_JS};
-window.WEBRTC_STUN_SERVER = '${WEBRTC_STUN_SERVER}';
-window.WEBRTC_TURN_SERVER = '${WEBRTC_TURN_SERVER}';
-window.WEBRTC_TURN_USERNAME = '${WEBRTC_TURN_USERNAME}';
-window.WEBRTC_TURN_PASSWORD = '${WEBRTC_TURN_PASSWORD}';
 
 // Debug information
 console.log('Audio configuration:', {
     host: window.AUDIO_HOST,
     port: window.AUDIO_PORT,
-    scheme: window.AUDIO_WS_SCHEME,
-    enableWebSocketFallback: window.ENABLE_WEBSOCKET_FALLBACK,
-    webrtcPort: window.WEBRTC_PORT,
-    stunServer: window.WEBRTC_STUN_SERVER,
-    turnServer: window.WEBRTC_TURN_SERVER
+    scheme: window.AUDIO_WS_SCHEME
 });
 
 // Validate configuration
@@ -147,15 +98,10 @@ fi
 
 # Initialize system directories
 mkdir -p /var/run/dbus /tmp/.ICE-unix /tmp/.X11-unix
-# Ensure root ownership and world-writable permissions for X11 and ICE sockets
+# Ensure world-writable permissions for X11 and ICE sockets
 # /tmp/.X11-unix may be mounted read-only by the host
-if [ -w /tmp/.X11-unix ]; then
-    chown root:root /tmp/.X11-unix 2>/dev/null || log_warn "/tmp/.X11-unix ownership could not be set"
-    chmod 1777 /tmp/.X11-unix 2>/dev/null || log_warn "/tmp/.X11-unix permissions could not be set"
-else
-    log_warn "/tmp/.X11-unix is not writable; skipping ownership and permission changes"
-fi
 chmod 1777 /tmp/.ICE-unix 2>/dev/null || log_warn "/tmp/.ICE-unix permissions could not be set"
+chmod 1777 /tmp/.X11-unix 2>/dev/null || log_warn "/tmp/.X11-unix is not writable; skipping chmod"
 
 # Replace default username in polkit rule if different
 if [ -f /etc/polkit-1/rules.d/99-devuser-all.rules ]; then
@@ -231,16 +177,7 @@ echo "${DEV_USERNAME}:${DEV_PASSWORD}" | chpasswd
 if ! getent group pulse-access >/dev/null; then
     groupadd -r pulse-access
 fi
-if ! getent group pulse >/dev/null; then
-    groupadd -r pulse
-fi
-# Ensure video and render groups exist for graphical access
-getent group video >/dev/null || groupadd -r video
-getent group render >/dev/null || groupadd -r render
-usermod -aG sudo,ssl-cert,pulse,pulse-access,video,render "$DEV_USERNAME"
-# Allow access to sound devices
-getent group audio >/dev/null || groupadd -r audio
-usermod -aG audio "$DEV_USERNAME"
+usermod -aG sudo,ssl-cert,pulse-access,video "$DEV_USERNAME"
 
 # Ensure runtime variables match the actual user IDs
 DEV_UID="$(id -u "$DEV_USERNAME")"
@@ -269,8 +206,7 @@ chmod +x "/home/${DEV_USERNAME}/.vnc/xstartup"
 
 # XDG runtime directory
 mkdir -p "/run/user/${DEV_UID}"
-# Ensure ownership uses numeric IDs in case usernames aren't yet resolved
-chown "${DEV_UID}:${DEV_GID}" "/run/user/${DEV_UID}"
+chown "${DEV_USERNAME}":"${DEV_USERNAME}" "/run/user/${DEV_UID}"
 chmod 700 "/run/user/${DEV_UID}"
 export XDG_RUNTIME_DIR="/run/user/${DEV_UID}"
 

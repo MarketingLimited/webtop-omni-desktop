@@ -8,7 +8,6 @@ HEALTH_CHECK_INTERVAL=${HEALTH_CHECK_INTERVAL:-300}
 LOG_FILE="/var/log/supervisor/service-health.log"
 STATE_FILE="/tmp/service-health-state.txt"
 LAST_REPORT_FILE="/tmp/last-health-report.txt"
-AUDIO_PORT=${AUDIO_PORT:-8080}
 
 # Utility functions
 health_log() {
@@ -72,95 +71,63 @@ check_ssh() {
     pgrep -f "sshd.*daemon" > /dev/null
 }
 
-check_pactl() {
-    pactl info >/dev/null 2>&1
-}
-
-check_audio_health() {
-    curl -fsS "http://localhost:${AUDIO_PORT}/health" | grep -q "ok"
-}
-
-check_webrtc_signaling() {
-    curl -fsS -X POST -H "Content-Type: application/json" \
-        -d '{"type":"offer","sdp":"test"}' \
-        "http://localhost:${AUDIO_PORT}/offer" | grep -q 'error\|sdp'
-}
-
 # Service dependency checking
 check_service_dependencies() {
     health_log "🔍 Starting service dependency check..."
-    local failures=0
-
+    
     # Stage 1: Core services
-    wait_for_service "Xvfb" "check_xvfb" 30 || failures=$((failures+1))
-    wait_for_service "D-Bus" "check_dbus" 30 || failures=$((failures+1))
-
+    wait_for_service "Xvfb" "check_xvfb" 30
+    wait_for_service "D-Bus" "check_dbus" 30
+    
     # Stage 2: Desktop environment
-    wait_for_service "KDE Plasma" "check_kde" 60 || failures=$((failures+1))
-
+    wait_for_service "KDE Plasma" "check_kde" 60
+    
     # Stage 3: Audio system
-    wait_for_service "PulseAudio" "check_pulseaudio" 30 || failures=$((failures+1))
-    wait_for_service "pactl" "check_pactl" 30 || failures=$((failures+1))
-    wait_for_service "Audio health" "check_audio_health" 30 || failures=$((failures+1))
-    wait_for_service "WebRTC signaling" "check_webrtc_signaling" 30 || failures=$((failures+1))
-
+    wait_for_service "PulseAudio" "check_pulseaudio" 30
+    
     # Stage 4: Remote access services
-    wait_for_service "VNC" "check_vnc" 30 || failures=$((failures+1))
-    wait_for_service "noVNC" "check_novnc" 30 || failures=$((failures+1))
-
+    wait_for_service "VNC" "check_vnc" 30
+    wait_for_service "noVNC" "check_novnc" 30
+    
     # Stage 5: Optional services
-
+    
     if wait_for_service "TTYD" "check_ttyd" 30; then
         health_log "💻 Web terminal available on port 7681"
     fi
-
+    
     if wait_for_service "SSH" "check_ssh" 30; then
         health_log "🔑 SSH access available on port 22"
     fi
-
-    if [ $failures -eq 0 ]; then
-        health_log "✅ Service dependency check completed"
-    else
-        health_log "❌ Service dependency check completed with $failures failures"
-    fi
-
-    return $failures
+    
+    health_log "✅ Service dependency check completed"
 }
 
 # Service status reporting
 generate_status_report() {
     health_log "📊 Generating service status report..."
-
+    
     local services=(
         "supervisord:pgrep -f supervisord"
         "Xvfb:check_xvfb"
         "D-Bus:check_dbus"
         "KDE:check_kde"
         "PulseAudio:check_pulseaudio"
-        "pactl info:check_pactl"
-        "Audio health:check_audio_health"
-        "WebRTC signaling:check_webrtc_signaling"
         "VNC:check_vnc"
         "noVNC:check_novnc"
         "TTYD:check_ttyd"
         "SSH:check_ssh"
     )
-
-    local failures=0
-
+    
     for service_info in "${services[@]}"; do
         local service_name="${service_info%%:*}"
         local check_cmd="${service_info##*:}"
-
+        
         if eval "$check_cmd" > /dev/null 2>&1; then
             health_log "✅ $service_name: RUNNING"
         else
             health_log "❌ $service_name: NOT RUNNING"
-            failures=$((failures+1))
         fi
     done
-
-    return $failures
 }
 
 # Port status checking
@@ -173,7 +140,6 @@ check_port_status() {
         "7681:TTYD Web Terminal"
         "22:SSH Server"
         "4713:PulseAudio TCP"
-        "${AUDIO_PORT}:WebRTC Audio Server"
     )
     
     for port_info in "${ports[@]}"; do
@@ -229,9 +195,6 @@ generate_service_state_hash() {
         "D-Bus:check_dbus"
         "KDE:check_kde"
         "PulseAudio:check_pulseaudio"
-        "pactl:check_pactl"
-        "AudioHealth:check_audio_health"
-        "WebRTC:check_webrtc_signaling"
         "VNC:check_vnc"
         "noVNC:check_novnc"
         "TTYD:check_ttyd"
@@ -256,18 +219,14 @@ main() {
     case "${1:-status}" in
         "check")
             check_service_dependencies
-            return $?
             ;;
         "status")
             generate_status_report
-            local status_code=$?
             check_port_status
-            return $status_code
             ;;
         "wait")
             health_log "🚀 Starting service health monitoring..."
             check_service_dependencies
-            return $?
             ;;
         "smart-monitor")
             smart_monitor

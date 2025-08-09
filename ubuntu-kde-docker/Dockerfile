@@ -48,7 +48,7 @@ RUN apt-get update && apt-get install -y \
     # File managers and utilities
     mc ranger fzf ripgrep fd-find \
     # Network and security tools
-    nmap wireshark coturn \
+    nmap wireshark \
     # Virtualization
     qemu-system-x86 virt-manager \
     nextcloud-desktop \
@@ -149,12 +149,11 @@ ENV LANGUAGE=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
 ENV TTYD_USER=terminal
 ENV TTYD_PASSWORD=terminal
-ENV WEBRTC_STUN_SERVER="stun:localhost:3478"
-ENV WEBRTC_TURN_SERVER="turn:localhost:3478"
-ENV WEBRTC_TURN_USERNAME="webtop"
-ENV WEBRTC_TURN_PASSWORD="webtop"
+ENV WEBRTC_STUN_SERVER=""
+ENV WEBRTC_TURN_SERVER=""
+ENV WEBRTC_TURN_USERNAME=""
+ENV WEBRTC_TURN_PASSWORD=""
 ENV WEBRTC_PORT=8080
-ENV ENABLE_WEBSOCKET_FALLBACK=true
 # Create directories and VNC setup for x11vnc
 RUN mkdir -p /var/run/sshd /root/.vnc /tmp/.X11-unix && \
     chmod 1777 /tmp/.X11-unix
@@ -165,7 +164,6 @@ COPY setup-flatpak-apps.sh /usr/local/bin/setup-flatpak-apps.sh
 COPY setup-desktop.sh /usr/local/bin/setup-desktop.sh
 COPY setup-audio.sh /usr/local/bin/setup-audio.sh
 COPY fix-audio-startup.sh /usr/local/bin/fix-audio-startup.sh
-COPY fix-pulseaudio.sh /usr/local/bin/fix-pulseaudio.sh
 COPY setup-marketing-shortcuts.sh /usr/local/bin/setup-marketing-shortcuts.sh
 COPY setup-development.sh /usr/local/bin/setup-development.sh
 COPY setup-wine.sh /usr/local/bin/setup-wine.sh
@@ -191,7 +189,6 @@ RUN chmod +x /usr/local/bin/setup-*.sh \
     /usr/local/bin/fix-permissions.sh \
     /usr/local/bin/test-polkit.sh \
     /usr/local/bin/fix-audio-startup.sh \
-    /usr/local/bin/fix-pulseaudio.sh \
     /usr/local/bin/create-virtual-audio-devices.sh
 
 # Initialize audio system during build
@@ -202,17 +199,11 @@ RUN /usr/local/bin/setup-audio.sh && \
 RUN /usr/local/bin/setup-ttyd.sh
 
 # Setup audio bridge
-COPY setup-audio-bridge.sh start-pulseaudio.sh start-audio-bridge.sh webrtc-audio-server.cjs test-webrtc-websocket-audio.sh /usr/local/bin/
-COPY shared-audio-client.js /usr/local/bin/
-COPY universal-audio.js /opt/audio-bridge/
-COPY integrate-audio-ui.sh start-turn.sh /usr/local/bin/
-COPY system.pa /etc/pulse/system.pa
-RUN chmod +x /usr/local/bin/setup-audio-bridge.sh \
-    /usr/local/bin/start-pulseaudio.sh \
-    /usr/local/bin/start-audio-bridge.sh \
-    /usr/local/bin/integrate-audio-ui.sh \
-    /usr/local/bin/start-turn.sh \
-    /usr/local/bin/test-webrtc-websocket-audio.sh && \
+COPY setup-audio-bridge.sh webrtc-audio-server.cjs test-webrtc-websocket-audio.sh /usr/local/bin/
+COPY integrate-audio-ui.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/setup-audio-bridge.sh && \
+    chmod +x /usr/local/bin/integrate-audio-ui.sh && \
+    chmod +x /usr/local/bin/test-webrtc-websocket-audio.sh && \
     /usr/local/bin/setup-audio-bridge.sh && \
     /usr/local/bin/integrate-audio-ui.sh
 

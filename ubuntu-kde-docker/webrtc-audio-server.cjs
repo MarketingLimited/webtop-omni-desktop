@@ -4,75 +4,10 @@ const WebSocket = require('ws');
 const { spawn } = require('child_process');
 const path = require('path');
 
-const PARECORD_DEVICE = process.env.PARECORD_DEVICE || 'virtual_speaker.monitor';
-const PARECORD_RATE = process.env.PARECORD_RATE || '48000';
-const PARECORD_LATENCY = process.env.PARECORD_LATENCY || '5';
-
-// Spawn a parecord process with automatic restart and backoff
-function createParecord(onData) {
-  const args = [
-    `--device=${PARECORD_DEVICE}`,
-    '--format=s16le',
-    `--rate=${PARECORD_RATE}`,
-    '--channels=2',
-    '--raw',
-    `--latency-msec=${PARECORD_LATENCY}`
-  ];
-
-  let proc;
-  let stopped = false;
-  const restartTimes = [];
-
-  const start = () => {
-    if (stopped) return;
-    const env = {
-      ...process.env,
-      XDG_RUNTIME_DIR: process.env.XDG_RUNTIME_DIR,
-      PULSE_RUNTIME_PATH: process.env.PULSE_RUNTIME_PATH,
-      PULSE_SERVER: process.env.PULSE_SERVER
-    };
-    console.log(`Starting parecord with device ${PARECORD_DEVICE} at ${PARECORD_RATE}Hz (latency ${PARECORD_LATENCY}ms)`);
-    proc = spawn('parecord', args, { env });
-    proc.stdout.on('data', onData);
-
-    const handleFailure = (type, err) => {
-      console.error(`parecord ${type}:`, err);
-
-      if (stopped) return;
-      const now = Date.now();
-      restartTimes.push(now);
-      while (restartTimes.length && now - restartTimes[0] > 60000) {
-        restartTimes.shift();
-      }
-      if (restartTimes.length > 5) {
-        console.error('parecord restart limit reached; not restarting');
-        return;
-      }
-      setTimeout(start, 1000);
-    };
-
-    proc.on('error', (err) => handleFailure('error', err.message));
-    proc.on('exit', (code, signal) => handleFailure('exit', `code ${code} signal ${signal}`));
-  };
-
-  start();
-
-  return {
-    kill() {
-      stopped = true;
-      if (proc) proc.kill();
-    }
-  };
-}
-
-// Track active peer connection and signaling clients
-let currentPeerConnection = null;
-const signalingClients = new Set();
-
 // Try to load wrtc, fallback gracefully if not available
-let wrtc, RTCPeerConnection, RTCAudioSource;
+let RTCPeerConnection, RTCAudioSource;
 try {
-  wrtc = require('wrtc');
+  const wrtc = require('wrtc');
   RTCPeerConnection = wrtc.RTCPeerConnection;
   RTCAudioSource = wrtc.nonstandard.RTCAudioSource;
 } catch (err) {
@@ -81,10 +16,6 @@ try {
 
 const PORT = process.env.WEBRTC_PORT || process.env.AUDIO_PORT || 8080;
 const app = express();
-
-if (!process.env.WEBRTC_TURN_SERVER) {
-  console.warn('WEBRTC_TURN_SERVER is not set; WebRTC may fail behind restrictive networks');
-}
 
 // Enable CORS for all routes
 app.use((req, res, next) => {
@@ -140,39 +71,28 @@ app.post('/offer', async (req, res) => {
   }
 
   try {
-    if (currentPeerConnection) {
-      try { currentPeerConnection.close(); } catch (e) { /* ignore */ }
-    }
     const pc = new RTCPeerConnection({ iceServers: buildIceServers() });
-    currentPeerConnection = pc;
-
     const source = new RTCAudioSource();
     const track = source.createTrack();
-    const stream = new wrtc.MediaStream();
-    pc.addTrack(track, stream);
-
-    // Forward gathered ICE candidates to connected signaling clients
-    pc.onicecandidate = (event) => {
-      const message = JSON.stringify({ type: 'candidate', candidate: event.candidate });
-      signalingClients.forEach((client) => {
-        if (client.readyState === WebSocket.OPEN) {
-          try {
-            client.send(message);
-          } catch (err) {
-            console.warn('Failed to send ICE candidate:', err.message);
-          }
-        }
-      });
-    };
+    pc.addTrack(track);
 
     // Create audio capture process
-    const audioProcess = createParecord((data) => {
+    const audioProcess = spawn('parecord', [
+      '--device=virtual_speaker.monitor',
+      '--format=s16le',
+      '--rate=48000',
+      '--channels=1',
+      '--raw'
+    ]);
+
+    // Process audio data and send to WebRTC
+    audioProcess.stdout.on('data', (data) => {
       try {
         if (pc.connectionState === 'connected') {
           source.onData({
             samples: data,
             sampleRate: 48000,
-            channelCount: 2,
+            channelCount: 1,
             bitsPerSample: 16
           });
         }
@@ -181,11 +101,13 @@ app.post('/offer', async (req, res) => {
       }
     });
 
+    audioProcess.on('error', (err) => {
+      console.error('Audio capture error:', err.message);
+    });
+
     await pc.setRemoteDescription(req.body);
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
-
-    // Send answer immediately; remaining ICE candidates will trickle via WebSocket
     res.json(pc.localDescription);
 
     pc.onconnectionstatechange = () => {
@@ -194,7 +116,6 @@ app.post('/offer', async (req, res) => {
         audioProcess.kill();
         pc.close();
         track.stop();
-        currentPeerConnection = null;
       }
     };
 
@@ -204,7 +125,6 @@ app.post('/offer', async (req, res) => {
         audioProcess.kill();
         pc.close();
         track.stop();
-        currentPeerConnection = null;
       }
     }, 300000);
 
@@ -217,37 +137,8 @@ app.post('/offer', async (req, res) => {
 // Create HTTP server
 const server = http.createServer(app);
 
-// WebSocket server for WebRTC signaling (ICE candidates)
-const signalingWss = new WebSocket.Server({
-  server,
-  path: '/webrtc'
-});
-
-signalingWss.on('connection', (ws) => {
-  signalingClients.add(ws);
-
-  ws.on('message', async (message) => {
-    try {
-      const data = JSON.parse(message);
-      if (data.type === 'candidate' && currentPeerConnection) {
-        try {
-          await currentPeerConnection.addIceCandidate(data.candidate || null);
-        } catch (err) {
-          console.error('Error adding ICE candidate:', err.message);
-        }
-      }
-    } catch (err) {
-      console.error('Invalid signaling message:', err.message);
-    }
-  });
-
-  const cleanup = () => signalingClients.delete(ws);
-  ws.on('close', cleanup);
-  ws.on('error', cleanup);
-});
-
 // WebSocket server for fallback audio streaming
-const wss = new WebSocket.Server({
+const wss = new WebSocket.Server({ 
   server,
   path: '/audio-stream'
 });
@@ -255,10 +146,18 @@ const wss = new WebSocket.Server({
 wss.on('connection', (ws, req) => {
   console.log('WebSocket audio connection established');
   
+  // Create audio capture process for WebSocket
+  const recorder = spawn('parecord', [
+    '--device=virtual_speaker.monitor',
+    '--format=s16le',
+    '--rate=44100',
+    '--channels=2',
+    '--raw'
+  ]);
+
   let isConnected = true;
 
-  // Create audio capture process for WebSocket
-  const recorder = createParecord((data) => {
+  recorder.stdout.on('data', (data) => {
     if (isConnected && ws.readyState === WebSocket.OPEN) {
       try {
         ws.send(data);
@@ -266,6 +165,10 @@ wss.on('connection', (ws, req) => {
         console.warn('WebSocket send error:', err.message);
       }
     }
+  });
+
+  recorder.on('error', (err) => {
+    console.error('Audio recorder error:', err.message);
   });
 
   ws.on('close', () => {
@@ -288,7 +191,6 @@ wss.on('connection', (ws, req) => {
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Audio bridge server listening on port ${PORT}`);
   console.log(`WebRTC endpoint: http://localhost:${PORT}/offer`);
-  console.log(`WebRTC signaling: ws://localhost:${PORT}/webrtc`);
   console.log(`WebSocket endpoint: ws://localhost:${PORT}/audio-stream`);
   console.log(`Health check: http://localhost:${PORT}/health`);
 });

@@ -60,23 +60,6 @@ environment when the container starts.
 
 ## Technical Details
 
-### PulseAudio Configuration
-A dedicated `/etc/pulse/system.pa` is installed to keep the audio stack
-minimal and predictable. It loads only the core modules required by the
-WebTop environment:
-
-```
-load-module module-null-sink
-load-module module-native-protocol-unix
-.ifexists module-native-protocol-tcp.so
-load-module module-native-protocol-tcp
-.endif
-```
-
-`start-pulseaudio.sh` starts the daemon in system mode using this file via
-`pulseaudio --system --file=/etc/pulse/system.pa`, providing a TCP fallback
-when the UNIX socket cannot be used.
-
 ### Ports
 - `32768`: Main noVNC interface with audio
 - `8080`: Audio bridge WebSocket server
@@ -91,20 +74,6 @@ Desktop Apps → PulseAudio → Virtual Sink → Audio Bridge → WebSocket → 
 - All desktop application audio (Firefox, VLC, system sounds, etc.)
 - 44.1kHz 16-bit stereo PCM
 - Real-time streaming with minimal latency
-
-## WebRTC TURN Configuration
-
-Some networks block direct peer-to-peer WebRTC traffic. In those cases the
-audio client can fall back to a TURN relay when configured with the following
-environment variables:
-
-- `WEBRTC_TURN_SERVER` – TURN server URL, for example `turn:turn.example.com:3478`
-- `WEBRTC_TURN_USERNAME` – Username used to authenticate with the TURN server
-- `WEBRTC_TURN_PASSWORD` – Corresponding password for the TURN username
-
-These variables are injected into the browser at runtime so the client can
-automatically route audio through the TURN server when a direct connection is
-not possible.
 
 ## Troubleshooting
 
