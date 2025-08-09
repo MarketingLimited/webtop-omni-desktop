@@ -35,9 +35,24 @@ chmod 700 "$RUNTIME_DIR"
 # 3. Remove stale PID files or instances
 rm -f "$PULSE_DIR"/*.pid 2>/dev/null || true
 pkill -u "$PULSE_UID" pulseaudio >/dev/null 2>&1 || true
+NATIVE_SOCKET="$PULSE_DIR/native"
+if [ -e "$NATIVE_SOCKET" ]; then
+  echo "Removing stale PulseAudio socket: $NATIVE_SOCKET"
+  rm -f "$NATIVE_SOCKET"
+fi
+
+start_pulseaudio() {
+  local mode="$1"
+  local cmd="pulseaudio -D --log-target=file:$LOGFILE"
+  if [ "$mode" = "tcp" ]; then
+    cmd="pulseaudio -D --exit-idle-time=-1 --load=module-native-protocol-tcp --log-target=file:$LOGFILE"
+  fi
+  su - "$PULSE_USER" -c "export XDG_RUNTIME_DIR=$RUNTIME_DIR; $cmd"
+}
 
 # 4. Start PulseAudio in daemon mode and log output
-su - "$PULSE_USER" -c "export XDG_RUNTIME_DIR=$RUNTIME_DIR; pulseaudio -D --log-target=file:$LOGFILE"
+PA_MODE="unix"
+start_pulseaudio "$PA_MODE"
 
 for i in {1..10}; do
   if grep -q 'Daemon startup complete' "$LOGFILE" || grep -q 'READY=1' "$LOGFILE"; then
@@ -52,30 +67,54 @@ if ! grep -q 'Daemon startup complete' "$LOGFILE" && ! grep -q 'READY=1' "$LOGFI
   exit 1
 fi
 
-# 5. Wait for pactl to report server info
-echo "Waiting for PulseAudio availability..."
-for i in {1..20}; do
-  if su - "$PULSE_USER" -c "export XDG_RUNTIME_DIR=$RUNTIME_DIR; pactl info" >/dev/null 2>&1; then
-    echo "pactl info succeeded."
-    break
-  fi
-  echo "PulseAudio not ready (attempt $i/20)" >&2
-  sleep 1
-done
+wait_for_pactl() {
+  local server_flag="$1"
+  local label="$2"
+  echo "Waiting for PulseAudio availability$label..."
+  for i in {1..20}; do
+    if su - "$PULSE_USER" -c "$server_flag pactl info" >/dev/null 2>&1; then
+      echo "pactl info succeeded$label."
+      return 0
+    fi
+    echo "PulseAudio not ready$label (attempt $i/20)" >&2
+    sleep 1
+  done
+  return 1
+}
 
-if ! su - "$PULSE_USER" -c "export XDG_RUNTIME_DIR=$RUNTIME_DIR; pactl info" >/dev/null 2>&1; then
-  echo "Failed to connect to PulseAudio with pactl info" >&2
-  echo "Check $LOGFILE for details" >&2
-  exit 1
+if ! wait_for_pactl "export XDG_RUNTIME_DIR=$RUNTIME_DIR;" ""; then
+  echo "Initial PulseAudio startup failed, retrying with TCP..." >&2
+  pkill -u "$PULSE_UID" pulseaudio >/dev/null 2>&1 || true
+  rm -f "$NATIVE_SOCKET" 2>/dev/null || true
+  PA_MODE="tcp"
+  start_pulseaudio "$PA_MODE"
+  for i in {1..10}; do
+    if grep -q 'Daemon startup complete' "$LOGFILE" || grep -q 'READY=1' "$LOGFILE"; then
+      echo "PulseAudio reported successful startup."
+      break
+    fi
+    sleep 1
+  done
+  wait_for_pactl "PULSE_SERVER=tcp:127.0.0.1:4713" " over TCP" || {
+    echo "Failed to connect to PulseAudio with pactl info" >&2
+    echo "Check $LOGFILE for details" >&2
+    exit 1
+  }
 fi
 
 # 6. Health check for sinks/sources
 echo "Performing PulseAudio health check..."
-SINKS=$(su - "$PULSE_USER" -c "export XDG_RUNTIME_DIR=$RUNTIME_DIR; pactl list short sinks" 2>/dev/null)
+if [ "$PA_MODE" = "tcp" ]; then
+  PACTL_PREFIX="PULSE_SERVER=tcp:127.0.0.1:4713"
+else
+  PACTL_PREFIX="export XDG_RUNTIME_DIR=$RUNTIME_DIR;"
+fi
+SINKS=$(su - "$PULSE_USER" -c "$PACTL_PREFIX pactl list short sinks" 2>/dev/null)
 if [ -z "$SINKS" ]; then
   echo "Health check failed: no PulseAudio sinks found" >&2
   exit 1
 fi
 echo "$SINKS"
 
-echo "PulseAudio is ready."
+echo "PulseAudio is ready using $PA_MODE."
+echo "PulseAudio bound to $PA_MODE" >> "$LOGFILE"
