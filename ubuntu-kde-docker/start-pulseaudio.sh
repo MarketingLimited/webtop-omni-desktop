@@ -5,6 +5,14 @@ PULSE_USER="${PULSE_USER:-${DEV_USERNAME:-devuser}}"
 PULSE_UID="${PULSE_UID:-$(id -u "$PULSE_USER" 2>/dev/null || echo 1000)}"
 LOGFILE="${PULSE_LOGFILE:-/var/log/pulseaudio-startup.log}"
 
+run_as_pulse_user() {
+  if [ "$(id -u)" -eq "$PULSE_UID" ]; then
+    bash -lc "$1"
+  else
+    su - "$PULSE_USER" -c "$1"
+  fi
+}
+
 # 1. Confirm required packages are installed
 REQUIRED_PKGS=(pulseaudio pulseaudio-utils alsa-utils)
 echo "Checking required audio packages..."
@@ -29,8 +37,10 @@ fi
 RUNTIME_DIR="/run/user/$PULSE_UID"
 PULSE_DIR="$RUNTIME_DIR/pulse"
 mkdir -p "$PULSE_DIR"
-chown -R "$PULSE_USER:$PULSE_USER" "$RUNTIME_DIR"
-chmod 700 "$RUNTIME_DIR"
+if [ "$(id -u)" -eq 0 ]; then
+  chown -R "$PULSE_USER:$PULSE_USER" "$RUNTIME_DIR"
+  chmod 700 "$RUNTIME_DIR"
+fi
 
 # 3. Remove stale PID files or instances
 rm -f "$PULSE_DIR"/*.pid 2>/dev/null || true
@@ -47,7 +57,7 @@ fi
 # Launch a per-user PulseAudio daemon using the default configuration.
 start_pulseaudio() {
   local cmd="pulseaudio --daemonize --exit-idle-time=-1 --log-target=file:$LOGFILE"
-  su - "$PULSE_USER" -c "export XDG_RUNTIME_DIR=$RUNTIME_DIR PULSE_RUNTIME_PATH=$PULSE_DIR; $cmd"
+  run_as_pulse_user "export XDG_RUNTIME_DIR=$RUNTIME_DIR PULSE_RUNTIME_PATH=$PULSE_DIR; $cmd"
 }
 
 # 4. Start PulseAudio in daemon mode and log output
@@ -83,7 +93,7 @@ wait_for_pactl() {
   local label="$2"
   echo "Waiting for PulseAudio availability$label..."
   for i in {1..20}; do
-    if su - "$PULSE_USER" -c "$server_flag pactl info" >/dev/null 2>&1; then
+    if run_as_pulse_user "$server_flag pactl info" >/dev/null 2>&1; then
       echo "pactl info succeeded$label."
       return 0
     fi
@@ -115,7 +125,7 @@ if [ "$PA_MODE" = "tcp" ]; then
 else
   PACTL_PREFIX="export XDG_RUNTIME_DIR=$RUNTIME_DIR;"
 fi
-SINKS=$(su - "$PULSE_USER" -c "$PACTL_PREFIX pactl list short sinks" 2>/dev/null)
+SINKS=$(run_as_pulse_user "$PACTL_PREFIX pactl list short sinks" 2>/dev/null)
 if [ -z "$SINKS" ]; then
   echo "Health check failed: no PulseAudio sinks found" >&2
   exit 1
