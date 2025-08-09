@@ -41,13 +41,18 @@ wait_for_pulseaudio() {
     echo "❌ PulseAudio not ready after 60 seconds"
     echo "🔧 Attempting PulseAudio restart..."
 
-    # Try to restart PulseAudio as root and start it as the dev user
-    pkill -u "${DEV_UID}" pulseaudio || true
-    su - "${DEV_USERNAME}" -c "
-        export XDG_RUNTIME_DIR=/run/user/${DEV_UID}
-        export PULSE_RUNTIME_PATH=/run/user/${DEV_UID}/pulse
-        pulseaudio --daemonize --start
-    "
+# Try to restart PulseAudio as root and start it as the dev user
+pkill -u "${DEV_UID}" pulseaudio || true
+sleep 2
+rm -rf "${XDG_RUNTIME_DIR}/pulse/"* || true
+mkdir -p "${XDG_RUNTIME_DIR}/pulse"
+chown -R "${DEV_USERNAME}:${DEV_USERNAME}" "${XDG_RUNTIME_DIR}"
+chmod 700 "${XDG_RUNTIME_DIR}"
+su - "${DEV_USERNAME}" -c "
+    export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR}
+    export PULSE_RUNTIME_PATH=${XDG_RUNTIME_DIR}/pulse
+    pulseaudio --start --daemonize
+"
 
     sleep 5
     if su - "${DEV_USERNAME}" -c "export XDG_RUNTIME_DIR=/run/user/${DEV_UID}; pactl info >/dev/null 2>&1"; then

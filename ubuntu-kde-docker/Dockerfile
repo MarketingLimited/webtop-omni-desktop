@@ -165,6 +165,7 @@ COPY setup-flatpak-apps.sh /usr/local/bin/setup-flatpak-apps.sh
 COPY setup-desktop.sh /usr/local/bin/setup-desktop.sh
 COPY setup-audio.sh /usr/local/bin/setup-audio.sh
 COPY fix-audio-startup.sh /usr/local/bin/fix-audio-startup.sh
+COPY fix-pulseaudio.sh /usr/local/bin/fix-pulseaudio.sh
 COPY setup-marketing-shortcuts.sh /usr/local/bin/setup-marketing-shortcuts.sh
 COPY setup-development.sh /usr/local/bin/setup-development.sh
 COPY setup-wine.sh /usr/local/bin/setup-wine.sh
@@ -190,6 +191,7 @@ RUN chmod +x /usr/local/bin/setup-*.sh \
     /usr/local/bin/fix-permissions.sh \
     /usr/local/bin/test-polkit.sh \
     /usr/local/bin/fix-audio-startup.sh \
+    /usr/local/bin/fix-pulseaudio.sh \
     /usr/local/bin/create-virtual-audio-devices.sh
 
 # Initialize audio system during build
