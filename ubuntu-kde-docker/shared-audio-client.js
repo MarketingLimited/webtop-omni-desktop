@@ -150,17 +150,45 @@ class SharedAudioClient {
         const pc = new RTCPeerConnection({ iceServers: this.getIceServers() });
         this.peerConnection = pc;
 
-        // Set up signaling channel for ICE candidates
-        const signalUrl = `${this.wsScheme}://${this.audioHost}:${this.webrtcPort}/webrtc`;
-        const signalSocket = new WebSocket(signalUrl);
-        this.signalSocket = signalSocket;
+        // Try multiple signaling URLs for ICE candidates
+        const signalUrls = [
+            `${this.wsScheme}://${this.audioHost}:${this.webrtcPort}/webrtc`,
+            `${this.wsScheme}://${window.location.host}/webrtc` // Same-origin fallback
+        ];
 
-        // Wait for signaling channel to open
-        await new Promise((resolve, reject) => {
-            const timer = setTimeout(() => reject(new Error('Signaling connection timeout')), 5000);
-            signalSocket.onopen = () => { clearTimeout(timer); resolve(); };
-            signalSocket.onerror = () => { clearTimeout(timer); reject(new Error('Signaling connection failed')); };
-        });
+        let signalSocket = null;
+        for (const url of signalUrls) {
+            try {
+                this.log(`Trying signaling URL: ${url}`);
+                signalSocket = await new Promise((resolve, reject) => {
+                    const socket = new WebSocket(url);
+                    const timer = setTimeout(() => {
+                        socket.close();
+                        reject(new Error('Signaling connection timeout'));
+                    }, 5000);
+
+                    socket.onopen = () => {
+                        clearTimeout(timer);
+                        resolve(socket);
+                    };
+
+                    socket.onerror = () => {
+                        clearTimeout(timer);
+                        reject(new Error('Signaling connection failed'));
+                    };
+                });
+                this.log(`Signaling connected via: ${url}`);
+                break;
+            } catch (e) {
+                this.log(`Signaling failed for ${url}:`, e.message);
+            }
+        }
+
+        if (!signalSocket) {
+            throw new Error('All signaling connection attempts failed');
+        }
+
+        this.signalSocket = signalSocket;
 
         // Forward local ICE candidates to server
         pc.onicecandidate = (event) => {
