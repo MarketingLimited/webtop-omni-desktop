@@ -30,7 +30,7 @@ log_warn() {
 # Configure audio service defaults. Leave AUDIO_HOST unset so browsers
 # fall back to the current window hostname, ensuring remote clients can
 # connect even when the container runs behind NAT or port forwarding.
-: "${AUDIO_PORT:=8080}"
+: "${AUDIO_PORT:=}"
 : "${AUDIO_HOST:=}"
 : "${AUDIO_WS_SCHEME:=}"
 export AUDIO_HOST AUDIO_PORT AUDIO_WS_SCHEME
@@ -64,6 +64,21 @@ echo "🔧 Configuring audio environment for browsers..."
 # Ensure directory exists
 mkdir -p /usr/share/novnc
 
+# Determine port values for generated JS. Use window.location.port when
+# AUDIO_PORT or WEBRTC_PORT are unset so the browser connects using the
+# same port as the current page.
+if [ -z "${AUDIO_PORT}" ]; then
+    AUDIO_PORT_JS="window.location.port"
+else
+    AUDIO_PORT_JS="${AUDIO_PORT}"
+fi
+
+if [ -z "${WEBRTC_PORT:-}" ]; then
+    WEBRTC_PORT_JS="window.location.port"
+else
+    WEBRTC_PORT_JS="${WEBRTC_PORT}"
+fi
+
 # Write audio configuration with proper escaping and validation
 cat > /usr/share/novnc/audio-env.js <<EOF
 // Audio environment configuration
@@ -71,12 +86,12 @@ cat > /usr/share/novnc/audio-env.js <<EOF
 console.log('Loading audio environment configuration...');
 
 window.AUDIO_HOST = '${AUDIO_HOST}';
-window.AUDIO_PORT = ${AUDIO_PORT};
+window.AUDIO_PORT = ${AUDIO_PORT_JS};
 window.AUDIO_WS_SCHEME = '${AUDIO_WS_SCHEME}';
 window.ENABLE_WEBSOCKET_FALLBACK = ${ENABLE_WEBSOCKET_FALLBACK:-true};
 
 // WebRTC configuration
-window.WEBRTC_PORT = ${WEBRTC_PORT:-${AUDIO_PORT}};
+window.WEBRTC_PORT = ${WEBRTC_PORT_JS};
 window.WEBRTC_STUN_SERVER = '${WEBRTC_STUN_SERVER}';
 window.WEBRTC_TURN_SERVER = '${WEBRTC_TURN_SERVER}';
 window.WEBRTC_TURN_USERNAME = '${WEBRTC_TURN_USERNAME}';
