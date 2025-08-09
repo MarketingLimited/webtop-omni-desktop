@@ -200,14 +200,16 @@ RUN /usr/local/bin/setup-audio.sh && \
 RUN /usr/local/bin/setup-ttyd.sh
 
 # Setup audio bridge
-COPY setup-audio-bridge.sh webrtc-audio-server.cjs test-webrtc-websocket-audio.sh /usr/local/bin/
+COPY setup-audio-bridge.sh start-pulseaudio.sh start-audio-bridge.sh webrtc-audio-server.cjs test-webrtc-websocket-audio.sh /usr/local/bin/
 COPY shared-audio-client.js /usr/local/bin/
 COPY universal-audio.js /opt/audio-bridge/
 COPY integrate-audio-ui.sh start-turn.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/setup-audio-bridge.sh && \
-    chmod +x /usr/local/bin/integrate-audio-ui.sh && \
-    chmod +x /usr/local/bin/start-turn.sh && \
-    chmod +x /usr/local/bin/test-webrtc-websocket-audio.sh && \
+RUN chmod +x /usr/local/bin/setup-audio-bridge.sh \
+    /usr/local/bin/start-pulseaudio.sh \
+    /usr/local/bin/start-audio-bridge.sh \
+    /usr/local/bin/integrate-audio-ui.sh \
+    /usr/local/bin/start-turn.sh \
+    /usr/local/bin/test-webrtc-websocket-audio.sh && \
     /usr/local/bin/setup-audio-bridge.sh && \
     /usr/local/bin/integrate-audio-ui.sh
 
