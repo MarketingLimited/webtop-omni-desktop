@@ -77,6 +77,8 @@ Desktop Apps → PulseAudio → Virtual Sink → Audio Bridge → WebSocket → 
 
 ## Troubleshooting
 
+For interactive debug tools and self-tests, see [docs/AUDIO_DIAGNOSTICS.md](docs/AUDIO_DIAGNOSTICS.md).
+
 ### No Audio in Browser
 1. Check that audio bridge is running: `docker logs webtop-kde | grep "Audio bridge"`
 2. Verify WebSocket connection in browser console
@@ -119,3 +121,7 @@ export PULSE_RUNTIME_PATH=/tmp/pulse-socket
 - Audio bridge only accepts connections from the same host
 - No authentication required (intended for local development)
 - WebSocket connections are not encrypted (use HTTPS for production)
+
+## See Also
+
+- [Audio Diagnostics Guide](docs/AUDIO_DIAGNOSTICS.md)
