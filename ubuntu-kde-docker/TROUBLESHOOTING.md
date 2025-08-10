@@ -4,6 +4,8 @@
 
 ### 🎵 Audio Issues
 
+For interactive diagnostics and self-tests, see [docs/AUDIO_DIAGNOSTICS.md](docs/AUDIO_DIAGNOSTICS.md).
+
 #### "No output or input devices found" in KDE
 **Cause**: Virtual audio devices not created or PulseAudio misconfigured
 
