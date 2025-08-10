@@ -396,7 +396,8 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **[Validation Guide](VALIDATION.md)**: Comprehensive system validation and testing
 - **[Troubleshooting Guide](TROUBLESHOOTING.md)**: Advanced troubleshooting and recovery
 - **[Service Architecture](SERVICES.md)**: Detailed service documentation and management
-- **[Audio Configuration](#-audio-configuration)**: Container-compatible audio setup
+- **[Audio Diagnostics](AUDIO_DIAGNOSTICS.md)**: Detailed audio troubleshooting and validation
+- **[Audio Configuration](README_AUDIO.md)**: Container-compatible audio setup
 
 ## 🆘 Support
 

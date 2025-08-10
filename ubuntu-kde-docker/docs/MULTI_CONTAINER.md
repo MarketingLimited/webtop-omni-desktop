@@ -2,6 +2,9 @@
 
 This guide covers how to deploy and manage multiple Ubuntu KDE containers for different clients, teams, or environments using the enhanced webtop.sh script.
 
+- For authentication details, see [Authentication & Security Guide](AUTHENTICATION.md).
+- For audio troubleshooting across containers, see [Audio Diagnostics](../AUDIO_DIAGNOSTICS.md).
+
 ## Overview
 
 The multi-container feature allows you to:
