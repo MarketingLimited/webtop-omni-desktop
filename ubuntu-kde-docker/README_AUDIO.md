@@ -79,19 +79,30 @@ Desktop Apps → PulseAudio → Virtual Sink → Audio Bridge → WebSocket → 
 
 ### No Audio in Browser
 1. Check that audio bridge is running: `docker logs webtop-kde | grep "Audio bridge"`
-2. Verify WebSocket connection in browser console
-3. Try disconnecting and reconnecting audio
-4. Confirm PulseAudio's default sink is set to `virtual_speaker`. The system now automatically resets it, or run `/usr/local/bin/fix-audio-routing.sh` manually
+2. Enable debug mode by opening `vnc_audio.html?debug=1` to view HUD metrics and WebSocket diagnostics
+3. Run the built-in self-test and export the debug report for support
+4. Try disconnecting and reconnecting audio
+5. Confirm PulseAudio's default sink is set to `virtual_speaker`. The system now automatically resets it, or run `/usr/local/bin/fix-audio-routing.sh` manually
 
 ### Audio Bridge Not Starting
 1. Check container logs: `docker logs webtop-kde`
 2. Verify Node.js installation in container
 3. Check if port 8080 is available
+4. Use `vnc_audio.html?debug=1` to view WebSocket diagnostics for connection errors
 
 ### High Latency
 1. Reduce browser audio buffer size (advanced browser settings)
-2. Check network connection quality
-3. Consider using SSH with audio forwarding for local network
+2. Enable debug mode (`vnc_audio.html?debug=1`) to monitor latency and buffer metrics
+3. Check network connection quality
+4. Consider using SSH with audio forwarding for local network
+
+### Client-side Diagnostics
+
+- **Enable Debug Mode**: Append `?debug=1` to the audio player's URL (e.g., `vnc_audio.html?debug=1`) to display the diagnostic HUD.
+- **HUD Metrics**: Review real-time buffer, latency, and connection statistics to identify issues.
+- **Self-Tests**: Run the built-in self-tests to validate audio playback and WebSocket connectivity.
+- **Debug Report**: Use the export feature to download a debug report for deeper analysis or sharing with support.
+- **WebSocket Diagnostics**: Inspect detailed WebSocket connection logs and timing data to troubleshoot network problems.
 
 ## SSH Audio Forwarding (Alternative)
 
