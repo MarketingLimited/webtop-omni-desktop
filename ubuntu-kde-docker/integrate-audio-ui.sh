@@ -177,6 +177,532 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
 
     <script src="audio-env.js"></script>
     <script>
+        class AudioDiagnostics {
+            constructor() {
+                this.enabled = new URLSearchParams(window.location.search).has('debug');
+                this.metrics = {
+                    processedFrames: 0,
+                    underruns: 0,
+                    overruns: 0,
+                    bytesReceived: 0,
+                    rmsHistory: [],
+                    peakHistory: [],
+                    queueDepth: 0,
+                    maxQueueDepth: 0,
+                    lastEnqueueTime: 0,
+                    errors: []
+                };
+                this.analyser = null;
+                this.meterWorklet = null;
+                this.pingInterval = null;
+                this.lastPing = 0;
+                this.devices = [];
+                this.testTone = null;
+                
+                if (this.enabled) {
+                    this.init();
+                }
+            }
+            
+            async init() {
+                this.log('AudioDiagnostics', 'Initializing comprehensive audio diagnostics');
+                this.createDebugHUD();
+                await this.enumerateDevices();
+                this.startMetricsCollection();
+                this.setupSelfTests();
+                this.logEnvironment();
+                
+                // Show initialization message
+                console.log('%c🎵 Audio Diagnostics Enabled', 'color: #4299e1; font-size: 16px; font-weight: bold;');
+                console.log('📊 Debug HUD visible in top-left corner');
+                console.log('🔧 Available methods: window.audioDiagnostics.runBeepTest(), .unlockAudio(), .copyDebugReport()');
+                console.log('💡 Add ?debug=1 to URL to enable diagnostics on any audio page');
+                
+                this.metrics.startTime = Date.now();
+            }
+            
+            log(category, message, data = null) {
+                if (!this.enabled) return;
+                const timestamp = new Date().toISOString();
+                const logEntry = { timestamp, category, message, data };
+                console.log(`[${category}] ${message}`, data || '');
+                this.metrics.errors.push(logEntry);
+                if (this.metrics.errors.length > 100) this.metrics.errors.shift();
+            }
+            
+            createDebugHUD() {
+                const hud = document.createElement('div');
+                hud.id = 'audio-debug-hud';
+                hud.innerHTML = `
+                    <div class="debug-header">
+                        <h3>🔧 Audio Diagnostics</h3>
+                        <button id="toggle-debug" title="Toggle Debug Panel">⚙️</button>
+                        <button id="copy-report" title="Copy Debug Report">📋</button>
+                    </div>
+                    <div class="debug-content">
+                        <div class="debug-section">
+                            <h4>Environment</h4>
+                            <div id="env-info"></div>
+                        </div>
+                        <div class="debug-section">
+                            <h4>Real-time Metrics</h4>
+                            <div id="metrics-display"></div>
+                            <div class="meter-bars">
+                                <div class="meter">
+                                    <label>Input RMS:</label>
+                                    <div class="meter-bar"><div id="input-rms-bar"></div></div>
+                                    <span id="input-rms-value">0.000</span>
+                                </div>
+                                <div class="meter">
+                                    <label>Output RMS:</label>
+                                    <div class="meter-bar"><div id="output-rms-bar"></div></div>
+                                    <span id="output-rms-value">0.000</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="debug-section">
+                            <h4>Connection Status</h4>
+                            <div id="connection-info"></div>
+                        </div>
+                        <div class="debug-section">
+                            <h4>Output Devices</h4>
+                            <select id="output-device-selector"></select>
+                            <button id="refresh-devices">Refresh</button>
+                        </div>
+                        <div class="debug-section">
+                            <h4>Self Tests</h4>
+                            <div class="test-buttons">
+                                <button id="beep-test">🔊 Beep Test</button>
+                                <button id="unlock-audio">🔓 Unlock Audio</button>
+                                <button id="format-test">📊 Format Test</button>
+                                <button id="loopback-test">🔄 Loopback Test</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                hud.style.cssText = `
+                    position: fixed;
+                    top: 10px;
+                    left: 10px;
+                    width: 350px;
+                    background: rgba(26, 32, 44, 0.98);
+                    color: white;
+                    border: 1px solid #4a5568;
+                    border-radius: 8px;
+                    z-index: 20000;
+                    font-family: 'Courier New', monospace;
+                    font-size: 12px;
+                    max-height: 80vh;
+                    overflow-y: auto;
+                `;
+                
+                document.body.appendChild(hud);
+                this.setupDebugEventListeners();
+                this.addDebugStyles();
+            }
+            
+            addDebugStyles() {
+                const style = document.createElement('style');
+                style.textContent = `
+                    .debug-header {
+                        background: #2d3748;
+                        padding: 8px 12px;
+                        border-bottom: 1px solid #4a5568;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                    }
+                    .debug-header h3 {
+                        margin: 0;
+                        font-size: 14px;
+                    }
+                    .debug-header button {
+                        background: #4299e1;
+                        border: none;
+                        color: white;
+                        padding: 4px 8px;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-size: 12px;
+                        margin-left: 4px;
+                    }
+                    .debug-content {
+                        padding: 12px;
+                        max-height: 70vh;
+                        overflow-y: auto;
+                    }
+                    .debug-section {
+                        margin-bottom: 16px;
+                        border-bottom: 1px solid #4a5568;
+                        padding-bottom: 12px;
+                    }
+                    .debug-section h4 {
+                        margin: 0 0 8px 0;
+                        color: #4299e1;
+                        font-size: 13px;
+                    }
+                    .meter-bars {
+                        margin-top: 8px;
+                    }
+                    .meter {
+                        display: flex;
+                        align-items: center;
+                        margin-bottom: 4px;
+                        gap: 8px;
+                    }
+                    .meter label {
+                        width: 80px;
+                        font-size: 11px;
+                    }
+                    .meter-bar {
+                        flex: 1;
+                        height: 12px;
+                        background: #2d3748;
+                        border-radius: 6px;
+                        overflow: hidden;
+                    }
+                    .meter-bar div {
+                        height: 100%;
+                        background: linear-gradient(90deg, #38a169, #fbb040, #e53e3e);
+                        width: 0%;
+                        transition: width 0.1s ease;
+                    }
+                    .test-buttons {
+                        display: grid;
+                        grid-template-columns: 1fr 1fr;
+                        gap: 4px;
+                    }
+                    .test-buttons button {
+                        background: #38a169;
+                        border: none;
+                        color: white;
+                        padding: 6px;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-size: 11px;
+                    }
+                    .test-buttons button:hover {
+                        background: #2f855a;
+                    }
+                    #output-device-selector {
+                        width: 70%;
+                        background: #2d3748;
+                        color: white;
+                        border: 1px solid #4a5568;
+                        padding: 4px;
+                        border-radius: 4px;
+                    }
+                    #refresh-devices {
+                        background: #4299e1;
+                        border: none;
+                        color: white;
+                        padding: 4px 8px;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-size: 11px;
+                        margin-left: 4px;
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            
+            setupDebugEventListeners() {
+                document.getElementById('toggle-debug').addEventListener('click', () => {
+                    const content = document.querySelector('.debug-content');
+                    content.style.display = content.style.display === 'none' ? 'block' : 'none';
+                });
+                
+                document.getElementById('copy-report').addEventListener('click', () => {
+                    this.copyDebugReport();
+                });
+                
+                document.getElementById('beep-test').addEventListener('click', () => {
+                    this.runBeepTest();
+                });
+                
+                document.getElementById('unlock-audio').addEventListener('click', () => {
+                    this.unlockAudio();
+                });
+                
+                document.getElementById('format-test').addEventListener('click', () => {
+                    this.runFormatTest();
+                });
+                
+                document.getElementById('loopback-test').addEventListener('click', () => {
+                    this.runLoopbackTest();
+                });
+                
+                document.getElementById('refresh-devices').addEventListener('click', () => {
+                    this.enumerateDevices();
+                });
+            }
+            
+            logEnvironment() {
+                const info = {
+                    wsUrl: this.computeWebSocketURL(),
+                    protocol: window.location.protocol,
+                    isSecureContext: window.isSecureContext,
+                    userAgent: navigator.userAgent,
+                    audioHost: window.AUDIO_HOST,
+                    audioPort: window.AUDIO_PORT,
+                    wsScheme: window.AUDIO_WS_SCHEME
+                };
+                
+                this.log('Environment', 'Browser environment', info);
+                document.getElementById('env-info').innerHTML = Object.entries(info)
+                    .map(([key, value]) => `<div><strong>${key}:</strong> ${value}</div>`)
+                    .join('');
+            }
+            
+            computeWebSocketURL() {
+                const protocol = window.AUDIO_WS_SCHEME || (window.location.protocol === 'https:' ? 'wss' : 'ws');
+                const host = window.AUDIO_HOST || window.location.hostname;
+                const port = window.AUDIO_PORT || 8080;
+                return `${protocol}://${host}:${port}/audio-stream`;
+            }
+            
+            async enumerateDevices() {
+                try {
+                    this.devices = await navigator.mediaDevices.enumerateDevices();
+                    const audioOutputs = this.devices.filter(d => d.kind === 'audiooutput');
+                    
+                    const selector = document.getElementById('output-device-selector');
+                    selector.innerHTML = '';
+                    
+                    audioOutputs.forEach((device, index) => {
+                        const option = document.createElement('option');
+                        option.value = device.deviceId;
+                        option.textContent = device.label || `Audio Output ${index + 1}`;
+                        selector.appendChild(option);
+                    });
+                    
+                    this.log('Devices', 'Audio output devices enumerated', audioOutputs);
+                } catch (error) {
+                    this.log('Devices', 'Failed to enumerate devices', error);
+                }
+            }
+            
+            startMetricsCollection() {
+                setInterval(() => {
+                    this.updateMetricsDisplay();
+                }, 100);
+                
+                // Start ping monitoring
+                this.pingInterval = setInterval(() => {
+                    if (window.audioManager?.websocket?.readyState === WebSocket.OPEN) {
+                        this.lastPing = performance.now();
+                        window.audioManager.websocket.send('ping');
+                    }
+                }, 5000);
+            }
+            
+            updateMetricsDisplay() {
+                const audioCtx = window.audioManager?.audioContext;
+                if (!audioCtx) return;
+                
+                const info = {
+                    'AudioContext State': audioCtx.state,
+                    'Sample Rate': audioCtx.sampleRate + ' Hz',
+                    'Base Latency': (audioCtx.baseLatency * 1000).toFixed(1) + ' ms',
+                    'Processed Frames': this.metrics.processedFrames,
+                    'Bytes Received': this.metrics.bytesReceived,
+                    'Queue Depth': this.metrics.queueDepth,
+                    'Max Queue Depth': this.metrics.maxQueueDepth,
+                    'Underruns': this.metrics.underruns,
+                    'Overruns': this.metrics.overruns
+                };
+                
+                document.getElementById('metrics-display').innerHTML = Object.entries(info)
+                    .map(([key, value]) => `<div><strong>${key}:</strong> ${value}</div>`)
+                    .join('');
+                
+                // Update WebSocket connection info
+                const ws = window.audioManager?.websocket;
+                const connectionInfo = {
+                    'WebSocket State': ws ? this.getWebSocketStateText(ws.readyState) : 'Not connected',
+                    'URL': this.computeWebSocketURL(),
+                    'Ping Latency': this.lastPing ? (performance.now() - this.lastPing).toFixed(1) + ' ms' : 'N/A',
+                    'Bytes/sec': this.calculateBytesPerSecond()
+                };
+                
+                document.getElementById('connection-info').innerHTML = Object.entries(connectionInfo)
+                    .map(([key, value]) => `<div><strong>${key}:</strong> ${value}</div>`)
+                    .join('');
+            }
+            
+            getWebSocketStateText(state) {
+                const states = ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'];
+                return states[state] || 'UNKNOWN';
+            }
+            
+            calculateBytesPerSecond() {
+                // Calculate bytes per second based on recent history
+                const now = Date.now();
+                const recentBytes = this.metrics.bytesReceived;
+                const timeDiff = (now - (this.metrics.startTime || now)) / 1000;
+                return timeDiff > 0 ? Math.round(recentBytes / timeDiff) : 0;
+            }
+            
+            trackAudioProcessing(audioData, inputRMS = 0, outputRMS = 0) {
+                if (!this.enabled) return;
+                
+                this.metrics.processedFrames++;
+                this.metrics.bytesReceived += audioData?.byteLength || 0;
+                
+                // Track RMS levels
+                this.metrics.rmsHistory.push({ input: inputRMS, output: outputRMS, time: Date.now() });
+                if (this.metrics.rmsHistory.length > 100) this.metrics.rmsHistory.shift();
+                
+                // Update visual meters
+                this.updateRMSBars(inputRMS, outputRMS);
+            }
+            
+            updateRMSBars(inputRMS, outputRMS) {
+                const inputBar = document.getElementById('input-rms-bar');
+                const outputBar = document.getElementById('output-rms-bar');
+                const inputValue = document.getElementById('input-rms-value');
+                const outputValue = document.getElementById('output-rms-value');
+                
+                if (inputBar) {
+                    const inputPercent = Math.min(100, inputRMS * 100);
+                    inputBar.style.width = inputPercent + '%';
+                    inputValue.textContent = inputRMS.toFixed(3);
+                }
+                
+                if (outputBar) {
+                    const outputPercent = Math.min(100, outputRMS * 100);
+                    outputBar.style.width = outputPercent + '%';
+                    outputValue.textContent = outputRMS.toFixed(3);
+                }
+            }
+            
+            async runBeepTest() {
+                try {
+                    const audioCtx = window.audioManager?.audioContext || new AudioContext();
+                    await this.unlockAudio();
+                    
+                    const oscillator = audioCtx.createOscillator();
+                    const gainNode = audioCtx.createGain();
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioCtx.destination);
+                    
+                    oscillator.frequency.value = 440;
+                    gainNode.gain.value = 0.1;
+                    
+                    oscillator.start();
+                    setTimeout(() => oscillator.stop(), 2000);
+                    
+                    this.log('SelfTest', 'Beep test completed - should hear 440Hz tone for 2 seconds');
+                } catch (error) {
+                    this.log('SelfTest', 'Beep test failed', error);
+                }
+            }
+            
+            async unlockAudio() {
+                try {
+                    const audioCtx = window.audioManager?.audioContext;
+                    if (audioCtx && audioCtx.state === 'suspended') {
+                        await audioCtx.resume();
+                        this.log('Unlock', `AudioContext resumed: ${audioCtx.state}`);
+                    }
+                    
+                    // Test media element play
+                    const testAudio = new Audio();
+                    testAudio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+                    await testAudio.play();
+                    this.log('Unlock', 'Media element play successful');
+                } catch (error) {
+                    this.log('Unlock', 'Failed to unlock audio', error);
+                }
+            }
+            
+            runFormatTest() {
+                try {
+                    const testData = new Int16Array([1000, -1000, 2000, -2000]);
+                    const audioCtx = window.audioManager?.audioContext || new AudioContext();
+                    
+                    const buffer = audioCtx.createBuffer(2, 2, 44100);
+                    const leftChannel = buffer.getChannelData(0);
+                    const rightChannel = buffer.getChannelData(1);
+                    
+                    leftChannel[0] = testData[0] / 32768;
+                    leftChannel[1] = testData[2] / 32768;
+                    rightChannel[0] = testData[1] / 32768;
+                    rightChannel[1] = testData[3] / 32768;
+                    
+                    const source = audioCtx.createBufferSource();
+                    source.buffer = buffer;
+                    source.connect(audioCtx.destination);
+                    source.start();
+                    
+                    this.log('SelfTest', 'Format test completed - int16 to float32 conversion test');
+                } catch (error) {
+                    this.log('SelfTest', 'Format test failed', error);
+                }
+            }
+            
+            runLoopbackTest() {
+                try {
+                    const audioCtx = window.audioManager?.audioContext || new AudioContext();
+                    
+                    // Create silent processing chain to test meter
+                    const source = audioCtx.createBufferSource();
+                    const buffer = audioCtx.createBuffer(2, 1024, 44100);
+                    source.buffer = buffer;
+                    
+                    const analyser = audioCtx.createAnalyser();
+                    source.connect(analyser);
+                    
+                    const dataArray = new Float32Array(analyser.fftSize);
+                    analyser.getFloatTimeDomainData(dataArray);
+                    
+                    const rms = Math.sqrt(dataArray.reduce((sum, val) => sum + val * val, 0) / dataArray.length);
+                    
+                    this.log('SelfTest', `Loopback test completed - silent RMS: ${rms.toFixed(6)} (should be ~0)`);
+                } catch (error) {
+                    this.log('SelfTest', 'Loopback test failed', error);
+                }
+            }
+            
+            copyDebugReport() {
+                const report = {
+                    timestamp: new Date().toISOString(),
+                    environment: {
+                        userAgent: navigator.userAgent,
+                        isSecureContext: window.isSecureContext,
+                        protocol: window.location.protocol,
+                        audioConfig: {
+                            host: window.AUDIO_HOST,
+                            port: window.AUDIO_PORT,
+                            scheme: window.AUDIO_WS_SCHEME
+                        }
+                    },
+                    metrics: this.metrics,
+                    audioContext: window.audioManager?.audioContext ? {
+                        state: window.audioManager.audioContext.state,
+                        sampleRate: window.audioManager.audioContext.sampleRate,
+                        baseLatency: window.audioManager.audioContext.baseLatency
+                    } : null,
+                    websocket: window.audioManager?.websocket ? {
+                        readyState: window.audioManager.websocket.readyState,
+                        url: window.audioManager.websocket.url
+                    } : null,
+                    devices: this.devices,
+                    recentLogs: this.metrics.errors.slice(-20)
+                };
+                
+                navigator.clipboard.writeText(JSON.stringify(report, null, 2)).then(() => {
+                    this.log('Report', 'Debug report copied to clipboard');
+                    alert('Debug report copied to clipboard!');
+                }).catch(() => {
+                    this.log('Report', 'Failed to copy to clipboard');
+                    console.log('Debug Report:', report);
+                });
+            }
+        }
+        
         class DesktopAudioManager {
             constructor() {
                 this.audioContext = null;
@@ -186,6 +712,7 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
                 this.isMinimized = false;
                 this.autoConnectEnabled = !localStorage.getItem('audio-disabled');
                 this.hasUserInteracted = false;
+                this.diagnostics = new AudioDiagnostics();
                 
                 this.elements = {
                     connectBtn: document.getElementById('connect-audio'),
@@ -395,11 +922,14 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
             
             async connectWebSocket(wsUrl) {
                 return new Promise((resolve, reject) => {
+                    this.diagnostics.log('WebSocket', 'Attempting connection', { url: wsUrl });
+                    
                     const ws = new WebSocket(wsUrl);
                     ws.binaryType = 'arraybuffer';
                     
                     const timeout = setTimeout(() => {
                         ws.close();
+                        this.diagnostics.log('WebSocket', 'Connection timeout', { url: wsUrl });
                         reject(new Error('Connection timeout'));
                     }, 5000);
                     
@@ -409,22 +939,37 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
                         this.isConnected = true;
                         this.updateUI();
                         this.updateStatus('Audio connected', 'connected');
+                        this.diagnostics.log('WebSocket', 'Connected successfully', { url: wsUrl });
+                        this.diagnostics.metrics.startTime = Date.now();
                         resolve();
                     };
                     
                     ws.onmessage = (event) => {
+                        // Handle ping/pong for latency measurement
+                        if (event.data === 'pong' || (typeof event.data === 'string' && event.data === 'pong')) {
+                            const latency = performance.now() - this.diagnostics.lastPing;
+                            this.diagnostics.log('WebSocket', `Pong received, latency: ${latency.toFixed(1)}ms`);
+                            return;
+                        }
+                        
                         this.processAudioData(event.data);
                     };
                     
-                    ws.onclose = () => {
+                    ws.onclose = (event) => {
                         clearTimeout(timeout);
                         this.isConnected = false;
                         this.updateUI();
                         this.updateStatus('Audio disconnected', 'disconnected');
+                        this.diagnostics.log('WebSocket', 'Connection closed', { 
+                            code: event.code, 
+                            reason: event.reason,
+                            wasClean: event.wasClean 
+                        });
                     };
                     
                     ws.onerror = (error) => {
                         clearTimeout(timeout);
+                        this.diagnostics.log('WebSocket', 'Connection error', error);
                         reject(error);
                     };
                 });
@@ -449,18 +994,23 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
                     // Validate data size
                     if (data.byteLength === 0) {
                         console.warn('⚠️  Received empty audio data');
+                        this.diagnostics.log('Audio', 'Received empty audio data');
                         return;
                     }
                     
                     const samples = new Int16Array(data);
                     if (samples.length === 0 || samples.length % 2 !== 0) {
                         console.warn('⚠️  Invalid audio data length:', samples.length);
+                        this.diagnostics.log('Audio', 'Invalid audio data length', { length: samples.length });
                         return;
                     }
                     
                     // Resume audio context if suspended (Chrome autoplay policy)
                     if (this.audioContext.state === 'suspended') {
-                        this.audioContext.resume().catch(e => console.warn('Could not resume audio context:', e));
+                        this.audioContext.resume().catch(e => {
+                            console.warn('Could not resume audio context:', e);
+                            this.diagnostics.log('AudioContext', 'Failed to resume', e);
+                        });
                         return; // Skip this frame, context will be ready next time
                     }
                     
@@ -470,14 +1020,37 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
                     const leftChannel = audioBuffer.getChannelData(0);
                     const rightChannel = audioBuffer.getChannelData(1);
                     
+                    // Calculate input RMS for diagnostics
+                    let inputRMS = 0;
+                    let maxSample = 0;
+                    
                     // Convert 16-bit PCM to float with proper range checking
                     for (let i = 0; i < frameLength; i++) {
                         const leftSample = samples[i * 2];
                         const rightSample = samples[i * 2 + 1];
                         
                         // Convert to float (-1.0 to 1.0) with proper scaling
-                        leftChannel[i] = Math.max(-1, Math.min(1, leftSample / 32768.0));
-                        rightChannel[i] = Math.max(-1, Math.min(1, rightSample / 32768.0));
+                        const leftFloat = Math.max(-1, Math.min(1, leftSample / 32768.0));
+                        const rightFloat = Math.max(-1, Math.min(1, rightSample / 32768.0));
+                        
+                        leftChannel[i] = leftFloat;
+                        rightChannel[i] = rightFloat;
+                        
+                        // Calculate RMS and peak for diagnostics
+                        const sample = (Math.abs(leftFloat) + Math.abs(rightFloat)) / 2;
+                        inputRMS += sample * sample;
+                        maxSample = Math.max(maxSample, sample);
+                    }
+                    
+                    inputRMS = Math.sqrt(inputRMS / frameLength);
+                    
+                    // Create output analyser for measuring final output
+                    if (!this.outputAnalyser) {
+                        this.outputAnalyser = this.audioContext.createAnalyser();
+                        this.outputAnalyser.fftSize = 2048;
+                        this.gainNode.connect(this.outputAnalyser);
+                        this.outputAnalyser.connect(this.audioContext.destination);
+                        this.outputBuffer = new Float32Array(this.outputAnalyser.fftSize);
                     }
                     
                     const source = this.audioContext.createBufferSource();
@@ -488,6 +1061,20 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
                     const playTime = this.audioContext.currentTime;
                     source.start(playTime);
                     
+                    // Measure output RMS
+                    let outputRMS = 0;
+                    if (this.outputAnalyser) {
+                        this.outputAnalyser.getFloatTimeDomainData(this.outputBuffer);
+                        let sum = 0;
+                        for (let i = 0; i < this.outputBuffer.length; i++) {
+                            sum += this.outputBuffer[i] * this.outputBuffer[i];
+                        }
+                        outputRMS = Math.sqrt(sum / this.outputBuffer.length);
+                    }
+                    
+                    // Track audio processing metrics
+                    this.diagnostics.trackAudioProcessing(data, inputRMS, outputRMS);
+                    
                     // Clean up source after playback
                     setTimeout(() => {
                         try {
@@ -497,12 +1084,16 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
                         }
                     }, (frameLength / 44100) * 1000 + 100);
                     
+                    this.diagnostics.log('Audio', `Processed frame: ${frameLength} samples, inputRMS: ${inputRMS.toFixed(4)}, outputRMS: ${outputRMS.toFixed(4)}`);
+                    
                 } catch (error) {
                     console.error('❌ Error processing audio data:', error);
+                    this.diagnostics.log('Audio', 'Processing error', error);
                     
                     // Attempt to recover audio context if it's in an error state
                     if (this.audioContext && this.audioContext.state === 'closed') {
                         console.log('🔄 Audio context closed, attempting to recreate...');
+                        this.diagnostics.log('Recovery', 'AudioContext closed, recreating');
                         this.disconnectAudio();
                         setTimeout(() => this.connectAudio(), 1000);
                     }
@@ -538,7 +1129,16 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
         
         // Initialize when page loads
         window.addEventListener('load', () => {
-            new DesktopAudioManager();
+            window.audioManager = new DesktopAudioManager();
+            window.audioDiagnostics = window.audioManager.diagnostics;
+            
+            // Auto-start diagnostics if debug mode is enabled
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('debug')) {
+                console.log('🔧 Audio diagnostics enabled. Access via window.audioDiagnostics');
+                console.log('📊 Debug HUD available on screen');
+                console.log('🎵 To test: window.audioDiagnostics.runBeepTest()');
+            }
         });
     </script>
 </body>
