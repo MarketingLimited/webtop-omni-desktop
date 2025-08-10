@@ -379,6 +379,7 @@ waydroid status
 - **Health Monitoring**: Built-in health checks and monitoring
 - **Backup & Restore**: Container data management
 - **Customization**: Adding applications and configurations
+- [**Audio Diagnostics**](AUDIO_DIAGNOSTICS.md): Client-side audio diagnostics for vnc_audio.html (debug mode, real-time HUD, self-tests)
 
 ## 🔧 Technology Stack
 
