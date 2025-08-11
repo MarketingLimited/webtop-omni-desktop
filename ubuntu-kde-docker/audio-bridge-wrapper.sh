@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 export PULSE_SERVER='tcp:127.0.0.1:4713'
-export PULSE_LATENCY_MSEC='60'
+export PULSE_LATENCY_MSEC='180'
 
 echo "[wrapper] waiting for PulseAudio on ${PULSE_SERVER}"
 for i in {1..90}; do
