@@ -9,12 +9,6 @@ DEV_USERNAME="${DEV_USERNAME:-devuser}"
 # non-default UID (e.g. when mapped to host user IDs).
 DEV_UID="${DEV_UID:-$(id -u "$DEV_USERNAME" 2>/dev/null || echo 1000)}"
 
-# PulseAudio sample specification and buffer tuning (matches audio bridge)
-PULSE_RATE="${PULSE_RATE:-48000}"
-PULSE_FORMAT="${PULSE_FORMAT:-s16le}"
-PULSE_CHANNELS="${PULSE_CHANNELS:-2}"
-NULL_LATENCY_MSEC="${NULL_LATENCY_MSEC:-200}"
-
 echo "🔊 Creating persistent virtual audio devices..."
 
 # Ensure proper environment setup
@@ -68,7 +62,7 @@ wait_for_pulseaudio() {
 # Create virtual audio devices
 create_virtual_devices() {
     echo "🔧 Creating virtual audio devices..."
-
+    
     # Function to run pactl with fallback servers and proper output
     run_pactl() {
         local cmd="$1"
@@ -84,27 +78,21 @@ create_virtual_devices() {
             return 1
         fi
     }
-
-    # Remove modules that can interfere with clean audio capture
-    local mods
-    mods=$(run_pactl "list short modules" "true" 2>/dev/null || echo "")
-    echo "$mods" | awk '/module-suspend-on-idle/ {print $1}' | while read -r id; do run_pactl "unload-module $id" || true; done
-    echo "$mods" | awk '/module-echo-cancel/ {print $1}'   | while read -r id; do run_pactl "unload-module $id" || true; done
     
     # Check current sinks and create virtual speaker if needed
     local current_sinks
     current_sinks=$(run_pactl "list short sinks" "true" 2>/dev/null || echo "")
-
+    
     if ! echo "$current_sinks" | grep -q virtual_speaker; then
         echo "Creating virtual speaker..."
-        if run_pactl "load-module module-null-sink sink_name=virtual_speaker rate=${PULSE_RATE} channels=${PULSE_CHANNELS} format=${PULSE_FORMAT} latency_msec=${NULL_LATENCY_MSEC} sink_properties=device.description=\\\"Virtual_Marketing_Speaker\\\""; then
+        if run_pactl "load-module module-null-sink sink_name=virtual_speaker sink_properties=device.description=\"Virtual_Marketing_Speaker\""; then
             echo "✅ Virtual speaker created successfully"
         else
             echo "⚠️ Failed to create virtual speaker, trying alternative method..."
             su - "${DEV_USERNAME}" -c "
                 export XDG_RUNTIME_DIR=/run/user/${DEV_UID}
                 export PULSE_RUNTIME_PATH=/run/user/${DEV_UID}/pulse
-                pactl -s tcp:localhost:4713 load-module module-null-sink sink_name=virtual_speaker rate=${PULSE_RATE} channels=${PULSE_CHANNELS} format=${PULSE_FORMAT} latency_msec=${NULL_LATENCY_MSEC} sink_properties=device.description=\\\"Virtual_Marketing_Speaker\\\" 2>/dev/null || echo 'Alternative method also failed'
+                pactl -s tcp:localhost:4713 load-module module-null-sink sink_name=virtual_speaker sink_properties=device.description=\"Virtual_Marketing_Speaker\" 2>/dev/null || echo 'Alternative method also failed'
             " || true
         fi
     else
@@ -161,8 +149,8 @@ create_virtual_devices() {
         fi
         
         # Set volume levels
-        pactl set-sink-volume virtual_speaker 70% 2>/dev/null || pactl -s tcp:localhost:4713 set-sink-volume virtual_speaker 70% 2>/dev/null || true
-        pactl set-sink-volume virtual_microphone 70% 2>/dev/null || pactl -s tcp:localhost:4713 set-sink-volume virtual_microphone 70% 2>/dev/null || true
+        pactl set-sink-volume virtual_speaker 50% 2>/dev/null || pactl -s tcp:localhost:4713 set-sink-volume virtual_speaker 50% 2>/dev/null || true
+        pactl set-sink-volume virtual_microphone 50% 2>/dev/null || pactl -s tcp:localhost:4713 set-sink-volume virtual_microphone 50% 2>/dev/null || true
     "
     
     echo "✅ Virtual audio devices created successfully"

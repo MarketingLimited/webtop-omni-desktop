@@ -1,9 +1,0 @@
-services:
-  webtop-kde:
-    environment:
-      PULSE_SERVER: "tcp:localhost:4713"
-    tmpfs:
-      - /tmp:rw,exec,nosuid,size=1g
-      - /run:rw,nosuid,size=128m
-      - /var/run:rw,nosuid,size=128m
-    restart: always
