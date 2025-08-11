@@ -149,8 +149,8 @@ create_virtual_devices() {
         fi
         
         # Set volume levels
-        pactl set-sink-volume virtual_speaker 50% 2>/dev/null || pactl -s tcp:localhost:4713 set-sink-volume virtual_speaker 50% 2>/dev/null || true
-        pactl set-sink-volume virtual_microphone 50% 2>/dev/null || pactl -s tcp:localhost:4713 set-sink-volume virtual_microphone 50% 2>/dev/null || true
+        pactl set-sink-volume virtual_speaker 100% 2>/dev/null || pactl -s tcp:localhost:4713 set-sink-volume virtual_speaker 100% 2>/dev/null || true
+        pactl set-sink-volume virtual_microphone 100% 2>/dev/null || pactl -s tcp:localhost:4713 set-sink-volume virtual_microphone 100% 2>/dev/null || true
     "
     
     echo "✅ Virtual audio devices created successfully"

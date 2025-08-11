@@ -95,9 +95,9 @@ load-module module-switch-on-connect
 set-default-sink virtual_speaker
 set-default-source virtual_mic_source
 
-# Set volume levels for virtual devices (50% volume = 32768)
-set-sink-volume virtual_speaker 32768
-set-sink-volume virtual_microphone 32768
+# Set volume levels for virtual devices (100% volume = 65536)
+set-sink-volume virtual_speaker 65536
+set-sink-volume virtual_microphone 65536
 
 # Create additional fallback devices for stability
 load-module module-null-sink sink_name=fallback_speaker sink_properties=device.description="Fallback_Speaker"

@@ -81,7 +81,21 @@ fi
 
 # 5. Unmute and set volume to 100%
 run_pactl set-sink-mute "$DEFAULT_SINK" 0 >>"$LOG_FILE" 2>&1 || true
-run_pactl set-sink-volume "$DEFAULT_SINK" 100% >>"$LOG_FILE" 2>&1 || true
+
+# Force volume to 100% and verify
+current_volume=""
+for i in {1..5}; do
+  run_pactl set-sink-volume "$DEFAULT_SINK" 100% >>"$LOG_FILE" 2>&1 || true
+  current_volume="$(run_pactl get-sink-volume "$DEFAULT_SINK" 2>/dev/null | awk '/Volume:/ {print $5}')"
+  if [ "$current_volume" = "100%" ]; then
+    log INFO "Volume confirmed at 100%"
+    break
+  fi
+  sleep 1
+done
+if [ "$current_volume" != "100%" ]; then
+  log WARN "Unable to confirm volume at 100% (current: $current_volume)"
+fi
 
 # 6. Restart audio bridge if present
 if pgrep -f 'audio-bridge' >/dev/null; then
