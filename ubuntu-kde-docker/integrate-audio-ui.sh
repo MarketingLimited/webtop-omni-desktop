@@ -198,6 +198,7 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
                 this.lastPing = 0;
                 this.devices = [];
                 this.testTone = null;
+                this.testGain = null;
                 
                 if (this.enabled) {
                     this.init();
@@ -464,6 +465,10 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
             
             async enumerateDevices() {
                 try {
+                    if (!navigator.mediaDevices?.enumerateDevices) {
+                        this.log('Devices', 'MediaDevices API not available');
+                        return;
+                    }
                     this.devices = await navigator.mediaDevices.enumerateDevices();
                     const audioOutputs = this.devices.filter(d => d.kind === 'audiooutput');
                     
@@ -576,24 +581,36 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
                     outputValue.textContent = outputRMS.toFixed(3);
                 }
             }
+
+            setupSelfTests() {
+                try {
+                    const audioCtx = window.audioManager?.audioContext;
+                    const gainNode = window.audioManager?.gainNode;
+                    if (!audioCtx || !gainNode || this.testGain) return;
+
+                    this.testTone = audioCtx.createOscillator();
+                    this.testTone.frequency.value = 440;
+                    this.testGain = audioCtx.createGain();
+                    this.testGain.gain.value = 0;
+                    this.testTone.connect(this.testGain);
+                    this.testGain.connect(gainNode);
+                    this.testTone.start();
+                } catch (error) {
+                    this.log('SelfTest', 'Failed to setup self tests', error);
+                }
+            }
             
             async runBeepTest() {
                 try {
-                    const audioCtx = window.audioManager?.audioContext || new AudioContext();
+                    const audioCtx = window.audioManager?.audioContext;
+                    if (!audioCtx || !this.testGain) {
+                        this.log('SelfTest', 'Test oscillator not initialized');
+                        return;
+                    }
                     await this.unlockAudio();
-                    
-                    const oscillator = audioCtx.createOscillator();
-                    const gainNode = audioCtx.createGain();
-                    
-                    oscillator.connect(gainNode);
-                    gainNode.connect(audioCtx.destination);
-                    
-                    oscillator.frequency.value = 440;
-                    gainNode.gain.value = 0.1;
-                    
-                    oscillator.start();
-                    setTimeout(() => oscillator.stop(), 2000);
-                    
+                    const start = audioCtx.currentTime;
+                    this.testGain.gain.setValueAtTime(0.1, start);
+                    this.testGain.gain.setValueAtTime(0, start + 2);
                     this.log('SelfTest', 'Beep test completed - should hear 440Hz tone for 2 seconds');
                 } catch (error) {
                     this.log('SelfTest', 'Beep test failed', error);
@@ -621,9 +638,13 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
             runFormatTest() {
                 try {
                     const testData = new Int16Array([1000, -1000, 2000, -2000]);
-                    const audioCtx = window.audioManager?.audioContext || new AudioContext();
-                    
-                    const buffer = audioCtx.createBuffer(2, 2, 44100);
+                    const audioCtx = window.audioManager?.audioContext;
+                    if (!audioCtx) {
+                        this.log('SelfTest', 'AudioContext not available');
+                        return;
+                    }
+
+                    const buffer = audioCtx.createBuffer(2, 2, audioCtx.sampleRate);
                     const leftChannel = buffer.getChannelData(0);
                     const rightChannel = buffer.getChannelData(1);
                     
@@ -645,11 +666,15 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
             
             runLoopbackTest() {
                 try {
-                    const audioCtx = window.audioManager?.audioContext || new AudioContext();
-                    
+                    const audioCtx = window.audioManager?.audioContext;
+                    if (!audioCtx) {
+                        this.log('SelfTest', 'AudioContext not available');
+                        return;
+                    }
+
                     // Create silent processing chain to test meter
                     const source = audioCtx.createBufferSource();
-                    const buffer = audioCtx.createBuffer(2, 1024, 44100);
+                    const buffer = audioCtx.createBuffer(2, 1024, audioCtx.sampleRate);
                     source.buffer = buffer;
                     
                     const analyser = audioCtx.createAnalyser();
@@ -708,6 +733,7 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
                 this.audioContext = null;
                 this.websocket = null;
                 this.gainNode = null;
+                this.enqueueTime = undefined;
                 this.isConnected = false;
                 this.isMinimized = false;
                 this.autoConnectEnabled = !localStorage.getItem('audio-disabled');
@@ -879,9 +905,11 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
                     }
                     
                     if (!this.audioContext) {
-                        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                        this.audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
                         this.gainNode = this.audioContext.createGain();
                         this.gainNode.connect(this.audioContext.destination);
+                        this.enqueueTime = this.audioContext.currentTime;
+                        this.diagnostics.setupSelfTests();
                         
                         // Restore saved volume
                         const savedVolume = localStorage.getItem('audio-volume') || '50';
@@ -987,64 +1015,52 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
                 this.updateStatus('Audio disconnected', 'disconnected');
             }
             
+            int16ToFloat32(src, left, right) {
+                for (let i = 0, j = 0; i < src.length; i += 2, j++) {
+                    left[j] = src[i] / 32768;
+                    right[j] = src[i + 1] / 32768;
+                }
+            }
+
             processAudioData(data) {
                 if (!this.audioContext || !this.gainNode || this.audioContext.state === 'closed') return;
-                
+
                 try {
-                    // Validate data size
                     if (data.byteLength === 0) {
                         console.warn('⚠️  Received empty audio data');
                         this.diagnostics.log('Audio', 'Received empty audio data');
                         return;
                     }
-                    
+
                     const samples = new Int16Array(data);
                     if (samples.length === 0 || samples.length % 2 !== 0) {
                         console.warn('⚠️  Invalid audio data length:', samples.length);
                         this.diagnostics.log('Audio', 'Invalid audio data length', { length: samples.length });
                         return;
                     }
-                    
-                    // Resume audio context if suspended (Chrome autoplay policy)
+
                     if (this.audioContext.state === 'suspended') {
                         this.audioContext.resume().catch(e => {
                             console.warn('Could not resume audio context:', e);
                             this.diagnostics.log('AudioContext', 'Failed to resume', e);
                         });
-                        return; // Skip this frame, context will be ready next time
+                        return;
                     }
-                    
+
                     const frameLength = samples.length / 2;
-                    const audioBuffer = this.audioContext.createBuffer(2, frameLength, 44100);
-                    
+                    const audioBuffer = this.audioContext.createBuffer(2, frameLength, this.audioContext.sampleRate);
                     const leftChannel = audioBuffer.getChannelData(0);
                     const rightChannel = audioBuffer.getChannelData(1);
-                    
-                    // Calculate input RMS for diagnostics
+
+                    this.int16ToFloat32(samples, leftChannel, rightChannel);
+
                     let inputRMS = 0;
-                    let maxSample = 0;
-                    
-                    // Convert 16-bit PCM to float with proper range checking
                     for (let i = 0; i < frameLength; i++) {
-                        const leftSample = samples[i * 2];
-                        const rightSample = samples[i * 2 + 1];
-                        
-                        // Convert to float (-1.0 to 1.0) with proper scaling
-                        const leftFloat = Math.max(-1, Math.min(1, leftSample / 32768.0));
-                        const rightFloat = Math.max(-1, Math.min(1, rightSample / 32768.0));
-                        
-                        leftChannel[i] = leftFloat;
-                        rightChannel[i] = rightFloat;
-                        
-                        // Calculate RMS and peak for diagnostics
-                        const sample = (Math.abs(leftFloat) + Math.abs(rightFloat)) / 2;
+                        const sample = (Math.abs(leftChannel[i]) + Math.abs(rightChannel[i])) / 2;
                         inputRMS += sample * sample;
-                        maxSample = Math.max(maxSample, sample);
                     }
-                    
                     inputRMS = Math.sqrt(inputRMS / frameLength);
-                    
-                    // Create output analyser for measuring final output
+
                     if (!this.outputAnalyser) {
                         this.outputAnalyser = this.audioContext.createAnalyser();
                         this.outputAnalyser.fftSize = 2048;
@@ -1052,16 +1068,19 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
                         this.outputAnalyser.connect(this.audioContext.destination);
                         this.outputBuffer = new Float32Array(this.outputAnalyser.fftSize);
                     }
-                    
+
                     const source = this.audioContext.createBufferSource();
                     source.buffer = audioBuffer;
                     source.connect(this.gainNode);
-                    
-                    // Schedule playback immediately but handle potential overlap
-                    const playTime = this.audioContext.currentTime;
+
+                    if (this.enqueueTime === undefined) {
+                        this.enqueueTime = this.audioContext.currentTime;
+                    }
+                    const playTime = Math.max(this.audioContext.currentTime, this.enqueueTime);
                     source.start(playTime);
-                    
-                    // Measure output RMS
+                    const frameDuration = frameLength / this.audioContext.sampleRate;
+                    this.enqueueTime = playTime + frameDuration;
+
                     let outputRMS = 0;
                     if (this.outputAnalyser) {
                         this.outputAnalyser.getFloatTimeDomainData(this.outputBuffer);
@@ -1071,26 +1090,22 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
                         }
                         outputRMS = Math.sqrt(sum / this.outputBuffer.length);
                     }
-                    
-                    // Track audio processing metrics
+
                     this.diagnostics.trackAudioProcessing(data, inputRMS, outputRMS);
-                    
-                    // Clean up source after playback
-                    setTimeout(() => {
-                        try {
-                            source.disconnect();
-                        } catch (e) {
-                            // Source already disconnected
-                        }
-                    }, (frameLength / 44100) * 1000 + 100);
-                    
+                    const queueDepth = this.enqueueTime - this.audioContext.currentTime;
+                    this.diagnostics.metrics.queueDepth = queueDepth;
+                    this.diagnostics.metrics.maxQueueDepth = Math.max(this.diagnostics.metrics.maxQueueDepth, queueDepth);
+
                     this.diagnostics.log('Audio', `Processed frame: ${frameLength} samples, inputRMS: ${inputRMS.toFixed(4)}, outputRMS: ${outputRMS.toFixed(4)}`);
-                    
+
+                    source.onended = () => {
+                        try { source.disconnect(); } catch (e) {}
+                    };
+
                 } catch (error) {
                     console.error('❌ Error processing audio data:', error);
                     this.diagnostics.log('Audio', 'Processing error', error);
-                    
-                    // Attempt to recover audio context if it's in an error state
+
                     if (this.audioContext && this.audioContext.state === 'closed') {
                         console.log('🔄 Audio context closed, attempting to recreate...');
                         this.diagnostics.log('Recovery', 'AudioContext closed, recreating');
