@@ -31,10 +31,15 @@ fi
 mods="$(pactl --server="${PULSE_SERVER}" list short modules || true)"
 echo "$mods" | awk '/module-suspend-on-idle/ {print $1}' | xargs -r -I{} pactl --server="${PULSE_SERVER}" unload-module {}
 echo "$mods" | awk '/module-echo-cancel/ {print $1}'     | xargs -r -I{} pactl --server="${PULSE_SERVER}" unload-module {}
+if ! echo "$mods" | cut -f2 | grep -qx module-native-protocol-tcp; then
+  pactl --server="${PULSE_SERVER}" load-module module-native-protocol-tcp auth-anonymous=1 listen=0.0.0.0 port=4713 >/dev/null
+fi
 
 # Ensure a single virtual_speaker null sink with explicit spec and latency
 say "ensuring virtual_speaker (${PRATE}Hz ${PFORM} ${PCH}ch, latency_msec=${NLAT})"
 sinks="$(pactl --server="${PULSE_SERVER}" list short sinks || true)"
+echo "$sinks" | awk '/virtual_speaker/ {print $2}' | tail -n +2 | \
+  xargs -r -I{} bash -c 'pactl --server="${PULSE_SERVER}" list short modules | awk -v n="{}" '\''$0 ~ "sink_name=" n {print $1}'\'' | xargs -r -I%% pactl --server="${PULSE_SERVER}" unload-module %%'
 if ! echo "$sinks" | cut -f2 | grep -qx virtual_speaker; then
   pactl --server="${PULSE_SERVER}" load-module module-null-sink \
     sink_name=virtual_speaker rate="${PRATE}" channels="${PCH}" format="${PFORM}" latency_msec="${NLAT}" \
