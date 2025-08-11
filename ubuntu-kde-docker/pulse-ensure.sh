@@ -18,8 +18,11 @@ if ! pactl --server="${PULSE_SERVER}" info >/dev/null 2>&1; then
   sudo -u "${DESK_USER}" pulseaudio --daemonize=yes \
     -L 'module-native-protocol-tcp port=4713 listen=127.0.0.1 auth-anonymous=1' \
     --exit-idle-time=-1 --log-target=journal || true
-  for i in {1..60}; do
-    pactl --server="${PULSE_SERVER}" info >/dev/null 2>&1 && { say 'tcp is up'; break; }
+  for _ in {1..60}; do
+    if pactl --server="${PULSE_SERVER}" info >/dev/null 2>&1; then
+      say 'tcp is up'
+      break
+    fi
     sleep 1
   done
 else
