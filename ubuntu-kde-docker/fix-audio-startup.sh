@@ -8,6 +8,12 @@ DEV_USERNAME="${DEV_USERNAME:-devuser}"
 # Determine the correct UID at runtime. Fall back to 1000 if the user doesn't exist yet
 DEV_UID="${DEV_UID:-$(id -u "$DEV_USERNAME" 2>/dev/null || echo 1000)}"
 
+# Unified audio settings (keep consistent with audio bridge)
+PULSE_RATE="${PULSE_RATE:-48000}"
+PULSE_FORMAT="${PULSE_FORMAT:-s16le}"
+PULSE_CHANNELS="${PULSE_CHANNELS:-2}"
+PULSE_LATENCY_MSEC="${PULSE_LATENCY_MSEC:-180}"
+
 echo "🔧 Fixing audio system startup configuration..."
 
 # Color output functions
@@ -81,7 +87,28 @@ EOF
 
     chown "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/.asoundrc"
     chown "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/.config/pulse/client.conf"
+
+    # PulseAudio daemon configuration tuned for stable streaming
+    cat <<EOF > "/home/${DEV_USERNAME}/.config/pulse/daemon.conf"
+default-sample-format = ${PULSE_FORMAT}
+default-sample-rate = ${PULSE_RATE}
+alternate-sample-rate = 44100
+avoid-resampling = yes
+resample-method = soxr-vhq
+default-fragments = 8
+default-fragment-size-msec = 40
+exit-idle-time = -1
+flat-volumes = no
+disable-remixing = yes
+EOF
+    chown "${DEV_USERNAME}:${DEV_USERNAME}" "/home/${DEV_USERNAME}/.config/pulse/daemon.conf"
 fi
+
+# Export latency environment variable for new sessions
+cat >/etc/profile.d/99-pulse.sh <<EOF
+export PULSE_LATENCY_MSEC=${PULSE_LATENCY_MSEC}
+EOF
+chmod +x /etc/profile.d/99-pulse.sh
 
 # Set proper permissions for audio devices if they exist (runtime only)
 if [ "$IS_RUNTIME" = true ] && [ -d "/dev/snd" ]; then
