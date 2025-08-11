@@ -27,14 +27,24 @@ log INFO "Checking PulseAudio status..."
 if ! pulseaudio --check 2>/dev/null; then
   log WARN "PulseAudio is not running. Attempting to start..."
   pulseaudio --start >>"$LOG_FILE" 2>&1 || log ERROR "Failed to start PulseAudio"
+  for i in {1..10}; do
+    if pulseaudio --check 2>/dev/null || pactl info >/dev/null 2>&1; then
+      log INFO "PulseAudio started successfully."
+      break
+    fi
+    sleep 1
+  done
+  if ! pulseaudio --check 2>/dev/null && ! pactl info >/dev/null 2>&1; then
+    log WARN "PulseAudio is still not available after 10 seconds."
+  fi
 else
   log INFO "PulseAudio is running."
 fi
 
 # 2. List sinks and sources
 log INFO "Listing sinks and sources..."
-pactl list short sinks | tee -a "$LOG_FILE"
-pactl list short sources | tee -a "$LOG_FILE"
+pactl list short sinks | tee -a "$LOG_FILE" || true
+pactl list short sources | tee -a "$LOG_FILE" || true
 
 DEFAULT_SINK="virtual_speaker"
 
@@ -73,4 +83,10 @@ if pgrep -f 'audio-bridge' >/dev/null; then
   nohup audio-bridge >>"$LOG_FILE" 2>&1 &
 fi
 
-log INFO "Audio diagnostic and fix completed."
+if pulseaudio --check 2>/dev/null || pactl info >/dev/null 2>&1; then
+  log INFO "Audio diagnostic and fix completed."
+else
+  log WARN "Audio diagnostic completed but PulseAudio remains unavailable."
+fi
+
+exit 0
