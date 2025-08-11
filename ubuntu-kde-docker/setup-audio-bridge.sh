@@ -94,11 +94,11 @@ wss.on('connection', (ws) => {
         const monitor = detectMonitor();
         console.log(`\uD83D\uDD0A Starting recording from monitor: ${monitor}`);
         const parecordOptions = [
-            ['--device=' + monitor, '--format=s16le', '--rate=44100', '--channels=2', '--raw'],
-            ['--device=@DEFAULT_MONITOR@', '--format=s16le', '--rate=44100', '--channels=2', '--raw'],
-            ['--server=tcp:localhost:4713', '--device=' + monitor, '--format=s16le', '--rate=44100', '--channels=2', '--raw'],
-            ['--server=tcp:localhost:4713', '--device=@DEFAULT_MONITOR@', '--format=s16le', '--rate=44100', '--channels=2', '--raw'],
-            ['--server=tcp:localhost:4713', '--format=s16le', '--rate=44100', '--channels=2', '--raw']
+            ['--device=' + monitor, '--format=s16le', '--rate=48000', '--channels=2', '--raw'],
+            ['--device=@DEFAULT_MONITOR@', '--format=s16le', '--rate=48000', '--channels=2', '--raw'],
+            ['--server=tcp:localhost:4713', '--device=' + monitor, '--format=s16le', '--rate=48000', '--channels=2', '--raw'],
+            ['--server=tcp:localhost:4713', '--device=@DEFAULT_MONITOR@', '--format=s16le', '--rate=48000', '--channels=2', '--raw'],
+            ['--server=tcp:localhost:4713', '--format=s16le', '--rate=48000', '--channels=2', '--raw']
         ];
         
         let optionIndex = 0;
