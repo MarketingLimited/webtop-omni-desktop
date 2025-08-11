@@ -51,5 +51,6 @@ fi
 
 # Unmute and set conservative volume
 pactl --server="${PULSE_SERVER}" set-sink-mute virtual_speaker 0 || true
-pactl --server="${PULSE_SERVER}" set-sink-volume virtual_speaker 70% || true
+# Ensure maximum volume for virtual_speaker
+pactl --server="${PULSE_SERVER}" set-sink-volume virtual_speaker 100% || true
 

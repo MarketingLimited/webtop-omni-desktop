@@ -65,7 +65,7 @@
                         <button id="audio-disconnect-btn" title="Disconnect Audio" style="display: none;">🔇</button>
                     </div>
                     <div class="audio-volume" style="display: none;">
-                        <input type="range" id="audio-volume-slider" min="0" max="100" value="50">
+                        <input type="range" id="audio-volume-slider" min="0" max="100" value="100">
                     </div>
                     <button id="audio-toggle-panel" title="Toggle Audio Panel">⚙️</button>
                 </div>
@@ -328,7 +328,7 @@
             });
 
             // Restore saved volume
-            const savedVolume = localStorage.getItem('audio-volume') || '50';
+            const savedVolume = localStorage.getItem('audio-volume') || '100';
             this.elements.volumeSlider.value = savedVolume;
         }
 
@@ -383,7 +383,7 @@
                     this.gainNode = this.audioContext.createGain();
                     this.gainNode.connect(this.audioContext.destination);
                     
-                    const savedVolume = localStorage.getItem('audio-volume') || '50';
+                    const savedVolume = localStorage.getItem('audio-volume') || '100';
                     this.setVolume(savedVolume);
                 }
 
