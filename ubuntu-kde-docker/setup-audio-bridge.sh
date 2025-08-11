@@ -42,6 +42,11 @@ const path = require('path');
 
 const app = express();
 const PORT = 8080;
+const PULSE = process.env.PULSE_SERVER || 'tcp:127.0.0.1:4713';
+const LATENCY = process.env.PULSE_LATENCY_MSEC || '30';
+
+let currentMonitor = null;
+let isRecording = false;
 
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
@@ -59,10 +64,11 @@ const server = http.createServer(app);
 
 function detectMonitor() {
     try {
-        const output = execSync('pactl list short sources', { encoding: 'utf8' });
-        const line = output.split('\n').find(l => l.includes('virtual_speaker'));
+        const output = execSync(`pactl --server=${PULSE} list short sources`, { encoding: 'utf8' });
+        const line = output.split('\n').find(l => l.includes('virtual_speaker.monitor'));
         if (line) {
             const name = line.split('\t')[1];
+            currentMonitor = name;
             console.log(`\uD83C\uDFA7 Using detected monitor: ${name}`);
             return name;
         }
@@ -70,6 +76,7 @@ function detectMonitor() {
         console.error('Failed to detect virtual_speaker monitor:', err);
     }
     console.log('\u2139\uFE0F Falling back to @DEFAULT_MONITOR@');
+    currentMonitor = '@DEFAULT_MONITOR@';
     return '@DEFAULT_MONITOR@';
 }
 
@@ -80,115 +87,77 @@ server.listen(PORT, () => {
 // WebSocket server for audio streaming
 const wss = new WebSocket.Server({ server });
 
+app.get('/health', (req, res) => {
+    res.json({ currentMonitor, isRecording, clients: wss.clients.size });
+});
+
 wss.on('connection', (ws) => {
     console.log('Client connected for audio streaming');
-    
-    // Start PulseAudio capture and stream to client with enhanced connection retry
+
     let parecord;
-    let isRecordingActive = false;
-    
+
     const startRecording = () => {
-        if (isRecordingActive) return;
-        
-        // Enhanced PulseAudio connection methods with debugging
+        if (isRecording) return;
+
         const monitor = detectMonitor();
         console.log(`\uD83D\uDD0A Starting recording from monitor: ${monitor}`);
-        const parecordOptions = [
-            ['--device=' + monitor, '--format=s16le', '--rate=48000', '--channels=2', '--raw'],
-            ['--device=@DEFAULT_MONITOR@', '--format=s16le', '--rate=48000', '--channels=2', '--raw'],
-            ['--server=tcp:localhost:4713', '--device=' + monitor, '--format=s16le', '--rate=48000', '--channels=2', '--raw'],
-            ['--server=tcp:localhost:4713', '--device=@DEFAULT_MONITOR@', '--format=s16le', '--rate=48000', '--channels=2', '--raw'],
-            ['--server=tcp:localhost:4713', '--format=s16le', '--rate=48000', '--channels=2', '--raw']
+        const args = [
+            `--server=${PULSE}`,
+            `--device=${monitor}`,
+            '--format=s16le',
+            '--rate=48000',
+            '--channels=2',
+            '--raw',
+            `--latency-msec=${LATENCY}`
         ];
-        
-        let optionIndex = 0;
-        let dataReceived = false;
-        
-        const tryNextOption = () => {
-            if (optionIndex >= parecordOptions.length) {
-                console.error('❌ All PulseAudio connection methods failed');
-                ws.close();
-                return;
+
+        parecord = spawn('parecord', args);
+        isRecording = true;
+
+        parecord.stdout.on('data', (data) => {
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(data);
             }
-            
-            const currentOptions = parecordOptions[optionIndex];
-            console.log(`🔄 Trying PulseAudio method ${optionIndex + 1}/${parecordOptions.length}: parecord ${currentOptions.join(' ')}`);
-            
-            parecord = spawn('parecord', currentOptions);
-            isRecordingActive = true;
-            dataReceived = false;
-            
-            // Set a timeout to check if we're receiving data
-            const dataCheckTimeout = setTimeout(() => {
-                if (!dataReceived) {
-                    console.log(`⚠️  No audio data received in 5 seconds, trying next method...`);
-                    if (parecord && !parecord.killed) {
-                        parecord.kill();
-                    }
-                }
-            }, 5000);
-            
-            parecord.stdout.on('data', (data) => {
-                if (!dataReceived) {
-                    dataReceived = true;
-                    clearTimeout(dataCheckTimeout);
-                    console.log(`✅ Audio data stream started (${data.length} bytes received)`);
-                }
-                
-                if (ws.readyState === WebSocket.OPEN) {
-                    ws.send(data);
-                }
-            });
-            
-            parecord.stderr.on('data', (data) => {
-                const errorMsg = data.toString().trim();
-                if (errorMsg) {
-                    console.error(`🔴 PulseAudio error (method ${optionIndex + 1}): ${errorMsg}`);
-                }
-            });
-            
-            parecord.on('error', (err) => {
-                console.error(`💥 PulseAudio spawn error (method ${optionIndex + 1}): ${err.message}`);
-                clearTimeout(dataCheckTimeout);
-                isRecordingActive = false;
-                optionIndex++;
-                setTimeout(tryNextOption, 2000);
-            });
-            
-            parecord.on('exit', (code, signal) => {
-                clearTimeout(dataCheckTimeout);
-                isRecordingActive = false;
-                
-                if (code !== 0 && code !== null) {
-                    console.log(`⚠️  PulseAudio exited with code ${code}, signal: ${signal}, trying next method...`);
-                    optionIndex++;
-                    setTimeout(tryNextOption, 2000);
-                } else if (signal) {
-                    console.log(`🛑 PulseAudio terminated by signal: ${signal}`);
-                }
-            });
-        };
-        
-        tryNextOption();
+        });
+
+        parecord.stderr.on('data', (data) => {
+            const errorMsg = data.toString().trim();
+            if (errorMsg) {
+                console.error(`\uD83D\uDD34 PulseAudio error: ${errorMsg}`);
+            }
+        });
+
+        parecord.on('error', (err) => {
+            console.error(`\uD83D\uDCA5 PulseAudio spawn error: ${err.message}`);
+            isRecording = false;
+        });
+
+        parecord.on('exit', (code, signal) => {
+            isRecording = false;
+            if (code !== 0 && code !== null) {
+                console.log(`\u26A0\uFE0F PulseAudio exited with code ${code}, signal: ${signal}`);
+            } else if (signal) {
+                console.log(`\uD83D\uDED1 PulseAudio terminated by signal: ${signal}`);
+            }
+        });
     };
-    
-    // Start the recording process
+
     startRecording();
-    
+
     ws.on('close', () => {
         console.log('🔌 Client disconnected');
         if (parecord && !parecord.killed) {
             parecord.kill();
         }
-        isRecordingActive = false;
+        isRecording = false;
     });
-    
+
     ws.on('error', (error) => {
         console.error('🔴 WebSocket error:', error);
         if (parecord && !parecord.killed) {
             parecord.kill();
         }
-        isRecordingActive = false;
+        isRecording = false;
     });
 });
 
