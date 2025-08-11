@@ -12,6 +12,19 @@ log() {
   echo "[$timestamp] [$level] $*" | tee -a "$LOG_FILE"
 }
 
+# Determine development user and runtime directory
+DEV_USERNAME="${DEV_USERNAME:-devuser}"
+DEV_UID="$(id -u "$DEV_USERNAME")"
+XDG_RUNTIME_DIR="/run/user/$DEV_UID"
+
+run_pulseaudio() {
+  su - "$DEV_USERNAME" -c "$*"
+}
+
+run_pactl() {
+  su - "$DEV_USERNAME" -c "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR pactl $*"
+}
+
 # Ensure required commands exist
 for cmd in pulseaudio pactl pgrep pkill; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
@@ -24,47 +37,42 @@ log INFO "Starting audio diagnostic..."
 
 # 1. Check PulseAudio status
 log INFO "Checking PulseAudio status..."
-if ! pulseaudio --check 2>/dev/null; then
-  log WARN "PulseAudio is not running. Attempting to start..."
-  pulseaudio --start >>"$LOG_FILE" 2>&1 || log ERROR "Failed to start PulseAudio"
-  for i in {1..10}; do
-    if pulseaudio --check 2>/dev/null || pactl info >/dev/null 2>&1; then
-      log INFO "PulseAudio started successfully."
-      break
-    fi
-    sleep 1
-  done
-  if ! pulseaudio --check 2>/dev/null && ! pactl info >/dev/null 2>&1; then
-    log WARN "PulseAudio is still not available after 10 seconds."
+run_pulseaudio "pulseaudio --check || pulseaudio --start" >>"$LOG_FILE" 2>&1
+for i in {1..10}; do
+  if run_pulseaudio "pulseaudio --check" 2>/dev/null || run_pactl info >/dev/null 2>&1; then
+    log INFO "PulseAudio started successfully."
+    break
   fi
-else
-  log INFO "PulseAudio is running."
+  sleep 1
+done
+if ! run_pulseaudio "pulseaudio --check" 2>/dev/null && ! run_pactl info >/dev/null 2>&1; then
+  log WARN "PulseAudio is still not available after 10 seconds."
 fi
 
 # 2. List sinks and sources
 log INFO "Listing sinks and sources..."
-pactl list short sinks | tee -a "$LOG_FILE" || true
-pactl list short sources | tee -a "$LOG_FILE" || true
+run_pactl list short sinks | tee -a "$LOG_FILE" || true
+run_pactl list short sources | tee -a "$LOG_FILE" || true
 
 DEFAULT_SINK="virtual_speaker"
 
 # 3. Ensure virtual_speaker exists
-if ! pactl list short sinks | grep -q "$DEFAULT_SINK"; then
+if ! run_pactl list short sinks | grep -q "$DEFAULT_SINK"; then
   log WARN "$DEFAULT_SINK not found. Creating..."
-  pactl load-module module-null-sink \
-    sink_name="$DEFAULT_SINK" \
-    sink_properties=device.description=Virtual_Marketing_Speaker \
+  run_pactl load-module module-null-sink \
+    "sink_name=$DEFAULT_SINK" \
+    "sink_properties=device.description=Virtual_Marketing_Speaker" \
     >>"$LOG_FILE" 2>&1 || log ERROR "Failed to create $DEFAULT_SINK"
 else
   log INFO "$DEFAULT_SINK exists."
 fi
 
 # 4. Set default sink to virtual_speaker and move existing streams
-if pactl set-default-sink "$DEFAULT_SINK" >>"$LOG_FILE" 2>&1; then
+if run_pactl set-default-sink "$DEFAULT_SINK" >>"$LOG_FILE" 2>&1; then
   log INFO "Default sink set to $DEFAULT_SINK"
-  pactl list short sink-inputs | awk '{print $1}' | while read -r input; do
+  run_pactl list short sink-inputs | awk '{print $1}' | while read -r input; do
     if [ -n "$input" ]; then
-      pactl move-sink-input "$input" "$DEFAULT_SINK" >>"$LOG_FILE" 2>&1 || true
+      run_pactl move-sink-input "$input" "$DEFAULT_SINK" >>"$LOG_FILE" 2>&1 || true
     fi
   done
 else
@@ -72,8 +80,8 @@ else
 fi
 
 # 5. Unmute and set volume to 100%
-pactl set-sink-mute "$DEFAULT_SINK" 0 >>"$LOG_FILE" 2>&1 || true
-pactl set-sink-volume "$DEFAULT_SINK" 100% >>"$LOG_FILE" 2>&1 || true
+run_pactl set-sink-mute "$DEFAULT_SINK" 0 >>"$LOG_FILE" 2>&1 || true
+run_pactl set-sink-volume "$DEFAULT_SINK" 100% >>"$LOG_FILE" 2>&1 || true
 
 # 6. Restart audio bridge if present
 if pgrep -f 'audio-bridge' >/dev/null; then
@@ -83,7 +91,7 @@ if pgrep -f 'audio-bridge' >/dev/null; then
   nohup audio-bridge >>"$LOG_FILE" 2>&1 &
 fi
 
-if pulseaudio --check 2>/dev/null || pactl info >/dev/null 2>&1; then
+if run_pulseaudio "pulseaudio --check" 2>/dev/null || run_pactl info >/dev/null 2>&1; then
   log INFO "Audio diagnostic and fix completed."
 else
   log WARN "Audio diagnostic completed but PulseAudio remains unavailable."
