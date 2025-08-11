@@ -17,6 +17,22 @@ for i in {1..120}; do
   sleep 1
 done
 
+# Ensure virtual_speaker monitor exists before starting bridge
+echo "[wrapper] waiting for virtual_speaker monitor"
+monitor_found=false
+for i in {1..60}; do
+  if pactl --server="${PULSE_SERVER}" list short sources 2>/dev/null | grep -q 'virtual_speaker.monitor'; then
+    echo "[wrapper] virtual_speaker monitor detected"
+    monitor_found=true
+    break
+  fi
+  (( i % 15 == 0 )) && echo "[wrapper] still waiting for virtual_speaker.monitor (${i}s)..."
+  sleep 1
+done
+if [ "$monitor_found" = false ]; then
+  echo "[wrapper] virtual_speaker monitor not found, continuing anyway"
+fi
+
 uid=""
 if command -v getent >/dev/null 2>&1; then
   uid="$(getent passwd "$DESK_USER" | cut -d: -f3 || true)"
