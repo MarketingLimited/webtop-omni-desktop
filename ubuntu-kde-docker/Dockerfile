@@ -205,6 +205,34 @@ RUN echo "Validating script dependencies..." && \
     /usr/local/bin/audio-monitor.sh \
     /usr/local/bin/audio-validation.sh
 
+# Audio topology + AudioBridge wrapper
+COPY pulse-ensure.sh /usr/local/bin/pulse-ensure.sh
+COPY audio-bridge-wrapper.sh /usr/local/bin/audio-bridge-wrapper.sh
+RUN chmod +x /usr/local/bin/pulse-ensure.sh /usr/local/bin/audio-bridge-wrapper.sh
+
+# PulseAudio daemon tuning (stable timing, bigger buffers, avoid-resampling)
+RUN printf "%s\n" \
+  "default-sample-format = s16le" \
+  "default-sample-rate = 48000" \
+  "alternate-sample-rate = 44100" \
+  "avoid-resampling = yes" \
+  "resample-method = soxr-vhq" \
+  "realtime-scheduling = yes" \
+  "high-priority = yes" \
+  "nice-level = -11" \
+  "rlimit-rtprio = 9" \
+  "rlimit-rttime = 200000" \
+  "flat-volumes = no" \
+  "disable-remixing = yes" \
+  "enable-lfe-remixing = no" \
+  "remixing-produce-lfe = no" \
+  "remixing-consume-lfe = no" \
+  "enable-deferred-volume = no" \
+  "default-fragments = 8" \
+  "default-fragment-size-msec = 40" \
+  "exit-idle-time = -1" \
+  > /etc/pulse/daemon.conf
+
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # Copy PolicyKit configuration files for Ubuntu 24.04 bug fix
