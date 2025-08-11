@@ -475,7 +475,11 @@
                 const samples = new Int16Array(data);
                 if (samples.length === 0) return;
 
-                const audioBuffer = this.audioContext.createBuffer(2, samples.length / 2, 44100);
+                const audioBuffer = this.audioContext.createBuffer(
+                    2,
+                    samples.length / 2,
+                    48000
+                );
                 const leftChannel = audioBuffer.getChannelData(0);
                 const rightChannel = audioBuffer.getChannelData(1);
 
