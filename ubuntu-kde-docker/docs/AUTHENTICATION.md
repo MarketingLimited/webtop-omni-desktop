@@ -496,7 +496,10 @@ echo "Domain: https://${CLIENT_DOMAIN}"
 ```
 
 This authentication system provides enterprise-grade security for marketing agency deployments while maintaining ease of use and management.
+
 ## Related Documentation
 
-- [Audio Diagnostics](AUDIO_DIAGNOSTICS.md)
+- [Audio Diagnostics](AUDIO_DIAGNOSTICS.md) - Client-side audio debugging tools
+- [Multi-Container Deployment](MULTI_CONTAINER.md) - Managing multiple isolated environments
+- [Audio System Overview](../README_AUDIO.md) - General audio configuration
 

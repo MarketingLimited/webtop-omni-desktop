@@ -25,7 +25,7 @@
 - **Cross-Platform**: Seamless file sharing and workflow integration
 
 ### **Remote Access & Collaboration**
-- **Browser-Based Access**: noVNC and Xpra web interfaces
+- **Browser-Based Access**: noVNC web interface with audio streaming
 - **Audio Support**: Full audio streaming with virtual devices
 - **SSH Access**: Secure terminal access for advanced users
 - **Resource Monitoring**: Real-time performance dashboards
@@ -379,7 +379,7 @@ waydroid status
 - **Health Monitoring**: Built-in health checks and monitoring
 - **Backup & Restore**: Container data management
 - **Customization**: Adding applications and configurations
-- [**Audio Diagnostics**](AUDIO_DIAGNOSTICS.md): Client-side audio diagnostics for vnc_audio.html (debug mode, real-time HUD, self-tests)
+- [**Audio Diagnostics**](ubuntu-kde-docker/docs/AUDIO_DIAGNOSTICS.md): Client-side audio diagnostics for vnc_audio.html (debug mode, real-time HUD, self-tests)
 
 ## 🔧 Technology Stack
 
@@ -387,7 +387,7 @@ waydroid status
 - Vite, TypeScript, React, shadcn-ui, Tailwind CSS
 
 **Backend & Infrastructure**
-- Docker, Docker Compose, Ubuntu 22.04 LTS, KDE Plasma
+- Docker, Docker Compose, Ubuntu 24.04 LTS, KDE Plasma
 - Supabase integration for database and authentication
 
 **Creative Tools**
