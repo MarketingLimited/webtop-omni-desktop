@@ -199,7 +199,12 @@ usermod -aG sudo "$ADMIN_USERNAME"
 # (-rfbauth) from the injected VNC_PASSWORD, or a random one if none was provided.
 VNC_PASSWORD="${VNC_PASSWORD:-$(head -c 24 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 16)}"
 if command -v x11vnc >/dev/null 2>&1; then
-    x11vnc -storepasswd "$VNC_PASSWORD" /etc/x11vnc.passwd >/dev/null 2>&1 || printf '%s' "$VNC_PASSWORD" > /etc/x11vnc.passwd
+    # -rfbauth needs x11vnc's DES-obfuscated format. If -storepasswd fails, hard-fail
+    # rather than writing a plaintext file x11vnc can't read (silent VNC lockout).
+    if ! x11vnc -storepasswd "$VNC_PASSWORD" /etc/x11vnc.passwd >/dev/null 2>&1; then
+        echo "FATAL: x11vnc -storepasswd failed; refusing to start with an unusable VNC password file" >&2
+        exit 1
+    fi
     chmod 600 /etc/x11vnc.passwd
 fi
 

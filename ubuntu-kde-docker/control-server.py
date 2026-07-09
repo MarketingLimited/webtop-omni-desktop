@@ -17,6 +17,7 @@ port is published on loopback), never directly.
 
 Input is validated + every action is logged for auditability. Stdlib only.
 """
+import hmac
 import json
 import os
 import subprocess
@@ -27,6 +28,18 @@ PORT = 8081
 DISPLAY = os.environ.get("DISPLAY", ":1")
 ENV = {**os.environ, "DISPLAY": DISPLAY}
 MAX_TEXT = 10000
+
+# Shared secret injected per-container by Rabeeb (DockerDesktopManager). The
+# service binds 0.0.0.0 so Docker's published loopback port can reach it, so this
+# token — not network topology — is what stops a network-adjacent container from
+# driving the desktop. If unset, the service refuses ALL requests (fail-closed).
+CONTROL_TOKEN = os.environ.get("CONTROL_TOKEN", "")
+
+
+def _authorized(headers) -> bool:
+    if not CONTROL_TOKEN:
+        return False
+    return hmac.compare_digest(headers.get("X-Control-Token", ""), CONTROL_TOKEN)
 
 
 def _xdotool(*args: str) -> subprocess.CompletedProcess:
@@ -60,7 +73,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _body(self) -> dict:
-        length = int(self.headers.get("Content-Length", 0) or 0)
+        try:
+            length = int(self.headers.get("Content-Length", 0) or 0)
+        except (ValueError, TypeError):
+            return {}
         if length <= 0:
             return {}
         try:
@@ -69,13 +85,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return {}
 
     def do_GET(self) -> None:  # noqa: N802
+        if not _authorized(self.headers):
+            self._json(401, {"ok": False, "error": "unauthorized"})
+            return
         if self.path.startswith("/screenshot"):
             with tempfile.NamedTemporaryFile(suffix=".png", delete=True) as tmp:
                 r = subprocess.run(["scrot", "-o", tmp.name], env=ENV, capture_output=True, timeout=10)
                 if r.returncode != 0:
                     self._json(500, {"ok": False, "error": "screenshot_failed"})
                     return
-                data = open(tmp.name, "rb").read()
+                with open(tmp.name, "rb") as fh:
+                    data = fh.read()
             self.send_response(200)
             self.send_header("Content-Type", "image/png")
             self.send_header("Content-Length", str(len(data)))
@@ -91,6 +111,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self._json(404, {"ok": False, "error": "not_found"})
 
     def do_POST(self) -> None:  # noqa: N802
+        if not _authorized(self.headers):
+            self._json(401, {"ok": False, "error": "unauthorized"})
+            return
         action = self.path.strip("/").split("/")[0]
         body = self._body()
 
@@ -114,8 +137,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             _xdotool("key", "--clearmodifiers", keys)
         elif action == "scroll":
             amount = _as_int(body.get("amount"), -100, 100) or 0
-            button = "4" if amount >= 0 else "5"
-            for _ in range(min(abs(amount), 20) or 1):
+            button = "4" if amount > 0 else "5"
+            for _ in range(min(abs(amount), 20)):  # amount 0 → no scroll
                 _xdotool("click", button)
         else:
             return self._json(404, {"ok": False, "error": "unsupported_action"})

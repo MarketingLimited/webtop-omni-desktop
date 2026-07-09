@@ -37,7 +37,10 @@ def _ready() -> tuple[bool, dict]:
         "xvfb": _proc_running(r"Xvfb\s+:1") or _proc_running("Xtigervnc") or _proc_running("Xorg"),
         "x11vnc": _port_open("127.0.0.1", 5901),
         "novnc": _port_open("127.0.0.1", 80),
-        "desktop": _proc_running("plasmashell") or _proc_running("startplasma") or _proc_running("openbox"),
+        # Gate on plasmashell (the actual shell) — NOT the `startplasma` wrapper,
+        # which appears seconds before the desktop is painted (false-ready). openbox
+        # is the fallback WM when KDE isn't used.
+        "desktop": _proc_running("plasmashell") or _proc_running("openbox"),
     }
     return all(checks.values()), checks
 
