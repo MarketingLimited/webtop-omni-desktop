@@ -191,7 +191,17 @@ fi
 echo "${ADMIN_USERNAME}:${ADMIN_PASSWORD}" | chpasswd
 usermod -aG sudo "$ADMIN_USERNAME"
 
-sed -i 's/^%sudo.*/%sudo ALL=(ALL) NOPASSWD:ALL/' /etc/sudoers
+# SECURITY: do NOT grant passwordless root to the sudo group. The interactive
+# desktop user must not be able to become root inside the container (defense in
+# depth alongside cap_drop + no-new-privileges). Sudo still requires a password.
+
+# SECURITY: never run VNC passwordless. Create an obfuscated x11vnc password file
+# (-rfbauth) from the injected VNC_PASSWORD, or a random one if none was provided.
+VNC_PASSWORD="${VNC_PASSWORD:-$(head -c 24 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 16)}"
+if command -v x11vnc >/dev/null 2>&1; then
+    x11vnc -storepasswd "$VNC_PASSWORD" /etc/x11vnc.passwd >/dev/null 2>&1 || printf '%s' "$VNC_PASSWORD" > /etc/x11vnc.passwd
+    chmod 600 /etc/x11vnc.passwd
+fi
 
 # Prepare VNC startup script for dev user
 mkdir -p "/home/${DEV_USERNAME}/.vnc"
@@ -285,8 +295,8 @@ chown root:root /etc/ssh/ssh_host_*
 cat > /etc/ssh/sshd_config << 'EOF'
 Port 22
 Protocol 2
-PermitRootLogin yes
-PasswordAuthentication yes
+PermitRootLogin no
+PasswordAuthentication no
 PubkeyAuthentication yes
 AuthorizedKeysFile .ssh/authorized_keys
 Subsystem sftp /usr/lib/openssh/sftp-server

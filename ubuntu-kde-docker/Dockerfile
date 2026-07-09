@@ -229,7 +229,10 @@ COPY polkit-localauthority.conf /etc/polkit-1/localauthority.conf.d/50-localauth
 COPY 50-localauthority.conf /etc/polkit-1/localauthority.conf.d/51-localauthority.conf  
 COPY polkit-dbus.conf /usr/share/dbus-1/system-services/org.freedesktop.PolicyKit1.conf
 COPY org.freedesktop.PolicyKit1.service /usr/share/dbus-1/system-services/org.freedesktop.PolicyKit1.service
-COPY devuser-all.rules /etc/polkit-1/rules.d/49-nopasswd_global.rules
+# SECURITY: the global polkit bypass (devuser-all.rules → 49-nopasswd_global) is
+# NOT installed for the multi-tenant image — it granted the interactive desktop
+# user YES for every polkit action (effectively root). The narrower vendor admin
+# rule remains for legitimate desktop settings.
 COPY 10-vendor.d-admin.rules /etc/polkit-1/rules.d/10-vendor.d-admin.rules
 COPY monitor-services.sh /usr/local/bin/monitor-services.sh
 
