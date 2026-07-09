@@ -219,6 +219,42 @@ XEOF
 chown -R "${DEV_USERNAME}":"${DEV_USERNAME}" "/home/${DEV_USERNAME}/.vnc"
 chmod +x "/home/${DEV_USERNAME}/.vnc/xstartup"
 
+# Seed KDE config so the desktop opens STRAIGHT to the session — no in-desktop
+# password, no software compositor. HOME is /home/$DEV_USERNAME (not the /config
+# volume) and is regenerated per container, so seed here BEFORE startplasma runs;
+# Plasma then merges its own sections on top while keeping these keys.
+DEV_CFG="/home/${DEV_USERNAME}/.config"
+mkdir -p "$DEV_CFG"
+# 1. Disable the KDE screen-locker auto-lock. Its greeter demands devuser's PAM
+#    password (which the end user never sees) — this was the password box users
+#    hit after ~5 min idle. The platform login + Rabeeb auth proxy are the gate.
+cat > "$DEV_CFG/kscreenlockerrc" <<'KEOF'
+[Daemon]
+Autolock=false
+LockOnResume=false
+Timeout=0
+KEOF
+# 2. Disable kwallet so the "create wallet password" dialog never appears.
+cat > "$DEV_CFG/kwalletrc" <<'KEOF'
+[Wallet]
+Enabled=false
+First Use=false
+KEOF
+# 3. Disable KWin compositing. On this GPU-less host it runs through llvmpipe
+#    software GL — the #1 cause of slow VNC-KDE. Disabling it is the biggest
+#    interactivity win; XRender is the fallback if a compositor is ever needed.
+cat > "$DEV_CFG/kwinrc" <<'KEOF'
+[Compositing]
+Enabled=false
+KEOF
+# 4. Kill animations + graphic effects — no extra frames to encode over VNC.
+cat > "$DEV_CFG/kdeglobals" <<'KEOF'
+[KDE]
+AnimationDurationFactor=0
+GraphicEffectsLevel=0
+KEOF
+chown -R "${DEV_USERNAME}":"${DEV_USERNAME}" "$DEV_CFG"
+
 # XDG runtime directory
 mkdir -p "/run/user/${DEV_UID}"
 chown "${DEV_USERNAME}":"${DEV_USERNAME}" "/run/user/${DEV_UID}"
