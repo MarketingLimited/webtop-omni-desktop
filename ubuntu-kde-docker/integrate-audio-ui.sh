@@ -152,6 +152,12 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
     <div id="container">
         <div id="vnc-container">
             <iframe id="vnc-frame" src="vnc.html"></iframe>
+            <script>
+                // Forward this page's query + fragment to the nested vnc.html so an
+                // embedder (e.g. Rabeeb) can pass the noVNC connection params
+                // (autoconnect, resize, path, password) through the audio wrapper.
+                document.getElementById('vnc-frame').src = 'vnc.html' + location.search + location.hash;
+            </script>
         </div>
         
         <div id="audio-controls">
