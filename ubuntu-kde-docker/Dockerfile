@@ -250,6 +250,14 @@ RUN mkdir -p /etc/polkit-1/localauthority.conf.d /etc/polkit-1/rules.d /var/lib/
 RUN ln -sf /usr/lib/x86_64-linux-gnu/libexec/polkit-kde-authentication-agent-1 /usr/lib/polkit-kde-authentication-agent-1 && \
     sed -i 's@^Exec=.*@Exec=/usr/lib/polkit-kde-authentication-agent-1@' /etc/xdg/autostart/polkit-kde-authentication-agent-1.desktop
 
+# Part B-P1: readiness endpoint + computer-use control service (Rabeeb agent).
+# xdotool drives input on DISPLAY :1; scrot captures screenshots.
+RUN apt-get update && apt-get install -y --no-install-recommends xdotool scrot \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+COPY readiness-server.py /usr/local/bin/readiness-server.py
+COPY control-server.py /usr/local/bin/control-server.py
+RUN chmod +x /usr/local/bin/readiness-server.py /usr/local/bin/control-server.py
+
 COPY xstartup /tmp/xstartup
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh /tmp/xstartup
@@ -261,6 +269,6 @@ RUN test -x /usr/local/bin/diagnostic-and-fix.sh
 # Run diagnostic-and-fix.sh before entrypoint.sh
 ENTRYPOINT ["/bin/bash", "-c", "/usr/local/bin/diagnostic-and-fix.sh || true; exec /entrypoint.sh"]
 
-EXPOSE 22 80 5901 7681
+EXPOSE 22 80 5901 7681 8080 8081 8082
 
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf", "-n"]
