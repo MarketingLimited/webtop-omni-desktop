@@ -263,11 +263,13 @@ COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh /tmp/xstartup
 
 
-# Ensure diagnostic script remains present and executable
+# Ensure diagnostic script remains present (kept as an on-demand tool).
 RUN test -x /usr/local/bin/diagnostic-and-fix.sh
 
-# Run diagnostic-and-fix.sh before entrypoint.sh
-ENTRYPOINT ["/bin/bash", "-c", "/usr/local/bin/diagnostic-and-fix.sh || true; exec /entrypoint.sh"]
+# B-P2 cold-start: diagnostic-and-fix.sh is NO LONGER on the boot hot path — it
+# ran ~15s of PulseAudio poll/sleep loops on every start, which hurts on-demand
+# launch. Run it manually (`docker exec … diagnostic-and-fix.sh`) if needed.
+ENTRYPOINT ["/entrypoint.sh"]
 
 EXPOSE 22 80 5901 7681 8080 8081 8082
 
