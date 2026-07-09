@@ -890,7 +890,7 @@ cat > "$NOVNC_DIR/vnc_audio.html" << 'EOF'
             
             async checkAudioBridge() {
                 try {
-                    const response = await fetch('/audio-player.html');
+                    const response = await fetch('audio-player.html');
                     if (response.ok) {
                         this.updateStatus('Audio bridge available', 'ready');
                     } else {
