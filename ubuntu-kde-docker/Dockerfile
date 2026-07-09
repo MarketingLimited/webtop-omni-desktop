@@ -190,6 +190,12 @@ RUN /usr/local/bin/setup-audio.sh && \
 RUN /usr/local/bin/setup-ttyd.sh
 
 # Setup audio bridge and TCP configuration
+# The real in-page audio client. Without it the installers fall back to a stub
+# ("// Universal audio script will be available after full setup") and the browser
+# has no audio — this is why audio never worked. Ship it where BOTH the build-time
+# integrate-audio-ui.sh (/usr/local/bin) and the runtime setup-universal-audio.sh
+# (/opt/audio-bridge, run from supervisord each boot) look for it.
+COPY universal-audio.js /usr/local/bin/universal-audio.js
 COPY setup-audio-bridge.sh /usr/local/bin/
 COPY integrate-audio-ui.sh /usr/local/bin/
 COPY pulse-ensure.sh /usr/local/bin/
@@ -204,6 +210,11 @@ RUN chmod +x /usr/local/bin/setup-audio-bridge.sh && \
     chmod +x /usr/local/bin/setup-pulse-tcp.sh && \
     /usr/local/bin/setup-audio-bridge.sh && \
     /usr/local/bin/integrate-audio-ui.sh
+
+# Stage the real audio client where the runtime installer (setup-universal-audio.sh,
+# launched by supervisord each boot) copies it into noVNC. Runs AFTER
+# setup-audio-bridge.sh has created /opt/audio-bridge.
+COPY universal-audio.js /opt/audio-bridge/universal-audio.js
 
 # Validate all scripts are present and executable
 RUN echo "Validating script dependencies..." && \
