@@ -421,14 +421,10 @@ else
     echo "⚠️  Service health monitoring script not found"
 fi
 
-# Per-user egress + kill-switch. Runs BEFORE the desktop services so no app can
-# reach the internet via the host IP before the tunnel/proxy is up. No-op when
-# EGRESS_MODE is unset/off. Never fatal — a failure fails CLOSED (internet blocked),
-# it must not abort the whole desktop boot.
-if [ -x /usr/local/bin/egress-up.sh ]; then
-    log_info "Bringing up per-user egress (mode=${EGRESS_MODE:-off})..."
-    /usr/local/bin/egress-up.sh || log_info "egress-up.sh returned non-zero (continuing)"
-fi
+# Per-user egress + kill-switch runs as a LATE, self-healing supervisord service
+# (program:EgressGuard), NOT here: the desktop's own network init flushes iptables
+# during boot, so a one-shot apply at this point would be wiped and the desktop
+# would leak the host IP. The guard applies AFTER that and re-applies on drift.
 
 log_info "Starting supervisor daemon..."
 
