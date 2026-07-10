@@ -9,6 +9,12 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Enable 32-bit architecture for Wine support
 RUN dpkg --add-architecture i386
 
+# Patch the base ubuntu:24.04 packages to the latest security/bugfix versions.
+# The base image is a point-in-time snapshot; without an explicit upgrade the OS
+# ships whatever it was tagged with. Do this once, early, so every layer below
+# builds on a fully-patched userland. (App repos below install stable/latest.)
+RUN apt-get update && apt-get -y upgrade && apt-get clean
+
 # Install all required packages and lightweight fallback WM
 RUN apt-get update && apt-get install -y \
     sudo wget curl gnupg2 apt-transport-https software-properties-common \

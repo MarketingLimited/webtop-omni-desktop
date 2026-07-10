@@ -253,6 +253,14 @@ cat > "$DEV_CFG/kdeglobals" <<'KEOF'
 AnimationDurationFactor=0
 GraphicEffectsLevel=0
 KEOF
+# 5. Remove stale browser profile singleton locks. Chrome/Chromium/Brave encode
+#    the container hostname+PID into ~/.config/<browser>/SingletonLock. With the
+#    persistent home volume, a lock left by a PREVIOUS container survives and the
+#    browser refuses to start ("profile appears to be in use ... on another
+#    computer"). No browser runs at boot, so clearing these is always safe.
+for _b in google-chrome chromium BraveSoftware/Brave-Browser microsoft-edge; do
+    rm -f "$DEV_CFG/$_b"/Singleton* 2>/dev/null || true
+done
 chown -R "${DEV_USERNAME}":"${DEV_USERNAME}" "$DEV_CFG"
 
 # XDG runtime directory
