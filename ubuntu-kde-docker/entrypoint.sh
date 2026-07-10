@@ -19,6 +19,14 @@ log_info() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') [INFO] $*"
 }
 
+# Raise the per-user egress kill-switch FIRST — before the (slow, ~minute) user/
+# home-volume setup below and before ANY desktop service — so the desktop is
+# fail-closed from t0 and can never leak the host IP during boot. No-op when
+# mode=off. EgressGuard (supervisord) then maintains it + brings the tunnel up.
+if [ -x /usr/local/bin/egress-up.sh ]; then
+    /usr/local/bin/egress-up.sh --apply-only || log_info "egress pre-apply returned non-zero (continuing)"
+fi
+
 log_error() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') [ERROR] $*" >&2
 }
@@ -419,15 +427,6 @@ if [ -f "/usr/local/bin/service-health.sh" ]; then
     echo "✅ Service health monitoring setup completed"
 else
     echo "⚠️  Service health monitoring script not found"
-fi
-
-# Raise the per-user egress kill-switch NOW (t0), before any desktop service can
-# reach the network — EgressGuard (supervisord) may only start tens of seconds into
-# boot, and a leak in that window would expose the host IP. Nothing in the container
-# flushes iptables (verified: no firewalld/NM), so this one-shot apply sticks; the
-# guard then maintains it + brings the tunnel up. No-op when mode=off.
-if [ -x /usr/local/bin/egress-up.sh ]; then
-    /usr/local/bin/egress-up.sh --apply-only || log_info "egress pre-apply returned non-zero (continuing)"
 fi
 
 log_info "Starting supervisor daemon..."
