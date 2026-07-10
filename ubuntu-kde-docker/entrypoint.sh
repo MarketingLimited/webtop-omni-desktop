@@ -19,13 +19,6 @@ log_info() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') [INFO] $*"
 }
 
-# Raise the per-user egress kill-switch FIRST — before the (slow, ~minute) user/
-# home-volume setup below and before ANY desktop service — so the desktop is
-# fail-closed from t0 and can never leak the host IP during boot. No-op when
-# mode=off. EgressGuard (supervisord) then maintains it + brings the tunnel up.
-if [ -x /usr/local/bin/egress-up.sh ]; then
-    /usr/local/bin/egress-up.sh --apply-only || log_info "egress pre-apply returned non-zero (continuing)"
-fi
 
 log_error() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') [ERROR] $*" >&2
@@ -427,6 +420,16 @@ if [ -f "/usr/local/bin/service-health.sh" ]; then
     echo "✅ Service health monitoring setup completed"
 else
     echo "⚠️  Service health monitoring script not found"
+fi
+
+# Raise the per-user egress kill-switch NOW — AFTER the entrypoint's own infra setup
+# (which downloads wine deps etc. and legitimately needs the host network) but
+# BEFORE `exec supervisord` starts the desktop. No user app (browser) runs before
+# this point, so there is no user-identity leak; EgressGuard then maintains it +
+# brings the tunnel up. No-op when mode=off. (Applying this at the very top of the
+# entrypoint blocked the wine/infra downloads and hung the whole boot.)
+if [ -x /usr/local/bin/egress-up.sh ]; then
+    /usr/local/bin/egress-up.sh --apply-only || log_info "egress pre-apply returned non-zero (continuing)"
 fi
 
 log_info "Starting supervisor daemon..."
