@@ -267,6 +267,25 @@ RUN mkdir -p /etc/polkit-1/localauthority.conf.d /etc/polkit-1/rules.d /var/lib/
 RUN ln -sf /usr/lib/x86_64-linux-gnu/libexec/polkit-kde-authentication-agent-1 /usr/lib/polkit-kde-authentication-agent-1 && \
     sed -i 's@^Exec=.*@Exec=/usr/lib/polkit-kde-authentication-agent-1@' /etc/xdg/autostart/polkit-kde-authentication-agent-1.desktop
 
+# AI tooling for the marketing-agency team (mid-2026). Placed late so the heavy
+# base/desktop layers above stay cached across rebuilds.
+#  - Claude Desktop for Linux: official beta, distributed from Anthropic's own
+#    APT repo (Ubuntu 22.04+/Debian 12+). The flagship AI assistant app.
+#  - Claude Code CLI + OpenAI Codex CLI: agentic terminal coding assistants,
+#    installed as global npm packages (Node 22 already present above).
+# NOTE: Google's Gemini CLI was retired 2026-06-18 into the closed-source
+# Antigravity CLI (interactive platform installer, not headless-installable), and
+# ChatGPT has no official Linux desktop build — both are reachable via the browsers
+# (Brave Leo / Opera Aria ship built-in AI). Team members can add Antigravity
+# interactively in their own desktop if needed.
+RUN curl -fsSLo /usr/share/keyrings/claude-desktop-archive-keyring.asc https://downloads.claude.ai/claude-desktop/key.asc \
+    && echo "deb [signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.asc] https://downloads.claude.ai/claude-desktop/apt/stable stable main" > /etc/apt/sources.list.d/claude-desktop.list \
+    && apt-get update \
+    && apt-get install -y claude-desktop \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN npm install -g @anthropic-ai/claude-code @openai/codex \
+    && npm cache clean --force
+
 # Part B-P1: readiness endpoint + computer-use control service (Rabeeb agent).
 # xdotool drives input on DISPLAY :1; scrot captures screenshots.
 RUN apt-get update && apt-get install -y --no-install-recommends xdotool scrot \
