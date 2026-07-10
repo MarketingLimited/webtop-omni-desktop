@@ -421,6 +421,15 @@ else
     echo "⚠️  Service health monitoring script not found"
 fi
 
+# Per-user egress + kill-switch. Runs BEFORE the desktop services so no app can
+# reach the internet via the host IP before the tunnel/proxy is up. No-op when
+# EGRESS_MODE is unset/off. Never fatal — a failure fails CLOSED (internet blocked),
+# it must not abort the whole desktop boot.
+if [ -x /usr/local/bin/egress-up.sh ]; then
+    log_info "Bringing up per-user egress (mode=${EGRESS_MODE:-off})..."
+    /usr/local/bin/egress-up.sh || log_info "egress-up.sh returned non-zero (continuing)"
+fi
+
 log_info "Starting supervisor daemon..."
 
 exec env \

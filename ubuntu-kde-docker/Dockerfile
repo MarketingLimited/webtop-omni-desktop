@@ -294,6 +294,19 @@ COPY install-ai-web-apps.sh /usr/local/bin/install-ai-web-apps.sh
 RUN chmod +x /usr/local/bin/install-ai-web-apps.sh \
     && /usr/local/bin/install-ai-web-apps.sh
 
+# Per-user egress tooling (anti-suspension: give each desktop a trusted, non-
+# datacenter public IP). tailscale = own_device exit-node mode (default); redsocks
+# + iptables = the byo/residential proxy modes; wireguard-tools kept for parity.
+# egress-up.sh (run by the entrypoint when EGRESS_MODE!=off) brings up the tunnel
+# and a fail-closed kill-switch. See docs/superpowers/specs/2026-07-10-desktop-egress.
+RUN curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg -o /usr/share/keyrings/tailscale-archive-keyring.gpg \
+    && curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.tailscale-keyring.list -o /etc/apt/sources.list.d/tailscale.list \
+    && apt-get update \
+    && apt-get install -y tailscale redsocks wireguard-tools iptables dnsutils \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+COPY egress-up.sh /usr/local/bin/egress-up.sh
+RUN chmod +x /usr/local/bin/egress-up.sh
+
 # Part B-P1: readiness endpoint + computer-use control service (Rabeeb agent).
 # xdotool drives input on DISPLAY :1; scrot captures screenshots.
 RUN apt-get update && apt-get install -y --no-install-recommends xdotool scrot \
