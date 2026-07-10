@@ -98,14 +98,14 @@ apply_firewall() {
 
     case "$MODE" in
       own_device)
-        # User traffic exits via tailscale0 (→ exit node). The WireGuard/DERP
-        # UNDERLAY (encrypted transport to Tailscale infra + the exit node) needs
-        # outbound UDP on NAT-traversal ports and TCP 443 for DERP relay. This is
-        # encrypted tunnel transport, not user traffic (apps route via tailscale0 by
-        # the default route), so permitting it does not leak the browsing IP.
+        # User traffic exits via tailscale0 (→ exit node). For the physical iface
+        # allow ONLY Tailscale's own underlay: tailscaled sets fwmark 0x80000 on its
+        # WireGuard/DERP/control sockets. This is the documented Tailscale
+        # kill-switch — everything else on eth0 is dropped, so apps CANNOT leak via
+        # the host IP when the tunnel is down (a broad "allow tcp 443" would let any
+        # HTTPS out directly — the leak found in live testing).
         iptables -A OUTPUT -o tailscale0 -j ACCEPT
-        iptables -A OUTPUT -p udp -j ACCEPT
-        iptables -A OUTPUT -p tcp --dport 443 -j ACCEPT
+        iptables -A OUTPUT -m mark --mark 0x80000/0xff0000 -j ACCEPT
         ;;
       byo_proxy|residential_proxy)
         iptables -A OUTPUT -p tcp -d "${EGRESS_PROXY_HOST}" --dport "${EGRESS_PROXY_PORT}" -j ACCEPT
