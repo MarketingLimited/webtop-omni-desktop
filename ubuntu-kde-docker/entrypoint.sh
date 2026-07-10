@@ -421,10 +421,14 @@ else
     echo "⚠️  Service health monitoring script not found"
 fi
 
-# Per-user egress + kill-switch runs as a LATE, self-healing supervisord service
-# (program:EgressGuard), NOT here: the desktop's own network init flushes iptables
-# during boot, so a one-shot apply at this point would be wiped and the desktop
-# would leak the host IP. The guard applies AFTER that and re-applies on drift.
+# Raise the per-user egress kill-switch NOW (t0), before any desktop service can
+# reach the network — EgressGuard (supervisord) may only start tens of seconds into
+# boot, and a leak in that window would expose the host IP. Nothing in the container
+# flushes iptables (verified: no firewalld/NM), so this one-shot apply sticks; the
+# guard then maintains it + brings the tunnel up. No-op when mode=off.
+if [ -x /usr/local/bin/egress-up.sh ]; then
+    /usr/local/bin/egress-up.sh --apply-only || log_info "egress pre-apply returned non-zero (continuing)"
+fi
 
 log_info "Starting supervisor daemon..."
 

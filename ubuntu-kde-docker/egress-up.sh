@@ -19,9 +19,15 @@ set -u
 CONF=/run/egress/config
 [ -r "$CONF" ] && . "$CONF"
 MODE="${EGRESS_MODE:-off}"
+# --apply-only: called from the entrypoint at t0 to raise the kill-switch BEFORE any
+# desktop service/app can run — EgressGuard (supervisord) may only start tens of
+# seconds into boot, which would otherwise leave a boot-time leak window.
+APPLY_ONLY=false
+[ "${1:-}" = "--apply-only" ] && APPLY_ONLY=true
 log(){ echo "[egress] $*"; }
 
 if [ "$MODE" = "off" ] || [ -z "$MODE" ]; then
+    $APPLY_ONLY && exit 0
     log "mode=off — no egress tunnel, using host network"
     exec sleep infinity
 fi
@@ -136,6 +142,15 @@ transport_connected() {
       *) return 1 ;;
     esac
 }
+
+# Entrypoint boot call: raise the kill-switch at t0 and return, so the desktop is
+# fail-closed before any service starts. EgressGuard (below) then maintains it +
+# brings the tunnel up.
+if $APPLY_ONLY; then
+    apply_firewall
+    log "${MODE} kill-switch pre-applied at boot"
+    exit 0
+fi
 
 # 1) Kill-switch FIRST — fail closed before ANYTHING can leak, and before the slow
 #    transport bring-up. Applying it only after bring-up left a startup window where
