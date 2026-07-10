@@ -9,6 +9,12 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Enable 32-bit architecture for Wine support
 RUN dpkg --add-architecture i386
 
+# Patch the base ubuntu:24.04 packages to the latest security/bugfix versions.
+# The base image is a point-in-time snapshot; without an explicit upgrade the OS
+# ships whatever it was tagged with. Do this once, early, so every layer below
+# builds on a fully-patched userland. (App repos below install stable/latest.)
+RUN apt-get update && apt-get -y upgrade && apt-get clean
+
 # Install all required packages and lightweight fallback WM
 RUN apt-get update && apt-get install -y \
     sudo wget curl gnupg2 apt-transport-https software-properties-common \
@@ -190,6 +196,12 @@ RUN /usr/local/bin/setup-audio.sh && \
 RUN /usr/local/bin/setup-ttyd.sh
 
 # Setup audio bridge and TCP configuration
+# The real in-page audio client. Without it the installers fall back to a stub
+# ("// Universal audio script will be available after full setup") and the browser
+# has no audio — this is why audio never worked. Ship it where BOTH the build-time
+# integrate-audio-ui.sh (/usr/local/bin) and the runtime setup-universal-audio.sh
+# (/opt/audio-bridge, run from supervisord each boot) look for it.
+COPY universal-audio.js /usr/local/bin/universal-audio.js
 COPY setup-audio-bridge.sh /usr/local/bin/
 COPY integrate-audio-ui.sh /usr/local/bin/
 COPY pulse-ensure.sh /usr/local/bin/
@@ -204,6 +216,11 @@ RUN chmod +x /usr/local/bin/setup-audio-bridge.sh && \
     chmod +x /usr/local/bin/setup-pulse-tcp.sh && \
     /usr/local/bin/setup-audio-bridge.sh && \
     /usr/local/bin/integrate-audio-ui.sh
+
+# Stage the real audio client where the runtime installer (setup-universal-audio.sh,
+# launched by supervisord each boot) copies it into noVNC. Runs AFTER
+# setup-audio-bridge.sh has created /opt/audio-bridge.
+COPY universal-audio.js /opt/audio-bridge/universal-audio.js
 
 # Validate all scripts are present and executable
 RUN echo "Validating script dependencies..." && \
@@ -229,7 +246,10 @@ COPY polkit-localauthority.conf /etc/polkit-1/localauthority.conf.d/50-localauth
 COPY 50-localauthority.conf /etc/polkit-1/localauthority.conf.d/51-localauthority.conf  
 COPY polkit-dbus.conf /usr/share/dbus-1/system-services/org.freedesktop.PolicyKit1.conf
 COPY org.freedesktop.PolicyKit1.service /usr/share/dbus-1/system-services/org.freedesktop.PolicyKit1.service
-COPY devuser-all.rules /etc/polkit-1/rules.d/49-nopasswd_global.rules
+# SECURITY: the global polkit bypass (devuser-all.rules → 49-nopasswd_global) is
+# NOT installed for the multi-tenant image — it granted the interactive desktop
+# user YES for every polkit action (effectively root). The narrower vendor admin
+# rule remains for legitimate desktop settings.
 COPY 10-vendor.d-admin.rules /etc/polkit-1/rules.d/10-vendor.d-admin.rules
 COPY monitor-services.sh /usr/local/bin/monitor-services.sh
 
@@ -247,17 +267,67 @@ RUN mkdir -p /etc/polkit-1/localauthority.conf.d /etc/polkit-1/rules.d /var/lib/
 RUN ln -sf /usr/lib/x86_64-linux-gnu/libexec/polkit-kde-authentication-agent-1 /usr/lib/polkit-kde-authentication-agent-1 && \
     sed -i 's@^Exec=.*@Exec=/usr/lib/polkit-kde-authentication-agent-1@' /etc/xdg/autostart/polkit-kde-authentication-agent-1.desktop
 
+# AI tooling for the marketing-agency team (mid-2026). Placed late so the heavy
+# base/desktop layers above stay cached across rebuilds.
+#  - Claude Desktop for Linux: official beta, distributed from Anthropic's own
+#    APT repo (Ubuntu 22.04+/Debian 12+). The flagship AI assistant app.
+#  - Claude Code CLI + OpenAI Codex CLI: agentic terminal coding assistants,
+#    installed as global npm packages (Node 22 already present above).
+#  - Google Antigravity CLI (agy): the successor to Gemini CLI (retired
+#    2026-06-18). Native installer; placed in /usr/local/bin so it's on every
+#    user's PATH. Auth is per-user at runtime (OS keyring / SSH OAuth loop).
+# ChatGPT has no official Linux desktop build — reachable via the browsers
+# (Brave Leo / Opera Aria ship built-in AI) and the AI App drawer below.
+RUN curl -fsSLo /usr/share/keyrings/claude-desktop-archive-keyring.asc https://downloads.claude.ai/claude-desktop/key.asc \
+    && echo "deb [signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.asc] https://downloads.claude.ai/claude-desktop/apt/stable stable main" > /etc/apt/sources.list.d/claude-desktop.list \
+    && apt-get update \
+    && apt-get install -y claude-desktop \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN npm install -g @anthropic-ai/claude-code @openai/codex \
+    && npm cache clean --force
+RUN curl -fsSL https://antigravity.google/cli/install.sh | bash -s -- --dir /usr/local/bin \
+    && /usr/local/bin/agy --version || true
+
+# AI App drawer: curated app-mode launchers for the top AI + automation web
+# tools (Canva, ChatGPT, Runway, HeyGen, n8n, etc.), each with its real logo.
+COPY install-ai-web-apps.sh /usr/local/bin/install-ai-web-apps.sh
+RUN chmod +x /usr/local/bin/install-ai-web-apps.sh \
+    && /usr/local/bin/install-ai-web-apps.sh
+
+# Per-user egress tooling (anti-suspension: give each desktop a trusted, non-
+# datacenter public IP). tailscale = own_device exit-node mode (default); redsocks
+# + iptables = the byo/residential proxy modes; wireguard-tools kept for parity.
+# egress-up.sh (run by the entrypoint when EGRESS_MODE!=off) brings up the tunnel
+# and a fail-closed kill-switch. See docs/superpowers/specs/2026-07-10-desktop-egress.
+RUN curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg -o /usr/share/keyrings/tailscale-archive-keyring.gpg \
+    && curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.tailscale-keyring.list -o /etc/apt/sources.list.d/tailscale.list \
+    && apt-get update \
+    && apt-get install -y tailscale redsocks wireguard-tools iptables dnsutils \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+COPY egress-up.sh /usr/local/bin/egress-up.sh
+RUN chmod +x /usr/local/bin/egress-up.sh
+
+# Part B-P1: readiness endpoint + computer-use control service (Rabeeb agent).
+# xdotool drives input on DISPLAY :1; scrot captures screenshots.
+RUN apt-get update && apt-get install -y --no-install-recommends xdotool scrot \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+COPY readiness-server.py /usr/local/bin/readiness-server.py
+COPY control-server.py /usr/local/bin/control-server.py
+RUN chmod +x /usr/local/bin/readiness-server.py /usr/local/bin/control-server.py
+
 COPY xstartup /tmp/xstartup
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh /tmp/xstartup
 
 
-# Ensure diagnostic script remains present and executable
+# Ensure diagnostic script remains present (kept as an on-demand tool).
 RUN test -x /usr/local/bin/diagnostic-and-fix.sh
 
-# Run diagnostic-and-fix.sh before entrypoint.sh
-ENTRYPOINT ["/bin/bash", "-c", "/usr/local/bin/diagnostic-and-fix.sh || true; exec /entrypoint.sh"]
+# B-P2 cold-start: diagnostic-and-fix.sh is NO LONGER on the boot hot path — it
+# ran ~15s of PulseAudio poll/sleep loops on every start, which hurts on-demand
+# launch. Run it manually (`docker exec … diagnostic-and-fix.sh`) if needed.
+ENTRYPOINT ["/entrypoint.sh"]
 
-EXPOSE 22 80 5901 7681
+EXPOSE 22 80 5901 7681 8080 8081 8082
 
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf", "-n"]

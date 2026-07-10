@@ -23,3 +23,10 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+# Environment secrets (never commit)
+ubuntu-kde-docker/.env
+ubuntu-kde-docker/.env.production
+
+__pycache__/
+*.pyc

@@ -1,41 +1,63 @@
-# Removed obsolete version declaration
-
+# Hardened, multi-tenant-safe standalone compose.
+#
+# NOTE: the Rabeeb operator launches containers directly (docker run) via
+# DockerDesktopManager, not this file. This compose is for standalone/dev use and
+# now mirrors the same secure posture: NOT privileged, all caps dropped except the
+# minimal set a multi-user KDE desktop needs, default seccomp, no host audio
+# device, loopback-only ports, per-container resource limits, and no committed
+# secrets (inject via the environment or an untracked .env).
 services:
   webtop:
-    build: 
+    build:
       context: .
       dockerfile: Dockerfile
     container_name: webtop-kde
     restart: unless-stopped
-    privileged: true
-    shm_size: "4gb"
+    shm_size: "1gb"
+    # Loopback only — a reverse proxy (Rabeeb / your own) is the sole ingress.
+    # SSH (22), ttyd (7681) and raw PulseAudio (4713) are intentionally NOT
+    # published; enable per-deployment behind auth if you really need them.
     ports:
-      - "32768:80"      # noVNC
-      - "2222:22"       # SSH
-      - "7681:7681"     # ttyd terminal
-      - "8080:8080"     # Audio Bridge
-      - "4713:4713"     # PulseAudio
-    env_file:
-      - .env
+      - "127.0.0.1:32768:80"      # noVNC
+      - "127.0.0.1:8080:8080"     # Audio bridge (WebSocket)
+    environment:
+      # Per-container VNC password. Provide a real one; do not commit it.
+      - VNC_PASSWORD=${VNC_PASSWORD:?set VNC_PASSWORD}
     volumes:
-      - /data/ubuntu-kde-docker_webtop/config:/config
-      - /data/ubuntu-kde-docker_webtop/var/log/supervisor:/var/log/supervisor
-      - /data/ubuntu-kde-docker_webtop/tmp/.X11-unix:/tmp/.X11-unix:ro
-    devices:
-      - /dev/snd:/dev/snd
+      - webtop-config:/config
+      - webtop-logs:/var/log/supervisor
     tmpfs:
       - /tmp
       - /run
       - /run/lock
-    cap_add:
-      - SYS_ADMIN
-      - NET_ADMIN
     security_opt:
-      - seccomp:unconfined
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+      - FOWNER
+      - KILL
+      - SETPCAP
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 4g
+        reservations:
+          memory: 1g
     healthcheck:
-      test: ["CMD", "/usr/local/bin/health-check.sh"]
+      # Reuse the readiness endpoint so "healthy" means actually streamable.
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8082/readyz"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 45s
 
+volumes:
+  webtop-config:
+  webtop-logs:

@@ -19,6 +19,7 @@ log_info() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') [INFO] $*"
 }
 
+
 log_error() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') [ERROR] $*" >&2
 }
@@ -191,7 +192,22 @@ fi
 echo "${ADMIN_USERNAME}:${ADMIN_PASSWORD}" | chpasswd
 usermod -aG sudo "$ADMIN_USERNAME"
 
-sed -i 's/^%sudo.*/%sudo ALL=(ALL) NOPASSWD:ALL/' /etc/sudoers
+# SECURITY: do NOT grant passwordless root to the sudo group. The interactive
+# desktop user must not be able to become root inside the container (defense in
+# depth alongside cap_drop + no-new-privileges). Sudo still requires a password.
+
+# SECURITY: never run VNC passwordless. Create an obfuscated x11vnc password file
+# (-rfbauth) from the injected VNC_PASSWORD, or a random one if none was provided.
+VNC_PASSWORD="${VNC_PASSWORD:-$(head -c 24 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 16)}"
+if command -v x11vnc >/dev/null 2>&1; then
+    # -rfbauth needs x11vnc's DES-obfuscated format. If -storepasswd fails, hard-fail
+    # rather than writing a plaintext file x11vnc can't read (silent VNC lockout).
+    if ! x11vnc -storepasswd "$VNC_PASSWORD" /etc/x11vnc.passwd >/dev/null 2>&1; then
+        echo "FATAL: x11vnc -storepasswd failed; refusing to start with an unusable VNC password file" >&2
+        exit 1
+    fi
+    chmod 600 /etc/x11vnc.passwd
+fi
 
 # Prepare VNC startup script for dev user
 mkdir -p "/home/${DEV_USERNAME}/.vnc"
@@ -203,6 +219,50 @@ exec dbus-launch --exit-with-session /usr/bin/startplasma-x11
 XEOF
 chown -R "${DEV_USERNAME}":"${DEV_USERNAME}" "/home/${DEV_USERNAME}/.vnc"
 chmod +x "/home/${DEV_USERNAME}/.vnc/xstartup"
+
+# Seed KDE config so the desktop opens STRAIGHT to the session — no in-desktop
+# password, no software compositor. HOME is /home/$DEV_USERNAME (not the /config
+# volume) and is regenerated per container, so seed here BEFORE startplasma runs;
+# Plasma then merges its own sections on top while keeping these keys.
+DEV_CFG="/home/${DEV_USERNAME}/.config"
+mkdir -p "$DEV_CFG"
+# 1. Disable the KDE screen-locker auto-lock. Its greeter demands devuser's PAM
+#    password (which the end user never sees) — this was the password box users
+#    hit after ~5 min idle. The platform login + Rabeeb auth proxy are the gate.
+cat > "$DEV_CFG/kscreenlockerrc" <<'KEOF'
+[Daemon]
+Autolock=false
+LockOnResume=false
+Timeout=0
+KEOF
+# 2. Disable kwallet so the "create wallet password" dialog never appears.
+cat > "$DEV_CFG/kwalletrc" <<'KEOF'
+[Wallet]
+Enabled=false
+First Use=false
+KEOF
+# 3. Disable KWin compositing. On this GPU-less host it runs through llvmpipe
+#    software GL — the #1 cause of slow VNC-KDE. Disabling it is the biggest
+#    interactivity win; XRender is the fallback if a compositor is ever needed.
+cat > "$DEV_CFG/kwinrc" <<'KEOF'
+[Compositing]
+Enabled=false
+KEOF
+# 4. Kill animations + graphic effects — no extra frames to encode over VNC.
+cat > "$DEV_CFG/kdeglobals" <<'KEOF'
+[KDE]
+AnimationDurationFactor=0
+GraphicEffectsLevel=0
+KEOF
+# 5. Remove stale browser profile singleton locks. Chrome/Chromium/Brave encode
+#    the container hostname+PID into ~/.config/<browser>/SingletonLock. With the
+#    persistent home volume, a lock left by a PREVIOUS container survives and the
+#    browser refuses to start ("profile appears to be in use ... on another
+#    computer"). No browser runs at boot, so clearing these is always safe.
+for _b in google-chrome chromium BraveSoftware/Brave-Browser microsoft-edge; do
+    rm -f "$DEV_CFG/$_b"/Singleton* 2>/dev/null || true
+done
+chown -R "${DEV_USERNAME}":"${DEV_USERNAME}" "$DEV_CFG"
 
 # XDG runtime directory
 mkdir -p "/run/user/${DEV_UID}"
@@ -285,8 +345,8 @@ chown root:root /etc/ssh/ssh_host_*
 cat > /etc/ssh/sshd_config << 'EOF'
 Port 22
 Protocol 2
-PermitRootLogin yes
-PasswordAuthentication yes
+PermitRootLogin no
+PasswordAuthentication no
 PubkeyAuthentication yes
 AuthorizedKeysFile .ssh/authorized_keys
 Subsystem sftp /usr/lib/openssh/sftp-server
@@ -360,6 +420,16 @@ if [ -f "/usr/local/bin/service-health.sh" ]; then
     echo "✅ Service health monitoring setup completed"
 else
     echo "⚠️  Service health monitoring script not found"
+fi
+
+# Raise the per-user egress kill-switch NOW — AFTER the entrypoint's own infra setup
+# (which downloads wine deps etc. and legitimately needs the host network) but
+# BEFORE `exec supervisord` starts the desktop. No user app (browser) runs before
+# this point, so there is no user-identity leak; EgressGuard then maintains it +
+# brings the tunnel up. No-op when mode=off. (Applying this at the very top of the
+# entrypoint blocked the wine/infra downloads and hung the whole boot.)
+if [ -x /usr/local/bin/egress-up.sh ]; then
+    /usr/local/bin/egress-up.sh --apply-only || log_info "egress pre-apply returned non-zero (continuing)"
 fi
 
 log_info "Starting supervisor daemon..."
