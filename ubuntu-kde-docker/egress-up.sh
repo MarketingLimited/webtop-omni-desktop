@@ -76,7 +76,7 @@ bring_up_transport() {
         # (netcheck UDP:false, no data path). Docker's embedded resolver (127.0.0.11)
         # stays in place for bootstrap; MagicDNS takes over once the exit node is up.
         tailscale set --exit-node="${EGRESS_TS_EXIT_NODE}" \
-            --exit-node-allow-lan-access=false --accept-dns=true \
+            --exit-node-allow-lan-access=false --accept-dns=false \
             || log "WARN: tailscale set --exit-node returned non-zero"
         ;;
       byo_proxy|residential_proxy)
