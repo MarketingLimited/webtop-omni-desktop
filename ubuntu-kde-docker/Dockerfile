@@ -285,7 +285,7 @@ RUN curl -fsSLo /usr/share/keyrings/claude-desktop-archive-keyring.asc https://d
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 RUN npm install -g @anthropic-ai/claude-code @openai/codex \
     && npm cache clean --force
-RUN curl -fsSL https://antigravity.google/cli/install.sh | bash -s -- --dir /usr/local/bin --skip-path --skip-aliases \
+RUN curl -fsSL https://antigravity.google/cli/install.sh | bash -s -- --dir /usr/local/bin \
     && /usr/local/bin/agy --version || true
 
 # AI App drawer: curated app-mode launchers for the top AI + automation web
