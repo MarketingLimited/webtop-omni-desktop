@@ -41,14 +41,30 @@ bring_up_transport() {
                 >/var/log/tailscaled.log 2>&1 &
             for _ in $(seq 1 15); do [ -S /var/run/tailscale/tailscaled.sock ] && break; sleep 1; done
         fi
-        log "tailscale up (exit-node=${EGRESS_TS_EXIT_NODE})…"
-        tailscale up \
-            --authkey="${EGRESS_TS_AUTHKEY}" \
-            --exit-node="${EGRESS_TS_EXIT_NODE}" \
-            --exit-node-allow-lan-access=false \
-            --accept-dns=true \
-            --hostname="${EGRESS_TS_HOSTNAME:-rabeeb-desktop}" \
-            --reset || log "WARN: tailscale up returned non-zero"
+        # 1) Authenticate WITHOUT the exit node — at boot the exit-node peer may not
+        #    be synced yet, and `up --exit-node=<unknown>` fails the whole command
+        #    (leaves the node logged out). accept-dns=false: we manage resolv.conf
+        #    ourselves (MagicDNS only resolves tailnet names unless the tailnet has
+        #    a global nameserver; a public resolver routed through the exit node is
+        #    simpler and reliable).
+        if ! tailscale status 2>/dev/null | grep -q "^100\."; then
+            log "tailscale up (auth)…"
+            tailscale up --authkey="${EGRESS_TS_AUTHKEY}" --accept-dns=false \
+                --hostname="${EGRESS_TS_HOSTNAME:-rabeeb-desktop}" --reset \
+                || log "WARN: tailscale up returned non-zero"
+        fi
+        # 2) Wait for the exit-node peer to become reachable, then select it.
+        for _ in $(seq 1 20); do
+            tailscale status 2>/dev/null | grep -q "${EGRESS_TS_EXIT_NODE}" && break
+            sleep 2
+        done
+        log "selecting exit node ${EGRESS_TS_EXIT_NODE}…"
+        tailscale set --exit-node="${EGRESS_TS_EXIT_NODE}" \
+            --exit-node-allow-lan-access=false --accept-dns=false \
+            || log "WARN: tailscale set --exit-node returned non-zero"
+        # 3) DNS via a public resolver — routed through the exit node by the default
+        #    route, so queries exit at the user's IP too (no MagicDNS dependency).
+        printf 'nameserver 1.1.1.1\nnameserver 8.8.8.8\n' > /etc/resolv.conf
         ;;
       byo_proxy|residential_proxy)
         : "${EGRESS_PROXY_HOST:?proxy mode needs EGRESS_PROXY_HOST}"
@@ -82,10 +98,14 @@ apply_firewall() {
 
     case "$MODE" in
       own_device)
+        # User traffic exits via tailscale0 (→ exit node). The WireGuard/DERP
+        # UNDERLAY (encrypted transport to Tailscale infra + the exit node) needs
+        # outbound UDP on NAT-traversal ports and TCP 443 for DERP relay. This is
+        # encrypted tunnel transport, not user traffic (apps route via tailscale0 by
+        # the default route), so permitting it does not leak the browsing IP.
         iptables -A OUTPUT -o tailscale0 -j ACCEPT
-        iptables -A OUTPUT -p udp --dport 41641 -j ACCEPT
-        iptables -A OUTPUT -p udp --dport 3478  -j ACCEPT
-        iptables -A OUTPUT -p tcp --dport 443   -j ACCEPT
+        iptables -A OUTPUT -p udp -j ACCEPT
+        iptables -A OUTPUT -p tcp --dport 443 -j ACCEPT
         ;;
       byo_proxy|residential_proxy)
         iptables -A OUTPUT -p tcp -d "${EGRESS_PROXY_HOST}" --dport "${EGRESS_PROXY_PORT}" -j ACCEPT
