@@ -70,12 +70,14 @@ bring_up_transport() {
             sleep 2
         done
         log "selecting exit node ${EGRESS_TS_EXIT_NODE}…"
+        # accept-dns=true: let Tailscale route DNS through the exit node (MagicDNS).
+        # CRITICAL: do NOT hand-write resolv.conf=1.1.1.1 — a public resolver isn't
+        # reachable before the tunnel is up, which breaks tailscaled's DERP bootstrap
+        # (netcheck UDP:false, no data path). Docker's embedded resolver (127.0.0.11)
+        # stays in place for bootstrap; MagicDNS takes over once the exit node is up.
         tailscale set --exit-node="${EGRESS_TS_EXIT_NODE}" \
-            --exit-node-allow-lan-access=false --accept-dns=false \
+            --exit-node-allow-lan-access=false --accept-dns=true \
             || log "WARN: tailscale set --exit-node returned non-zero"
-        # 3) DNS via a public resolver — routed through the exit node by the default
-        #    route, so queries exit at the user's IP too (no MagicDNS dependency).
-        printf 'nameserver 1.1.1.1\nnameserver 8.8.8.8\n' > /etc/resolv.conf
         ;;
       byo_proxy|residential_proxy)
         : "${EGRESS_PROXY_HOST:?proxy mode needs EGRESS_PROXY_HOST}"
