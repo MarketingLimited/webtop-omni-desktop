@@ -128,20 +128,40 @@ firewall_intact() {
     iptables -S OUTPUT 2>/dev/null | grep -q -- '-P OUTPUT DROP'
 }
 
-bring_up_transport
+# Is the tunnel actually carrying traffic yet?
+transport_connected() {
+    case "$MODE" in
+      own_device) tailscale status 2>/dev/null | grep -q "exit node" ;;
+      byo_proxy|residential_proxy) ss -tlnH 2>/dev/null | grep -q '127.0.0.1:12345' ;;
+      *) return 1 ;;
+    esac
+}
+
+# 1) Kill-switch FIRST — fail closed before ANYTHING can leak, and before the slow
+#    transport bring-up. Applying it only after bring-up left a startup window where
+#    the desktop reached the internet via the host IP (found in live testing).
 apply_firewall
-log "${MODE} egress engaged; guarding kill-switch."
+log "${MODE} kill-switch engaged (fail-closed); connecting transport…"
 
-# Log the resulting public IP once (best effort).
-( sleep 6; ip=$(curl -fsS --max-time 12 https://api.ipify.org 2>/dev/null || echo "?"); \
-  echo "[egress] public IP now: ${ip} (mode=${MODE})" ) &
+# 2) Bring the transport up in the BACKGROUND, retried until connected, so its
+#    tens-of-seconds waits never block the firewall heal loop. tailscaled is a
+#    daemon that then maintains/reconnects the tunnel itself.
+(
+    for _ in $(seq 1 30); do
+        bring_up_transport
+        transport_connected && { log "${MODE} transport connected"; break; }
+        sleep 8
+    done
+    sleep 6; ip=$(curl -fsS --max-time 12 https://api.ipify.org 2>/dev/null || echo "?")
+    echo "[egress] public IP now: ${ip} (mode=${MODE})"
+) &
 
-# Self-heal: re-apply if the desktop's network stack flushes our rules.
+# 3) Self-heal: re-apply the firewall the instant the desktop's network stack
+#    flushes it. Firewall only (fast) — the transport is handled above.
 while true; do
     sleep 5
     if ! firewall_intact; then
         log "kill-switch drift detected — re-applying"
-        bring_up_transport
         apply_firewall
     fi
 done
