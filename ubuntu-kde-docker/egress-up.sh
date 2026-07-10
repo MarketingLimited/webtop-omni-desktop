@@ -38,11 +38,16 @@ bring_up_transport() {
       own_device)
         : "${EGRESS_TS_AUTHKEY:?own_device needs EGRESS_TS_AUTHKEY}"
         : "${EGRESS_TS_EXIT_NODE:?own_device needs EGRESS_TS_EXIT_NODE}"
-        mkdir -p /var/run/tailscale /var/lib/tailscale
+        # Persist the Tailscale identity in the user's PERSISTENT home volume, not the
+        # container's ephemeral fs. So the node authenticates ONCE and is remembered
+        # across every re-provision — a single-use auth key works (it's consumed once
+        # and never needed again), and re-provisions don't re-auth.
+        TS_STATE_DIR="/home/${DEV_USERNAME:-devuser}/.tailscale"
+        mkdir -p /var/run/tailscale "$TS_STATE_DIR"
         if ! pgrep -x tailscaled >/dev/null 2>&1; then
-            log "starting tailscaled…"
+            log "starting tailscaled (state persisted in home volume)…"
             tailscaled --tun=tailscale0 \
-                --state=/var/lib/tailscale/tailscaled.state \
+                --state="$TS_STATE_DIR/tailscaled.state" \
                 --socket=/var/run/tailscale/tailscaled.sock \
                 >/var/log/tailscaled.log 2>&1 &
             for _ in $(seq 1 15); do [ -S /var/run/tailscale/tailscaled.sock ] && break; sleep 1; done
