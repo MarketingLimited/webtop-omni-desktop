@@ -273,11 +273,11 @@ RUN ln -sf /usr/lib/x86_64-linux-gnu/libexec/polkit-kde-authentication-agent-1 /
 #    APT repo (Ubuntu 22.04+/Debian 12+). The flagship AI assistant app.
 #  - Claude Code CLI + OpenAI Codex CLI: agentic terminal coding assistants,
 #    installed as global npm packages (Node 22 already present above).
-# NOTE: Google's Gemini CLI was retired 2026-06-18 into the closed-source
-# Antigravity CLI (interactive platform installer, not headless-installable), and
-# ChatGPT has no official Linux desktop build — both are reachable via the browsers
-# (Brave Leo / Opera Aria ship built-in AI). Team members can add Antigravity
-# interactively in their own desktop if needed.
+#  - Google Antigravity CLI (agy): the successor to Gemini CLI (retired
+#    2026-06-18). Native installer; placed in /usr/local/bin so it's on every
+#    user's PATH. Auth is per-user at runtime (OS keyring / SSH OAuth loop).
+# ChatGPT has no official Linux desktop build — reachable via the browsers
+# (Brave Leo / Opera Aria ship built-in AI) and the AI App drawer below.
 RUN curl -fsSLo /usr/share/keyrings/claude-desktop-archive-keyring.asc https://downloads.claude.ai/claude-desktop/key.asc \
     && echo "deb [signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.asc] https://downloads.claude.ai/claude-desktop/apt/stable stable main" > /etc/apt/sources.list.d/claude-desktop.list \
     && apt-get update \
@@ -285,6 +285,14 @@ RUN curl -fsSLo /usr/share/keyrings/claude-desktop-archive-keyring.asc https://d
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 RUN npm install -g @anthropic-ai/claude-code @openai/codex \
     && npm cache clean --force
+RUN curl -fsSL https://antigravity.google/cli/install.sh | bash -s -- --dir /usr/local/bin --skip-path --skip-aliases \
+    && /usr/local/bin/agy --version || true
+
+# AI App drawer: curated app-mode launchers for the top AI + automation web
+# tools (Canva, ChatGPT, Runway, HeyGen, n8n, etc.), each with its real logo.
+COPY install-ai-web-apps.sh /usr/local/bin/install-ai-web-apps.sh
+RUN chmod +x /usr/local/bin/install-ai-web-apps.sh \
+    && /usr/local/bin/install-ai-web-apps.sh
 
 # Part B-P1: readiness endpoint + computer-use control service (Rabeeb agent).
 # xdotool drives input on DISPLAY :1; scrot captures screenshots.
